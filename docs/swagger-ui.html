@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏛️ Church Management System - Documentation API</title>
+    
+    <!-- Swagger UI CSS -->
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css" />
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        
+        .header p {
+            margin: 1rem 0 0 0;
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .features {
+            background: #f8f9fa;
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .features h2 {
+            color: #333;
+            margin-bottom: 2rem;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .feature-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: left;
+        }
+        
+        .feature-card h3 {
+            color: #667eea;
+            margin-top: 0;
+        }
+        
+        .swagger-container {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .swagger-ui .topbar {
+            background: #667eea;
+        }
+        
+        .swagger-ui .topbar .download-url-wrapper .select-label {
+            color: white;
+        }
+        
+        .swagger-ui .topbar .download-url-wrapper input[type=text] {
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+        }
+        
+        .swagger-ui .topbar .download-url-wrapper input[type=text]::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .swagger-ui .info .title {
+            color: #667eea;
+        }
+        
+        .swagger-ui .scheme-container {
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        
+        .swagger-ui .btn.execute {
+            background: #667eea;
+            border-color: #667eea;
+        }
+        
+        .swagger-ui .btn.execute:hover {
+            background: #5a6fd8;
+            border-color: #5a6fd8;
+        }
+        
+        .swagger-ui .opblock.opblock-post .opblock-summary-method {
+            background: #49cc90;
+        }
+        
+        .swagger-ui .opblock.opblock-get .opblock-summary-method {
+            background: #61affe;
+        }
+        
+        .swagger-ui .opblock.opblock-put .opblock-summary-method {
+            background: #fca130;
+        }
+        
+        .swagger-ui .opblock.opblock-delete .opblock-summary-method {
+            background: #f93e3e;
+        }
+        
+        .footer {
+            background: #333;
+            color: white;
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+        }
+        
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .swagger-container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏛️ Church Management System</h1>
+        <p>Documentation complète de l'API avec Swagger UI</p>
+    </div>
+    
+    <div class="features">
+        <h2>🚀 Fonctionnalités Principales</h2>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h3>🔒 Système CSRF Automatique</h3>
+                <p><strong>Aucune configuration manuelle requise !</strong></p>
+                <ul>
+                    <li>✅ Génération automatique à la connexion</li>
+                    <li>✅ Envoi automatique sur toutes les requêtes</li>
+                    <li>✅ Validation automatique côté serveur</li>
+                    <li>✅ Expiration automatique avec déconnexion</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <h3>👥 Gestion des Permissions</h3>
+                <p><strong>Système de rôles avancé et sécurisé</strong></p>
+                <ul>
+                    <li>🔐 SUPER_ADMIN, ADMIN, MANAGER</li>
+                    <li>🔐 COLLECTEUR_RESEAUX, COLLECTEUR_CULTE</li>
+                    <li>🔐 MEMBRE avec accès limité</li>
+                    <li>🔐 Filtrage automatique par église</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <h3>🗄️ Base de Données PostgreSQL</h3>
+                <p><strong>Performance et relations complexes</strong></p>
+                <ul>
+                    <li>🚀 Prisma ORM moderne</li>
+                    <li>🚀 Migration automatique depuis MongoDB</li>
+                    <li>🚀 Requêtes optimisées</li>
+                    <li>🚀 Cache intelligent</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <h3>📊 Statistiques en Temps Réel</h3>
+                <p><strong>Tableaux de bord interactifs</strong></p>
+                <ul>
+                    <li>📈 Vue d'ensemble complète</li>
+                    <li>📈 Statistiques par réseau</li>
+                    <li>📈 Graphiques interactifs</li>
+                    <li>📈 Cache serveur optimisé</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="swagger-container">
+        <div id="swagger-ui"></div>
+    </div>
+    
+    <div class="footer">
+        <p>
+            <strong>Church Management System</strong> - Gestion moderne et sécurisée de votre église<br>
+            Documentation générée avec ❤️ et Swagger UI<br>
+            <a href="https://github.com/your-repo" target="_blank">GitHub</a> | 
+            <a href="CSRF_SYSTEM_GUIDE.md">Guide CSRF</a> | 
+            <a href="README.md">Documentation complète</a>
+        </p>
+    </div>
+
+    <!-- Swagger UI JavaScript -->
+    <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js"></script>
+    
+    <script>
+        window.onload = function() {
+            // Configuration Swagger UI
+            const ui = SwaggerUIBundle({
+                url: './swagger.yaml',
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "StandaloneLayout",
+                docExpansion: "list",
+                defaultModelsExpandDepth: 1,
+                defaultModelExpandDepth: 1,
+                displayRequestDuration: true,
+                filter: true,
+                showExtensions: true,
+                showCommonExtensions: true,
+                tryItOutEnabled: true,
+                requestInterceptor: function(request) {
+                    // Ajouter automatiquement le token CSRF si disponible
+                    const csrfToken = localStorage.getItem('csrfToken');
+                    if (csrfToken) {
+                        request.headers['X-CSRF-Token'] = csrfToken;
+                    }
+                    return request;
+                },
+                responseInterceptor: function(response) {
+                    // Extraire automatiquement le token CSRF de la réponse
+                    if (response.headers && response.headers['x-csrf-token']) {
+                        localStorage.setItem('csrfToken', response.headers['x-csrf-token']);
+                    }
+                    return response;
+                }
+            });
+            
+            // Personnalisation des couleurs et styles
+            const style = document.createElement('style');
+            style.textContent = `
+                .swagger-ui .info .title {
+                    font-size: 2.5rem !important;
+                    font-weight: 700 !important;
+                }
+                
+                .swagger-ui .info .description {
+                    font-size: 1.1rem !important;
+                    line-height: 1.6 !important;
+                }
+                
+                .swagger-ui .opblock-tag {
+                    font-size: 1.2rem !important;
+                    font-weight: 600 !important;
+                }
+                
+                .swagger-ui .opblock-summary-description {
+                    font-size: 1rem !important;
+                }
+                
+                .swagger-ui .model-title {
+                    font-weight: 600 !important;
+                }
+                
+                .swagger-ui .model-box {
+                    border-radius: 8px !important;
+                }
+                
+                .swagger-ui .scheme-container {
+                    border-radius: 8px !important;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // Ajouter des informations personnalisées
+            setTimeout(() => {
+                const infoSection = document.querySelector('.swagger-ui .info');
+                if (infoSection) {
+                    const csrfInfo = document.createElement('div');
+                    csrfInfo.innerHTML = `
+                        <div style="background: #e8f5e8; border: 1px solid #4caf50; border-radius: 8px; padding: 1rem; margin: 1rem 0;">
+                            <h4 style="color: #2e7d32; margin: 0 0 0.5rem 0;">🔒 Système CSRF Automatique</h4>
+                            <p style="margin: 0; color: #2e7d32;">
+                                <strong>Fonctionnement transparent :</strong> Tous les endpoints protégés incluent automatiquement 
+                                la validation CSRF. Aucune configuration manuelle requise côté client !
+                            </p>
+                        </div>
+                    `;
+                    infoSection.appendChild(csrfInfo);
+                }
+            }, 1000);
+        };
+    </script>
+</body>
+</html>

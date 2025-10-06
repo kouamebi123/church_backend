@@ -1,0 +1,54 @@
+# GitGuardian Ignore File
+# Ce fichier ignore les faux positifs connus dans le projet
+
+# Documentation avec exemples
+docs/ENV_EXAMPLE.md
+README.md
+README_SETUP.md
+CHANGELOG_*.md
+docs/swagger.yaml
+docs/swagger.config.js
+docs/README_SWAGGER.md
+docs/VALIDATION_REPORT.md
+
+# Fichiers de test avec données factices
+tests/**/*.js
+frontend/src/**/*.test.js
+frontend/src/**/*.spec.js
+
+# Fichiers de traduction
+frontend/src/assets/i18n/*.json
+
+# Scripts avec exemples
+scripts/auto-setup.js
+scripts/create-super-admin.js
+scripts/deploy-production.sh
+prisma/seed.js
+
+# Contrôleurs avec exemples
+controllers/emergencyController.js
+
+# Patterns spécifiques à ignorer
+# Exemples SMTP
+smtp\.example\.com
+your-email@example\.com
+your-app-password
+
+# Exemples JWT
+your-.*-secret
+your-secure-.*-secret
+
+# Mots de passe de test
+password123
+testpass123
+motdepasse123
+
+# Emails d'exemple
+admin@.*-domain\.com
+dev@.*-domaine\.com
+admin@votre-domaine\.com
+
+# Domaines d'exemple
+your-domain\.com
+votre-domaine\.com
+example\.com

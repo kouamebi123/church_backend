@@ -1,0 +1,89 @@
+# Configuration GitGuardian pour le projet Church Management System
+# Ce fichier configure les règles de détection des secrets
+
+# Exclusions globales
+paths-ignore:
+  - "docs/ENV_EXAMPLE.md"  # Fichier d'exemple de configuration
+  - "README.md"            # Documentation avec exemples
+  - "README_SETUP.md"      # Guide de setup avec exemples
+  - "CHANGELOG_*.md"       # Changelogs
+  - "tests/**/*.js"        # Fichiers de test avec données factices
+  - "docs/swagger.yaml"    # Documentation API avec exemples
+  - "docs/swagger.config.js" # Configuration Swagger avec exemples
+  - "docs/README_SWAGGER.md" # Documentation Swagger
+  - "docs/VALIDATION_REPORT.md" # Rapport de validation avec exemples
+  - "frontend/src/assets/i18n/*.json" # Fichiers de traduction
+
+# Patterns à ignorer (faux positifs connus)
+ignore:
+  # Exemples de configuration dans la documentation
+  - name: "SMTP credentials in documentation"
+    match: "smtp\.example\.com|your-email@example\.com|your-app-password"
+    paths: ["docs/", "README*.md"]
+  
+  # Exemples de JWT secrets dans la documentation
+  - name: "JWT secrets in documentation"
+    match: "your-.*-secret|your-secure-.*-secret"
+    paths: ["docs/", "README*.md"]
+  
+  # Exemples de mots de passe dans les tests
+  - name: "Test passwords"
+    match: "password123|testpass123|motdepasse123"
+    paths: ["tests/", "docs/"]
+  
+  # Exemples d'emails dans la documentation
+  - name: "Example emails in documentation"
+    match: "admin@.*-domain\.com|dev@.*-domaine\.com"
+    paths: ["docs/", "README*.md", "scripts/"]
+  
+  # Exemples de domaines dans la documentation
+  - name: "Example domains in documentation"
+    match: "your-domain\.com|votre-domaine\.com|example\.com"
+    paths: ["docs/", "README*.md"]
+
+# Règles de détection
+detect:
+  # Activer la détection des secrets
+  secrets: true
+  
+  # Activer la détection des vulnérabilités
+  vulnerabilities: true
+  
+  # Activer la détection des dépendances
+  dependencies: true
+
+# Configuration des notifications
+notifications:
+  # Notifier sur les nouveaux secrets
+  new_secrets: true
+  
+  # Notifier sur les secrets résolus
+  resolved_secrets: true
+  
+  # Notifier sur les vulnérabilités critiques
+  critical_vulnerabilities: true
+
+# Configuration des scans
+scan:
+  # Scanner les fichiers binaires
+  binary: false
+  
+  # Scanner les fichiers de configuration
+  config: true
+  
+  # Scanner les fichiers de documentation
+  docs: false  # Désactiver pour éviter les faux positifs
+  
+  # Scanner les fichiers de test
+  tests: false  # Désactiver pour éviter les faux positifs
+
+# Configuration des rapports
+reports:
+  # Format des rapports
+  format: "json"
+  
+  # Inclure les détails
+  details: true
+  
+  # Inclure les suggestions de correction
+  suggestions: true

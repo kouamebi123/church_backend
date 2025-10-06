@@ -1,0 +1,519 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                           String               @id @default(cuid())
+  username                     String
+  pseudo                       String               @unique
+  password                     String
+  role                         UserRole             @default(MEMBRE)
+  current_role                 UserRole?            // Rôle actuellement actif
+  genre                        Genre
+  tranche_age                  String
+  profession                   String
+  ville_residence              String
+  origine                      String
+  situation_matrimoniale       String
+  niveau_education             String
+  qualification                Qualification        @default(EN_INTEGRATION)
+  email                        String?              @unique
+  email_notifications          Boolean              @default(true)
+  language                     String?              @default("fr")
+  theme                        String?              @default("light")
+  telephone                    String?
+  adresse                      String?
+  createdAt                    DateTime             @default(now())
+  updatedAt                    DateTime             @updatedAt
+  eglise_locale_id             String
+  departement_id               String?              // Gardé pour compatibilité
+  image                        String?              @default("")
+  assistance_created           Assistance[]
+  chaine_impact_responsable    ChaineImpact[]       @relation("ChaineImpactResponsable")
+  chaine_impact_user           ChaineImpact[]       @relation("ChaineImpactUser")
+  church_responsable           Church?              @relation("ChurchResponsable")
+  group_member_history         GroupMemberHistory[]
+  group_members                GroupMember[]
+  group_responsable1           Group[]              @relation("GroupResponsable1")
+  group_responsable2           Group[]              @relation("GroupResponsable2")
+  group_superieur_hierarchique Group[]              @relation("GroupSuperieurHierarchique")
+  message_recipients           MessageRecipient[]
+  messages_sent                Message[]            @relation("MessageSender")
+  network_responsable1         Network[]            @relation("NetworkResponsable1")
+  network_responsable2         Network[]            @relation("NetworkResponsable2")
+  previsionnels_created        Previsionnel[]
+  services_collecteur          Service[]            @relation("ServiceCollecteur")
+  services                     Service[]
+  services_superviseur         Service[]            @relation("ServiceSuperviseur")
+  departement                  Department?          @relation("DepartmentMembers", fields: [departement_id], references: [id])
+  eglise_locale                Church               @relation("ChurchMembers", fields: [eglise_locale_id], references: [id])
+  user_departments             UserDepartment[]     @relation("UserDepartments")
+  role_assignments             UserRoleAssignment[] @relation("UserRoleAssignments")
+  approved_testimonies         Testimony[]          @relation("TestimonyApprover")
+  confirmed_testimonies        Testimony[]          @relation("TestimonyConfirmer")
+  activity_logs                ActivityLog[]        @relation("ActivityLogs")
+
+  @@map("users")
+}
+
+model Church {
+  id             String         @id @default(cuid())
+  nom            String         @unique
+  adresse        String?
+  ville          String?
+  latitude       Float?
+  longitude      Float?
+  population     Int?
+  nombre_membres Int            @default(0)
+  description    String?
+  type           ChurchType     @default(EGLISE)
+  image          String         @default("")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  responsable_id String?        @unique
+  assistance     Assistance[]
+  chaine_impact  ChaineImpact[]
+  responsable    User?          @relation("ChurchResponsable", fields: [responsable_id], references: [id])
+  departments    Department[]
+  networks       Network[]
+  previsionnels  Previsionnel[]
+  services       Service[]
+  members        User[]         @relation("ChurchMembers")
+  testimonies    Testimony[]
+
+  @@map("churches")
+}
+
+model Network {
+  id              String         @id @default(cuid())
+  nom             String         @unique
+  active          Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  responsable1_id String
+  responsable2_id String?
+  church_id       String
+  assistance      Assistance[]
+  chaine_impact   ChaineImpact[]
+  groups          Group[]
+  church          Church         @relation(fields: [church_id], references: [id])
+  responsable1    User           @relation("NetworkResponsable1", fields: [responsable1_id], references: [id])
+  responsable2    User?          @relation("NetworkResponsable2", fields: [responsable2_id], references: [id])
+  previsionnels   Previsionnel[]
+  testimonies     Testimony[]
+
+  @@unique([responsable1_id])
+  @@unique([responsable2_id])
+  @@map("networks")
+}
+
+model Group {
+  id                        String               @id @default(cuid())
+  nom                       String
+  description               String?
+  active                    Boolean              @default(true)
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+  network_id                String
+  responsable1_id           String
+  responsable2_id           String?
+  superieur_hierarchique_id String?
+  chaine_impact             ChaineImpact[]
+  group_member_history      GroupMemberHistory[]
+  members                   GroupMember[]
+  groupes_assistance        GroupeAssistance[]
+  groupes_previsions        GroupePrevision[]
+  network                   Network              @relation(fields: [network_id], references: [id])
+  responsable1              User                 @relation("GroupResponsable1", fields: [responsable1_id], references: [id])
+  responsable2              User?                @relation("GroupResponsable2", fields: [responsable2_id], references: [id])
+  superieur_hierarchique    User?                @relation("GroupSuperieurHierarchique", fields: [superieur_hierarchique_id], references: [id])
+
+  @@unique([responsable1_id])
+  @@unique([responsable2_id])
+  @@map("groups")
+}
+
+model GroupMember {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  group_id  String
+  user_id   String
+  group     Group    @relation(fields: [group_id], references: [id])
+  user      User     @relation(fields: [user_id], references: [id])
+
+  @@unique([group_id, user_id])
+  @@map("group_members")
+}
+
+model GroupMemberHistory {
+  id        String   @id @default(cuid())
+  action    String
+  createdAt DateTime @default(now())
+  group_id  String
+  user_id   String
+  group     Group    @relation(fields: [group_id], references: [id])
+  user      User     @relation(fields: [user_id], references: [id])
+
+  @@map("group_member_history")
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  nom         String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  church_id   String
+  church      Church   @relation(fields: [church_id], references: [id])
+  members     User[]   @relation("DepartmentMembers")
+  user_departments UserDepartment[] @relation("DepartmentUsers")
+
+  @@map("departments")
+}
+
+model UserDepartment {
+  id             String     @id @default(cuid())
+  user_id        String
+  department_id  String
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  user           User       @relation("UserDepartments", fields: [user_id], references: [id], onDelete: Cascade)
+  department     Department @relation("DepartmentUsers", fields: [department_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, department_id])
+  @@map("user_departments")
+}
+
+model Service {
+  id                      String   @id @default(cuid())
+  date                    DateTime
+  culte                   String
+  orateur                 String
+  theme                   String?
+  nombre_present          Int?
+  total_adultes           Int      @default(0)
+  total_enfants           Int      @default(0)
+  total_chantres          Int      @default(0)
+  total_protocoles        Int      @default(0)
+  total_multimedia        Int      @default(0)
+  total_respo_ecodim      Int      @default(0)
+  total_animateurs_ecodim Int      @default(0)
+  total_enfants_ecodim    Int      @default(0)
+  collecteur_culte_id     String
+  superviseur_id          String
+  invitationYoutube       Int      @default(0)
+  invitationTiktok        Int      @default(0)
+  invitationInstagram     Int      @default(0)
+  invitationPhysique      Int      @default(0)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  eglise_id               String
+  responsable_id          String?
+  collecteur_culte        User     @relation("ServiceCollecteur", fields: [collecteur_culte_id], references: [id])
+  eglise                  Church   @relation(fields: [eglise_id], references: [id])
+  responsable             User?    @relation(fields: [responsable_id], references: [id])
+  superviseur             User     @relation("ServiceSuperviseur", fields: [superviseur_id], references: [id])
+
+  @@map("services")
+}
+
+model CarouselImage {
+  id          String   @id @default(cuid())
+  titre       String
+  description String?
+  image_url   String
+  ordre       Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("carousel_images")
+}
+
+model Previsionnel {
+  id                 String            @id @default(cuid())
+  date               DateTime
+  type_culte         String
+  total_prevu        Int               @default(0)
+  invites            Int               @default(0)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  network_id         String
+  church_id          String
+  created_by_id      String
+  groupes_previsions GroupePrevision[]
+  church             Church            @relation(fields: [church_id], references: [id])
+  created_by         User              @relation(fields: [created_by_id], references: [id])
+  network            Network           @relation(fields: [network_id], references: [id])
+
+  @@map("previsionnels")
+}
+
+model GroupePrevision {
+  id                    String       @id @default(cuid())
+  effectif_actuel       Int          @default(0)
+  valeur_previsionnelle Int          @default(0)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  previsionnel_id       String
+  group_id              String
+  group                 Group        @relation(fields: [group_id], references: [id])
+  previsionnel          Previsionnel @relation(fields: [previsionnel_id], references: [id], onDelete: Cascade)
+
+  @@unique([previsionnel_id, group_id])
+  @@map("groupes_previsions")
+}
+
+model Assistance {
+  id                 String             @id @default(cuid())
+  date               DateTime
+  type_culte         String
+  total_presents     Int                @default(0)
+  network_id         String
+  church_id          String
+  created_by_id      String
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  invites            Int                @default(0)
+  church             Church             @relation(fields: [church_id], references: [id])
+  created_by         User               @relation(fields: [created_by_id], references: [id])
+  network            Network            @relation(fields: [network_id], references: [id])
+  groupes_assistance GroupeAssistance[]
+
+  @@map("assistance")
+}
+
+model GroupeAssistance {
+  id              String     @id @default(cuid())
+  assistance_id   String
+  group_id        String
+  effectif_actuel Int
+  nombre_presents Int
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  assistance      Assistance @relation(fields: [assistance_id], references: [id], onDelete: Cascade)
+  group           Group      @relation(fields: [group_id], references: [id], onDelete: Cascade)
+
+  @@unique([assistance_id, group_id])
+  @@map("groupe_assistance")
+}
+
+model ChaineImpact {
+  id             String   @id @default(cuid())
+  user_id        String
+  niveau         Int
+  qualification  String
+  responsable_id String?
+  eglise_id      String
+  network_id     String?
+  group_id       String?
+  position_x     Int
+  position_y     Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  eglise         Church   @relation(fields: [eglise_id], references: [id])
+  group          Group?   @relation(fields: [group_id], references: [id])
+  network        Network? @relation(fields: [network_id], references: [id])
+  responsable    User?    @relation("ChaineImpactResponsable", fields: [responsable_id], references: [id])
+  user           User     @relation("ChaineImpactUser", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, niveau, eglise_id])
+  @@map("chaine_impact")
+}
+
+model Message {
+  id         String             @id @default(cuid())
+  subject    String
+  content    String
+  is_urgent  Boolean            @default(false)
+  created_at DateTime           @default(now())
+  updated_at DateTime           @updatedAt
+  sender_id  String
+  recipients MessageRecipient[]
+  sender     User               @relation("MessageSender", fields: [sender_id], references: [id])
+
+  @@map("messages")
+}
+
+model MessageRecipient {
+  id              String    @id @default(cuid())
+  is_read         Boolean   @default(false)
+  read_at         DateTime?
+  acknowledged    Boolean   @default(false)
+  acknowledged_at DateTime?
+  created_at      DateTime  @default(now())
+  message_id      String
+  recipient_id    String
+  message         Message   @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  recipient       User      @relation(fields: [recipient_id], references: [id])
+
+  @@unique([message_id, recipient_id])
+  @@map("message_recipients")
+}
+
+enum UserRole {
+  ADMIN
+  SUPER_ADMIN
+  MANAGER
+  SUPERVISEUR
+  COLLECTEUR_RESEAUX
+  COLLECTEUR_CULTE
+  MEMBRE
+}
+
+enum Genre {
+  HOMME
+  FEMME
+  ENFANT
+}
+
+model Testimony {
+  id                    String            @id @default(cuid())
+  firstName             String
+  lastName              String
+  phone                 String?
+  email                 String?
+  churchId              String
+  networkId             String?
+  testimonyType         TestimonyType?    // Type de personne (GOUVERNANCE, ECODIM, SECTION, VISITOR)
+  section               String?           // Section (ex: "Section 1")
+  unit                  String?           // Unité (ex: "Unité A")
+  category              TestimonyCategory
+  content               String
+  isAnonymous           Boolean           @default(false)
+  isApproved            Boolean           @default(false)
+  isRead                Boolean           @default(false)
+  wantsToTestify        Boolean           @default(false) // Souhaite témoigner lors d'un culte
+  isConfirmedToTestify  Boolean           @default(false) // Confirmé pour témoigner
+  hasTestified          Boolean           @default(false) // A déjà témoigné
+  confirmedAt           DateTime?         // Date de confirmation
+  testifiedAt           DateTime?         // Date du témoignage
+  confirmedBy           String?           // Qui a confirmé
+  note                  String?
+  approvedAt            DateTime?
+  approvedBy            String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  illustrations         TestimonyFile[]
+  church                Church            @relation(fields: [churchId], references: [id])
+  network               Network?          @relation(fields: [networkId], references: [id])
+  approver              User?             @relation("TestimonyApprover", fields: [approvedBy], references: [id])
+  confirmer             User?             @relation("TestimonyConfirmer", fields: [confirmedBy], references: [id])
+
+  @@map("testimonies")
+}
+
+model TestimonyFile {
+  id          String    @id @default(cuid())
+  testimonyId String
+  fileName    String
+  originalName String
+  filePath    String
+  fileType    String
+  fileSize    Int
+  createdAt   DateTime  @default(now())
+  testimony   Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
+
+  @@map("testimony_files")
+}
+
+enum TestimonyCategory {
+  INTIMACY
+  LEADERSHIP
+  HEALING
+  PROFESSIONAL
+  BUSINESS
+  FINANCES
+  DELIVERANCE
+  FAMILY
+}
+
+enum TestimonyType {
+  GOUVERNANCE      // Personnes avec qualification GOUVERNANCE
+  ECODIM           // Personnes avec qualification ECODIM ou RESPONSABLE_ECODIM
+  SECTION          // Personnes dans une section (avec section et unit)
+  VISITOR          // Visiteur
+  NETWORK_MEMBER   // Membre de réseau (si networkId est renseigné)
+}
+
+enum Qualification {
+  QUALIFICATION_12
+  QUALIFICATION_144
+  QUALIFICATION_1728
+  LEADER
+  RESPONSABLE_RESEAU
+  RESPONSABLE_DEPARTEMENT
+  REGULIER
+  IRREGULIER
+  EN_INTEGRATION
+  GOUVERNANCE
+  ECODIM
+  RESPONSABLE_ECODIM
+  QUALIFICATION_20738
+  QUALIFICATION_248832
+  RESPONSABLE_EGLISE
+}
+
+enum ChurchType {
+  EGLISE
+  MISSION
+}
+
+model UserRoleAssignment {
+  id        String   @id @default(cuid())
+  user_id   String
+  role      UserRole
+  is_active Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  user      User     @relation("UserRoleAssignments", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, role])
+  @@map("user_role_assignments")
+}
+
+model ActivityLog {
+  id          String      @id @default(cuid())
+  user_id     String
+  action      ActivityAction
+  entity_type EntityType
+  entity_id   String?
+  entity_name String?
+  details     String?
+  ip_address  String?
+  user_agent  String?
+  created_at  DateTime    @default(now())
+  user        User        @relation("ActivityLogs", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("activity_logs")
+}
+
+enum ActivityAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  VIEW
+  EXPORT
+  IMPORT
+}
+
+enum EntityType {
+  USER
+  NETWORK
+  GROUP
+  SERVICE
+  CHURCH
+  DEPARTMENT
+  TESTIMONY
+  CAROUSEL
+  PREVISIONNEL
+  ASSISTANCE
+  MESSAGE
+}

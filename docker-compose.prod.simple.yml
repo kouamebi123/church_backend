@@ -1,0 +1,177 @@
+services:
+  # Base de données PostgreSQL pour la production
+  postgres:
+    image: postgres:15-alpine
+    container_name: church_postgres_prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    networks:
+      - church_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Cache Redis pour la production
+  redis:
+    image: redis:7-alpine
+    container_name: church_redis_prod
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_prod_data:/data
+    networks:
+      - church_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Backend en mode production
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: church_backend_prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: 5001
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      USE_POSTGRES: ${USE_POSTGRES}
+      # Email SMTP
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
+      # Application
+      APP_NAME: ${APP_NAME}
+      APP_URL: ${APP_URL}
+      # Super Admin
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL}
+      SUPER_ADMIN_USERNAME: ${SUPER_ADMIN_USERNAME}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD}
+      SUPER_ADMIN_PSEUDO: ${SUPER_ADMIN_PSEUDO}
+      SUPER_ADMIN_PHONE: ${SUPER_ADMIN_PHONE}
+      # Église temporaire
+      TEMP_CHURCH_NAME: ${TEMP_CHURCH_NAME}
+      TEMP_CHURCH_ADDRESS: ${TEMP_CHURCH_ADDRESS}
+      TEMP_CHURCH_CITY: ${TEMP_CHURCH_CITY}
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    ports:
+      - "5001:5001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - church_network
+    command: sh -c "npx prisma migrate deploy && npx prisma db seed && echo 'Migrations et seed terminés, démarrage du serveur...' && node server.js"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend en mode production
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: church_frontend_prod
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      REACT_APP_API_URL: ${APP_URL}/api
+      REACT_APP_SOCKET_URL: http://localhost:5001
+      REACT_APP_HIDE_CONSOLE: 'true'
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - church_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Adminer pour visualiser la base de données
+  adminer:
+    image: adminer:4.8.1-standalone
+    container_name: church_adminer_prod
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - church_network
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: church_nginx_prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/site.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - church_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Monitoring basique avec cAdvisor
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: church_cadvisor_prod
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    networks:
+      - church_network
+
+volumes:
+  postgres_prod_data:
+    driver: local
+  redis_prod_data:
+    driver: local
+
+networks:
+  church_network:
+    driver: bridge

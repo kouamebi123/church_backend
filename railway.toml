@@ -1,0 +1,26 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "npm start"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
+
+[env]
+NODE_ENV = "production"
+PORT = "5001"
+
+# Variables d'environnement à configurer dans Railway Dashboard
+# DATABASE_URL
+# REDIS_URL  
+# JWT_SECRET
+# SMTP_HOST
+# SMTP_PORT
+# SMTP_USER
+# SMTP_PASS
+# APP_URL
+# APP_BACKEND_URL
+# SUPER_ADMIN_PSEUDO
+# SUPER_ADMIN_PASSWORD

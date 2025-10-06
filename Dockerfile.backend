@@ -1,0 +1,53 @@
+# Dockerfile pour le backend Node.js
+FROM node:18-alpine
+
+# Installer les dépendances système nécessaires
+RUN apk add --no-cache \
+    openssl \
+    postgresql-client \
+    wget \
+    dcron \
+    && rm -rf /var/cache/apk/*
+
+# Créer le répertoire de l'application
+WORKDIR /app
+
+# Copier les fichiers de dépendances
+COPY package*.json ./
+COPY prisma ./prisma/
+
+# Installer les dépendances
+RUN npm install --only=production && npm cache clean --force
+
+# Copier le code source
+COPY . .
+
+# Copier le fichier d'environnement de production
+COPY .env.prod .env
+
+# Générer le client Prisma
+RUN npx prisma generate
+
+# Créer un utilisateur non-root pour la sécurité
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Changer la propriété des fichiers
+RUN chown -R nodejs:nodejs /app
+
+# Créer le dossier logs
+RUN mkdir -p /app/logs && chown nodejs:nodejs /app/logs
+
+# Le nettoyage automatique est géré par le planificateur Node.js
+
+USER nodejs
+
+# Exposer le port
+EXPOSE 5001
+
+# Variables d'environnement par défaut
+ENV NODE_ENV=production
+ENV PORT=5001
+
+# Script de démarrage avec cron
+CMD ["/app/scripts/start-with-cron.sh"]

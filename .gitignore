@@ -1,0 +1,258 @@
+# ===========================================
+# FICHIERS DE CONFIGURATION SENSIBLES
+# ===========================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+secrets.json
+config/secrets.js
+config/production.js
+
+# ===========================================
+# DÉPENDANCES
+# ===========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# ===========================================
+# BUILD ET DISTRIBUTION
+# ===========================================
+build/
+dist/
+out/
+
+# ===========================================
+# LOGS
+# ===========================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ===========================================
+# CACHE ET TEMPORAIRES
+# ===========================================
+.cache/
+.parcel-cache/
+.tmp/
+.temp/
+*.tmp
+*.temp
+
+# ===========================================
+# COUVERTURE DE TESTS
+# ===========================================
+coverage/
+.nyc_output/
+*.lcov
+
+# ===========================================
+# ENVIRONNEMENTS DE DÉVELOPPEMENT
+# ===========================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===========================================
+# SYSTÈME D'EXPLOITATION
+# ===========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ===========================================
+# UPLOADS ET MÉDIAS
+# ===========================================
+uploads/
+public/uploads/
+static/uploads/
+
+# ===========================================
+# BASE DE DONNÉES
+# ===========================================
+*.db
+*.sqlite
+*.sqlite3
+
+# ===========================================
+# REDIS
+# ===========================================
+dump.rdb
+
+# ===========================================
+# DOCKER
+# ===========================================
+.dockerignore
+Dockerfile
+docker-compose.yml
+docker-compose.override.yml
+
+# ===========================================
+# CI/CD
+# ===========================================
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# ===========================================
+# DOCUMENTATION GÉNÉRÉE
+# ===========================================
+docs/generated/
+docs/build/
+
+# ===========================================
+# PRISMA
+# ===========================================
+prisma/migrations/dev.db*
+
+# ===========================================
+# REACT
+# ===========================================
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Production
+/build
+
+# Misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===========================================
+# TYPESCRIPT
+# ===========================================
+*.tsbuildinfo
+
+# ===========================================
+# ESLINT
+# ===========================================
+.eslintcache
+
+# ===========================================
+# PRETTIER
+# ===========================================
+.prettierignore
+
+# ===========================================
+# JEST
+# ===========================================
+jest.config.js
+jest.setup.js
+
+# ===========================================
+# WEBPACK
+# ===========================================
+webpack-stats.json
+
+# ===========================================
+# STORYBOOK
+# ===========================================
+storybook-static/
+
+# ===========================================
+# CYPRESS
+# ===========================================
+cypress/videos/
+cypress/screenshots/
+
+# ===========================================
+# PLAYWRIGHT
+# ===========================================
+test-results/
+playwright-report/
+playwright/.cache/
+
+# ===========================================
+# SENTRY
+# ===========================================
+.sentryclirc
+
+# ===========================================
+# VERCEL
+# ===========================================
+.vercel
+
+# ===========================================
+# NETLIFY
+# ===========================================
+.netlify
+
+# ===========================================
+# FICHIERS SPÉCIFIQUES AU PROJET
+# ===========================================
+# Fichiers de configuration locaux
+config/local.js
+config/local.json
+
+# Fichiers de backup
+*.backup
+*.bak
+
+# Fichiers de sauvegarde
+*.save
+
+# Fichiers temporaires du projet
+temp/
+tmp/

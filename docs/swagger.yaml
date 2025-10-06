@@ -1,0 +1,3610 @@
+openapi: 3.0.3
+info:
+  title: Church Management System API
+  description: |
+    API complète pour la gestion d'église moderne et sécurisée.
+    
+    ## 🔒 Système CSRF Automatique
+    - **Aucune configuration manuelle requise** pour les tokens CSRF
+    - **Génération automatique** à la connexion
+    - **Envoi automatique** sur toutes les requêtes protégées
+    - **Validation automatique** côté serveur
+    - **Expiration automatique** avec déconnexion intelligente
+    
+    ## 🚀 Fonctionnalités
+    - Gestion complète des utilisateurs et églises
+    - Système de réseaux et groupes
+    - Statistiques en temps réel
+    - Gestion des services et cultes
+    - Système de permissions avancé
+    
+    ## 🗄️ Base de données
+    - **PostgreSQL** avec Prisma ORM
+    - **Migration automatique** depuis MongoDB
+    - **Relations complexes** gérées nativement
+  version: 2.0.0
+  contact:
+    name: Church Management System
+    email: contact@church-system.local
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: ${APP_BACKEND_URL:-http://localhost:5001}/api
+    description: Serveur de développement
+  - url: ${APP_BACKEND_URL:-http://localhost:5001}/api
+    description: Serveur de production
+
+tags:
+  - name: Authentication
+    description: Endpoints d'authentification et gestion des sessions
+  - name: Users
+    description: Gestion des utilisateurs et membres
+  - name: Churches
+    description: Gestion des églises et implantations
+  - name: Networks
+    description: Gestion des réseaux et groupes
+  - name: Groups
+    description: Gestion des groupes et membres
+  - name: Departments
+    description: Gestion des départements
+  - name: Services
+    description: Gestion des services et cultes
+  - name: Statistics
+    description: Statistiques et tableaux de bord
+  - name: Admin
+    description: Fonctionnalités d'administration
+  - name: Carousel
+    description: Gestion du carousel d'images
+  - name: Previsionnels
+    description: Gestion des prévisionnels
+  - name: Assistance
+    description: Gestion de l'assistance
+  - name: Chaine Impact
+    description: Gestion de la chaîne d'impact
+  - name: Messages
+    description: Système de messagerie
+  - name: Emergency
+    description: Fonctionnalités d'urgence
+  - name: Roles
+    description: Gestion des rôles utilisateur
+  - name: Preferences
+    description: Préférences utilisateur
+  - name: Testimonies
+    description: Gestion des témoignages
+  - name: Activities
+    description: Historique des activités
+  - name: Security
+    description: Statistiques de sécurité
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token obtenu lors de la connexion.
+        Inclut automatiquement le token CSRF dans le header X-CSRF-Token.
+    
+    CSRFProtection:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: |
+        Token CSRF généré automatiquement à la connexion.
+        **Aucune action manuelle requise** - géré automatiquement par le système.
+
+  schemas:
+    User:
+      type: object
+      required:
+        - username
+        - pseudo
+        - password
+        - role
+        - genre
+        - qualification
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Identifiant unique de l'utilisateur
+        username:
+          type: string
+          description: Nom complet de l'utilisateur
+          example: "Emmanuel KOUAME"
+        pseudo:
+          type: string
+          description: Pseudo unique pour la connexion
+          example: "emmanuel.k"
+        password:
+          type: string
+          format: password
+          description: Mot de passe (requis pour la création)
+          minLength: 6
+        role:
+          type: string
+          enum: [ADMIN, SUPER_ADMIN, MANAGER, SUPERVISEUR, COLLECTEUR_RESEAUX, COLLECTEUR_CULTE, MEMBRE]
+          description: Rôle de l'utilisateur dans le système
+          example: "MANAGER"
+        genre:
+          type: string
+          enum: [HOMME, FEMME, ENFANT]
+          description: Genre de l'utilisateur
+        tranche_age:
+          type: string
+          enum: [18-25 ans, 25-35 ans, 35-45 ans, 45-55 ans, 55+ ans]
+          description: Tranche d'âge
+        profession:
+          type: string
+          description: Profession de l'utilisateur
+        ville_residence:
+          type: string
+          description: Ville de résidence
+        origine:
+          type: string
+          description: Origine géographique
+        situation_matrimoniale:
+          type: string
+          enum: [Célibataire, Marié(e), Divorcé(e), Veuf/Veuve]
+        niveau_education:
+          type: string
+          enum: [Primaire, Secondaire, Diplôme du supérieur, Doctorat]
+        qualification:
+          type: string
+          enum: [QUALIFICATION_12, QUALIFICATION_144, QUALIFICATION_1728, LEADER, RESPONSABLE_RESEAU, RESPONSABLE_DEPARTEMENT, REGULIER, IRREGULIER, EN_INTEGRATION, GOUVERNANCE, ECODIM, RESPONSABLE_ECODIM, QUALIFICATION_20738, QUALIFICATION_248832, RESPONSABLE_EGLISE]
+          description: Qualification spirituelle
+        email:
+          type: string
+          format: email
+          description: Adresse email
+        telephone:
+          type: string
+          description: Numéro de téléphone
+        adresse:
+          type: string
+          description: Adresse complète
+        eglise_locale_id:
+          type: string
+          format: uuid
+          description: ID de l'église locale
+        departement_id:
+          type: string
+          format: uuid
+          description: ID du département
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Church:
+      type: object
+      required:
+        - nom
+        - adresse
+        - ville
+      properties:
+        id:
+          type: string
+          format: uuid
+        nom:
+          type: string
+          description: Nom de l'église
+          example: "Église Centrale"
+        adresse:
+          type: string
+          description: Adresse complète
+        ville:
+          type: string
+          description: Ville de l'église
+        latitude:
+          type: number
+          format: double
+          description: Latitude GPS
+        longitude:
+          type: number
+          format: double
+          description: Longitude GPS
+        population:
+          type: integer
+          description: Population de la ville
+        nombre_membres:
+          type: integer
+          description: Nombre de membres de l'église
+        description:
+          type: string
+          description: Description de l'église
+        type:
+          type: string
+          enum: [EGLISE, MISSION]
+        image:
+          type: string
+          description: URL de l'image de l'église
+        responsable_id:
+          type: string
+          format: uuid
+          description: ID du responsable de l'église
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Network:
+      type: object
+      required:
+        - nom
+        - church_id
+      properties:
+        id:
+          type: string
+          format: uuid
+        nom:
+          type: string
+          description: Nom du réseau
+        description:
+          type: string
+          description: Description du réseau
+        responsable_id:
+          type: string
+          format: uuid
+          description: ID du responsable principal
+        responsable2_id:
+          type: string
+          format: uuid
+          description: ID du responsable secondaire
+        church_id:
+          type: string
+          format: uuid
+          description: ID de l'église
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Group:
+      type: object
+      required:
+        - nom
+        - network_id
+      properties:
+        id:
+          type: string
+          format: uuid
+        nom:
+          type: string
+          description: Nom du groupe
+        description:
+          type: string
+          description: Description du groupe
+        network_id:
+          type: string
+          format: uuid
+          description: ID du réseau
+        responsable1_id:
+          type: string
+          format: uuid
+          description: ID du responsable principal
+        responsable2_id:
+          type: string
+          format: uuid
+          description: ID du responsable secondaire
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Service:
+      type: object
+      required:
+        - date
+        - culte
+        - eglise_id
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date-time
+          description: Date et heure du service
+        culte:
+          type: string
+          description: Type de culte
+          example: "Culte du dimanche"
+        orateur:
+          type: string
+          description: Nom de l'orateur
+        theme:
+          type: string
+          description: Thème du culte
+        nombre_present:
+          type: integer
+          description: Nombre de personnes présentes
+        eglise_id:
+          type: string
+          format: uuid
+          description: ID de l'église
+        responsable_id:
+          type: string
+          format: uuid
+          description: ID du responsable
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    LoginRequest:
+      type: object
+      required:
+        - pseudo
+        - password
+      properties:
+        pseudo:
+          type: string
+          description: Pseudo de l'utilisateur
+          example: "emmanuel.k"
+        password:
+          type: string
+          format: password
+          description: Mot de passe
+          example: "motdepasse123"
+
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        token:
+          type: string
+          description: JWT token pour l'authentification
+        csrfToken:
+          type: string
+          description: Token CSRF généré automatiquement
+        user:
+          $ref: '#/components/schemas/User'
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          description: Message d'erreur lisible
+        code:
+          type: string
+          description: Code d'erreur spécifique
+        error:
+          type: string
+          description: Détails techniques (optionnel)
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          description: Message de succès
+        data:
+          description: Données de la réponse
+
+    Group:
+      type: object
+      required:
+        - nom
+        - network_id
+      properties:
+        id:
+          type: string
+          format: uuid
+        nom:
+          type: string
+          description: Nom du groupe
+        description:
+          type: string
+          description: Description du groupe
+        network_id:
+          type: string
+          format: uuid
+          description: ID du réseau
+        responsable1_id:
+          type: string
+          format: uuid
+          description: ID du responsable principal
+        responsable2_id:
+          type: string
+          format: uuid
+          description: ID du responsable secondaire
+        superieur_hierarchique_id:
+          type: string
+          format: uuid
+          description: ID du supérieur hiérarchique
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Department:
+      type: object
+      required:
+        - nom
+        - description
+      properties:
+        id:
+          type: string
+          format: uuid
+        nom:
+          type: string
+          description: Nom du département
+        description:
+          type: string
+          description: Description du département
+        responsable_id:
+          type: string
+          format: uuid
+          description: ID du responsable
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Previsionnel:
+      type: object
+      required:
+        - network_id
+        - date
+        - montant
+      properties:
+        id:
+          type: string
+          format: uuid
+        network_id:
+          type: string
+          format: uuid
+          description: ID du réseau
+        date:
+          type: string
+          format: date
+          description: Date du prévisionnel
+        montant:
+          type: number
+          description: Montant prévisionnel
+        description:
+          type: string
+          description: Description du prévisionnel
+        created_by:
+          type: string
+          format: uuid
+          description: ID du créateur
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Assistance:
+      type: object
+      required:
+        - type
+        - description
+        - montant
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          description: Type d'assistance
+        description:
+          type: string
+          description: Description de l'assistance
+        montant:
+          type: number
+          description: Montant de l'assistance
+        beneficiaire_id:
+          type: string
+          format: uuid
+          description: ID du bénéficiaire
+        created_by:
+          type: string
+          format: uuid
+          description: ID du créateur
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ChaineImpact:
+      type: object
+      required:
+        - user_id
+        - niveau
+        - qualification
+        - eglise_id
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          description: ID de l'utilisateur
+        niveau:
+          type: integer
+          description: Niveau dans la chaîne
+        qualification:
+          type: string
+          description: Qualification
+        responsable_id:
+          type: string
+          format: uuid
+          description: ID du responsable
+        eglise_id:
+          type: string
+          format: uuid
+          description: ID de l'église
+        network_id:
+          type: string
+          format: uuid
+          description: ID du réseau
+        group_id:
+          type: string
+          format: uuid
+          description: ID du groupe
+        position_x:
+          type: integer
+          description: Position X
+        position_y:
+          type: integer
+          description: Position Y
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Message:
+      type: object
+      required:
+        - subject
+        - content
+        - sender_id
+      properties:
+        id:
+          type: string
+          format: uuid
+        subject:
+          type: string
+          description: Sujet du message
+        content:
+          type: string
+          description: Contenu du message
+        is_urgent:
+          type: boolean
+          description: Message urgent
+        sender_id:
+          type: string
+          format: uuid
+          description: ID de l'expéditeur
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Testimony:
+      type: object
+      required:
+        - nom
+        - prenom
+        - email
+        - telephone
+        - eglise_id
+        - network_id
+        - categorie
+        - contenu
+      properties:
+        id:
+          type: string
+          format: uuid
+        nom:
+          type: string
+          description: Nom du témoin
+        prenom:
+          type: string
+          description: Prénom du témoin
+        email:
+          type: string
+          format: email
+          description: Email du témoin
+        telephone:
+          type: string
+          description: Téléphone du témoin
+        eglise_id:
+          type: string
+          format: uuid
+          description: ID de l'église
+        network_id:
+          type: string
+          format: uuid
+          description: ID du réseau
+        categorie:
+          type: string
+          description: Catégorie du témoignage
+        contenu:
+          type: string
+          description: Contenu du témoignage
+        illustrations:
+          type: array
+          items:
+            type: string
+          description: Fichiers d'illustration
+        is_approved:
+          type: boolean
+          description: Témoignage approuvé
+        approved_by:
+          type: string
+          format: uuid
+          description: ID de l'approbateur
+        note:
+          type: string
+          description: Note administrative
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ActivityLog:
+      type: object
+      required:
+        - user_id
+        - action
+        - entity_type
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          description: ID de l'utilisateur
+        action:
+          type: string
+          enum: [CREATE, UPDATE, DELETE, LOGIN, LOGOUT, VIEW, EXPORT, IMPORT]
+          description: Action effectuée
+        entity_type:
+          type: string
+          enum: [USER, NETWORK, GROUP, SERVICE, CHURCH, DEPARTMENT, TESTIMONY, CAROUSEL, PREVISIONNEL, ASSISTANCE, MESSAGE]
+          description: Type d'entité
+        entity_id:
+          type: string
+          description: ID de l'entité
+        entity_name:
+          type: string
+          description: Nom de l'entité
+        details:
+          type: string
+          description: Détails de l'action
+        ip_address:
+          type: string
+          description: Adresse IP
+        user_agent:
+          type: string
+          description: User Agent
+        created_at:
+          type: string
+          format: date-time
+
+    CarouselImage:
+      type: object
+      required:
+        - title
+        - image_url
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          description: Titre de l'image
+        description:
+          type: string
+          description: Description de l'image
+        image_url:
+          type: string
+          description: URL de l'image
+        order:
+          type: integer
+          description: Ordre d'affichage
+        is_active:
+          type: boolean
+          description: Image active
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+  responses:
+    UnauthorizedError:
+      description: Token d'authentification manquant ou invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Token expiré ou invalide"
+            code: "JWT_INVALID"
+
+    ForbiddenError:
+      description: Permissions insuffisantes pour accéder à la ressource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Accès refusé : permissions insuffisantes"
+            code: "INSUFFICIENT_PERMISSIONS"
+
+    CSRFError:
+      description: Erreur de validation CSRF
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            missing:
+              summary: Token CSRF manquant
+              value:
+                success: false
+                message: "Token CSRF manquant"
+                code: "CSRF_TOKEN_MISSING"
+            expired:
+              summary: Token CSRF expiré
+              value:
+                success: false
+                message: "Session expirée. Veuillez vous reconnecter."
+                code: "CSRF_TOKEN_EXPIRED"
+            invalid:
+              summary: Token CSRF invalide
+              value:
+                success: false
+                message: "Token CSRF invalide"
+                code: "CSRF_TOKEN_INVALID"
+
+    ValidationError:
+      description: Erreur de validation des données
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Données invalides"
+            errors:
+              - "Le nom d'utilisateur est requis"
+              - "L'email doit être valide"
+
+security:
+  - BearerAuth: []
+  - CSRFProtection: []
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Connexion utilisateur
+      description: |
+        Authentifie un utilisateur et génère automatiquement un token CSRF.
+        
+        **Fonctionnalités automatiques :**
+        - ✅ Génération du JWT token
+        - ✅ Génération automatique du token CSRF
+        - ✅ Stockage automatique côté client
+        - ✅ Aucune configuration manuelle requise
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              pseudo: "${SUPER_ADMIN_PSEUDO:-emmanuel.k}"
+              password: "${SUPER_ADMIN_PASSWORD:-motdepasse123}"
+      responses:
+        '200':
+          description: Connexion réussie avec tokens automatiques
+          headers:
+            X-CSRF-Token:
+              description: Token CSRF généré automatiquement
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              example:
+                success: true
+                token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                csrfToken: "2807a399ab4a12dae6b57b00f69b4a3dcbae15b6f052341ef288a3149652a740"
+                user:
+                  id: "cmejtzdak0001tu584h492qcw"
+                  username: "Emmanuel KOUAME"
+                  role: "MANAGER"
+                  qualification: "GOUVERNANCE"
+        '400':
+          description: Données de connexion invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Identifiants incorrects
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Récupérer le profil utilisateur
+      description: |
+        Récupère le profil de l'utilisateur connecté et régénère automatiquement le token CSRF.
+        
+        **Fonctionnalités automatiques :**
+        - ✅ Récupération du profil complet
+        - ✅ Régénération automatique du token CSRF
+        - ✅ Mise à jour automatique côté client
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Profil récupéré avec nouveau token CSRF
+          headers:
+            X-CSRF-Token:
+              description: Nouveau token CSRF régénéré
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /users:
+    get:
+      tags:
+        - Users
+      summary: Récupérer tous les utilisateurs
+      description: |
+        Récupère la liste des utilisateurs avec filtrage automatique par église selon le rôle.
+        
+        **Filtrage automatique :**
+        - **Managers** : Voir uniquement les utilisateurs de leur église
+        - **Collecteurs** : Voir uniquement les utilisateurs de leur église
+        - **Admins** : Voir tous les utilisateurs
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: page
+          in: query
+          description: Numéro de page
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Nombre d'éléments par page
+          schema:
+            type: integer
+            default: 10
+        - name: role
+          in: query
+          description: Filtrer par rôle
+          schema:
+            type: string
+            enum: [ADMIN, SUPER_ADMIN, MANAGER, SUPERVISEUR, COLLECTEUR_RESEAUX, COLLECTEUR_CULTE, MEMBRE]
+        - name: qualification
+          in: query
+          description: Filtrer par qualification
+          schema:
+            type: string
+            enum: [QUALIFICATION_12, QUALIFICATION_144, QUALIFICATION_1728, LEADER, RESPONSABLE_RESEAU, RESPONSABLE_DEPARTEMENT, REGULIER, IRREGULIER, EN_INTEGRATION, GOUVERNANCE, ECODIM, RESPONSABLE_ECODIM, QUALIFICATION_20738, QUALIFICATION_248832, RESPONSABLE_EGLISE]
+      responses:
+        '200':
+          description: Liste des utilisateurs récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+    post:
+      tags:
+        - Users
+      summary: Créer un nouvel utilisateur
+      description: |
+        Crée un nouvel utilisateur avec validation automatique des permissions.
+        
+        **Restrictions automatiques :**
+        - **Managers** : Ne peuvent créer que des utilisateurs de leur église
+        - **Managers** : Ne peuvent pas créer d'utilisateurs avec des rôles privilégiés
+        - **Admins** : Peuvent créer des utilisateurs dans n'importe quelle église
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '201':
+          description: Utilisateur créé avec succès
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /users/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID de l'utilisateur
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags:
+        - Users
+      summary: Récupérer un utilisateur par ID
+      description: Récupère les détails d'un utilisateur spécifique
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Utilisateur récupéré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Utilisateur non trouvé
+
+    put:
+      tags:
+        - Users
+      summary: Mettre à jour un utilisateur
+      description: |
+        Met à jour un utilisateur existant avec validation des permissions.
+        
+        **Restrictions automatiques :**
+        - **Managers** : Ne peuvent modifier que les utilisateurs de leur église
+        - **Managers** : Ne peuvent pas modifier l'église d'un utilisateur
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: Utilisateur mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+        '404':
+          description: Utilisateur non trouvé
+
+    delete:
+      tags:
+        - Users
+      summary: Supprimer un utilisateur
+      description: |
+        Supprime un utilisateur avec validation des permissions.
+        
+        **Restrictions automatiques :**
+        - **Managers** : Ne peuvent supprimer que les utilisateurs de leur église
+        - **Admins** : Peuvent supprimer n'importe quel utilisateur
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Utilisateur supprimé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+        '404':
+          description: Utilisateur non trouvé
+
+  /users/profile:
+    put:
+      tags:
+        - Users
+      summary: Modifier son propre profil
+      description: Permet à un utilisateur de modifier son propre profil
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: Profil mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /users/profile/image:
+    post:
+      tags:
+        - Users
+      summary: Upload d'image de profil
+      description: Permet d'uploader une image de profil
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: Fichier image (max 5MB)
+      responses:
+        '200':
+          description: Image uploadée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+    delete:
+      tags:
+        - Users
+      summary: Supprimer l'image de profil
+      description: Supprime l'image de profil de l'utilisateur
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Image supprimée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /users/available:
+    get:
+      tags:
+        - Users
+      summary: Récupérer les utilisateurs disponibles
+      description: Récupère la liste des utilisateurs disponibles pour les admins, collecteurs et managers
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Liste des utilisateurs disponibles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /users/governance:
+    get:
+      tags:
+        - Users
+      summary: Récupérer les utilisateurs GOUVERNANCE
+      description: Récupère la liste des utilisateurs avec la qualification GOUVERNANCE
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Liste des utilisateurs GOUVERNANCE
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /users/non-isoles:
+    get:
+      tags:
+        - Users
+      summary: Récupérer les utilisateurs non isolés
+      description: Récupère la liste des utilisateurs non isolés
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Liste des utilisateurs non isolés
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /users/isoles:
+    get:
+      tags:
+        - Users
+      summary: Récupérer les utilisateurs isolés
+      description: Récupère la liste des utilisateurs isolés
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Liste des utilisateurs isolés
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /users/retired:
+    get:
+      tags:
+        - Users
+      summary: Récupérer les utilisateurs retraités
+      description: Récupère la liste des utilisateurs retraités
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Liste des utilisateurs retraités
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /users/stats:
+    get:
+      tags:
+        - Users
+      summary: Récupérer les statistiques des utilisateurs
+      description: Récupère les statistiques des utilisateurs
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Statistiques des utilisateurs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /users/{id}/network:
+    get:
+      tags:
+        - Users
+      summary: Récupérer le réseau d'un utilisateur
+      description: Récupère le réseau d'un utilisateur spécifique
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID de l'utilisateur
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Réseau de l'utilisateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Utilisateur non trouvé
+
+  /users/{id}/qualification:
+    put:
+      tags:
+        - Users
+      summary: Mettre à jour la qualification d'un utilisateur
+      description: Met à jour la qualification d'un utilisateur
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID de l'utilisateur
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                qualification:
+                  type: string
+                  enum: [QUALIFICATION_12, QUALIFICATION_144, QUALIFICATION_1728, LEADER, RESPONSABLE_RESEAU, RESPONSABLE_DEPARTEMENT, REGULIER, IRREGULIER, EN_INTEGRATION, GOUVERNANCE, ECODIM, RESPONSABLE_ECODIM, QUALIFICATION_20738, QUALIFICATION_248832, RESPONSABLE_EGLISE]
+      responses:
+        '200':
+          description: Qualification mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Utilisateur non trouvé
+
+  /users/{id}/reset-password:
+    post:
+      tags:
+        - Users
+      summary: Réinitialiser le mot de passe d'un utilisateur
+      description: Réinitialise le mot de passe d'un utilisateur
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID de l'utilisateur
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Mot de passe réinitialisé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Utilisateur non trouvé
+
+  /churches:
+    get:
+      tags:
+        - Churches
+      summary: Récupérer toutes les églises
+      description: |
+        Récupère la liste des églises avec filtrage automatique selon le rôle.
+        
+        **Filtrage automatique :**
+        - **Managers/Collecteurs** : Voir uniquement leur église
+        - **Admins** : Voir toutes les églises
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Liste des églises récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      tags:
+        - Churches
+      summary: Créer une nouvelle église
+      description: |
+        Crée une nouvelle église (Super Admin uniquement).
+        
+        **Permissions requises :**
+        - **SUPER_ADMIN** uniquement
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Church'
+      responses:
+        '201':
+          description: Église créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /churches/city-info/{cityName}:
+    get:
+      tags:
+        - Churches
+      summary: Récupérer les informations d'une ville
+      description: Récupère les informations d'une ville spécifique
+      parameters:
+        - name: cityName
+          in: path
+          required: true
+          description: Nom de la ville
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Informations de la ville
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Ville non trouvée
+
+  /churches/stats:
+    get:
+      tags:
+        - Churches
+      summary: Récupérer les statistiques des églises
+      description: Récupère les statistiques des églises (Super Admin uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Statistiques des églises
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /churches/{id}:
+    get:
+      tags:
+        - Churches
+      summary: Récupérer une église par ID
+      description: Récupère les détails d'une église spécifique
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID de l'église
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Église récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Église non trouvée
+
+    put:
+      tags:
+        - Churches
+      summary: Mettre à jour une église
+      description: Met à jour une église (Super Admin uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID de l'église
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Church'
+      responses:
+        '200':
+          description: Église mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Église non trouvée
+
+    patch:
+      tags:
+        - Churches
+      summary: Mettre à jour partiellement une église
+      description: Met à jour partiellement une église (Super Admin uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID de l'église
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Church'
+      responses:
+        '200':
+          description: Église mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Église non trouvée
+
+    delete:
+      tags:
+        - Churches
+      summary: Supprimer une église
+      description: Supprime une église (Super Admin uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID de l'église
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Église supprimée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Église non trouvée
+
+  /networks:
+    get:
+      tags:
+        - Networks
+      summary: Récupérer tous les réseaux
+      description: |
+        Récupère la liste des réseaux avec filtrage automatique par église.
+        
+        **Filtrage automatique :**
+        - **Managers/Collecteurs** : Voir uniquement les réseaux de leur église
+        - **Admins** : Voir tous les réseaux
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Liste des réseaux récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      tags:
+        - Networks
+      summary: Créer un nouveau réseau
+      description: |
+        Crée un nouveau réseau avec validation des permissions.
+        
+        **Restrictions automatiques :**
+        - **Managers** : Ne peuvent créer que des réseaux dans leur église
+        - **Admins** : Peuvent créer des réseaux dans n'importe quelle église
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Network'
+      responses:
+        '201':
+          description: Réseau créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /networks/stats:
+    get:
+      tags:
+        - Networks
+      summary: Récupérer les statistiques des réseaux
+      description: Récupère les statistiques des réseaux (Admin/Manager uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Statistiques des réseaux
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /networks/qualification-stats:
+    get:
+      tags:
+        - Networks
+      summary: Récupérer les statistiques de qualification des réseaux
+      description: Récupère les statistiques de qualification des réseaux (Admin/Manager uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Statistiques de qualification des réseaux
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /networks/{id}:
+    get:
+      tags:
+        - Networks
+      summary: Récupérer un réseau par ID
+      description: Récupère les détails d'un réseau spécifique
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du réseau
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Réseau récupéré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Réseau non trouvé
+
+    put:
+      tags:
+        - Networks
+      summary: Mettre à jour un réseau
+      description: Met à jour un réseau avec validation des permissions
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du réseau
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Network'
+      responses:
+        '200':
+          description: Réseau mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+        '404':
+          description: Réseau non trouvé
+
+    delete:
+      tags:
+        - Networks
+      summary: Supprimer un réseau
+      description: Supprime un réseau avec validation des permissions
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du réseau
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Réseau supprimé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+        '404':
+          description: Réseau non trouvé
+
+  /networks/{id}/stats:
+    get:
+      tags:
+        - Networks
+      summary: Récupérer les statistiques d'un réseau
+      description: Récupère les statistiques d'un réseau spécifique
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du réseau
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Statistiques du réseau
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Réseau non trouvé
+
+  /networks/{id}/grs:
+    get:
+      tags:
+        - Networks
+      summary: Récupérer les groupes d'un réseau
+      description: Récupère la liste des groupes d'un réseau
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du réseau
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Groupes du réseau
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Réseau non trouvé
+
+  /networks/{id}/members:
+    get:
+      tags:
+        - Networks
+      summary: Récupérer les membres d'un réseau
+      description: Récupère la liste des membres d'un réseau
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du réseau
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Membres du réseau
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Réseau non trouvé
+
+  /groups:
+    get:
+      tags:
+        - Groups
+      summary: Récupérer tous les groupes
+      description: Récupère la liste des groupes avec filtrage automatique par église
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Liste des groupes récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+    post:
+      tags:
+        - Groups
+      summary: Créer un nouveau groupe
+      description: Crée un nouveau groupe avec validation des permissions
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Group'
+      responses:
+        '201':
+          description: Groupe créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /groups/available-responsables:
+    get:
+      tags:
+        - Groups
+      summary: Récupérer les responsables disponibles
+      description: Récupère la liste des responsables disponibles pour le supérieur hiérarchique
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Responsables disponibles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /groups/{id}:
+    get:
+      tags:
+        - Groups
+      summary: Récupérer un groupe par ID
+      description: Récupère les détails d'un groupe spécifique
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du groupe
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Groupe récupéré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Groupe non trouvé
+
+    put:
+      tags:
+        - Groups
+      summary: Mettre à jour un groupe
+      description: Met à jour un groupe avec validation des permissions
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du groupe
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Group'
+      responses:
+        '200':
+          description: Groupe mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+        '404':
+          description: Groupe non trouvé
+
+    delete:
+      tags:
+        - Groups
+      summary: Supprimer un groupe
+      description: Supprime un groupe avec validation des permissions
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du groupe
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Groupe supprimé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+        '404':
+          description: Groupe non trouvé
+
+  /groups/{id}/members:
+    post:
+      tags:
+        - Groups
+      summary: Ajouter un membre au groupe
+      description: Ajoute un membre à un groupe
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du groupe
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                  description: ID de l'utilisateur à ajouter
+      responses:
+        '200':
+          description: Membre ajouté
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+        '404':
+          description: Groupe non trouvé
+
+  /groups/{id}/members/{userId}:
+    delete:
+      tags:
+        - Groups
+      summary: Retirer un membre du groupe
+      description: Retire un membre d'un groupe
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du groupe
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: path
+          required: true
+          description: ID de l'utilisateur
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Membre retiré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+        '404':
+          description: Groupe ou utilisateur non trouvé
+
+  /departments:
+    get:
+      tags:
+        - Departments
+      summary: Récupérer tous les départements
+      description: Récupère la liste des départements (accessible sans authentification)
+      responses:
+        '200':
+          description: Liste des départements récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /departments/stats:
+    get:
+      tags:
+        - Departments
+      summary: Récupérer les statistiques des départements
+      description: Récupère les statistiques des départements (Super Admin uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Statistiques des départements
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /departments/{id}:
+    get:
+      tags:
+        - Departments
+      summary: Récupérer un département par ID
+      description: Récupère les détails d'un département spécifique
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du département
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Département récupéré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Département non trouvé
+
+    put:
+      tags:
+        - Departments
+      summary: Mettre à jour un département
+      description: Met à jour un département (Super Admin uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du département
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Department'
+      responses:
+        '200':
+          description: Département mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Département non trouvé
+
+    delete:
+      tags:
+        - Departments
+      summary: Supprimer un département
+      description: Supprime un département (Super Admin uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du département
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Département supprimé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Département non trouvé
+
+  /departments/{id}/members:
+    get:
+      tags:
+        - Departments
+      summary: Récupérer les membres d'un département
+      description: Récupère la liste des membres d'un département
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du département
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Membres du département
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Département non trouvé
+
+  /departments:
+    post:
+      tags:
+        - Departments
+      summary: Créer un nouveau département
+      description: Crée un nouveau département (Super Admin uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Department'
+      responses:
+        '201':
+          description: Département créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /services:
+    get:
+      tags:
+        - Services
+      summary: Récupérer tous les services
+      description: |
+        Récupère la liste des services avec filtrage automatique par église.
+        
+        **Filtrage automatique :**
+        - **Managers/Collecteurs** : Voir uniquement les services de leur église
+        - **Admins** : Voir tous les services
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Liste des services récupérée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      tags:
+        - Services
+      summary: Créer un nouveau service
+      description: |
+        Crée un nouveau service avec validation des permissions.
+        
+        **Restrictions automatiques :**
+        - **Managers/Collecteurs** : Ne peuvent créer que des services dans leur église
+        - **Admins** : Peuvent créer des services dans n'importe quelle église
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Service'
+      responses:
+        '201':
+          description: Service créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /services/stats:
+    get:
+      tags:
+        - Services
+      summary: Récupérer les statistiques des services
+      description: Récupère les statistiques des services (Admin/Manager uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Statistiques des services
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /services/period:
+    get:
+      tags:
+        - Services
+      summary: Récupérer les services par période
+      description: Récupère les services d'une période spécifique
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: startDate
+          in: query
+          description: Date de début
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          description: Date de fin
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Services de la période
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /services/{id}:
+    get:
+      tags:
+        - Services
+      summary: Récupérer un service par ID
+      description: Récupère les détails d'un service spécifique
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du service
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Service récupéré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Service non trouvé
+
+    put:
+      tags:
+        - Services
+      summary: Mettre à jour un service
+      description: Met à jour un service avec validation des permissions
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du service
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Service'
+      responses:
+        '200':
+          description: Service mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+        '404':
+          description: Service non trouvé
+
+    delete:
+      tags:
+        - Services
+      summary: Supprimer un service
+      description: Supprime un service avec validation des permissions
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du service
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Service supprimé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+        '404':
+          description: Service non trouvé
+
+  /stats:
+    get:
+      tags:
+        - Statistics
+      summary: Récupérer les statistiques globales
+      description: |
+        Récupère les statistiques complètes du système avec cache intelligent.
+        
+        **Fonctionnalités :**
+        - **Cache serveur** : Mise en cache des statistiques (2-5 minutes)
+        - **Optimisation** : Requêtes PostgreSQL optimisées
+        - **Timeout** : 30 secondes pour les requêtes lourdes
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Statistiques récupérées
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                data:
+                  totalUsers: 69
+                  totalChurches: 9
+                  totalNetworks: 15
+                  totalGroups: 7
+                  totalServices: 27
+                  qualificationDistribution: [...]
+                  roleDistribution: [...]
+                  genreDistribution: [...]
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '408':
+          description: Timeout de la requête
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "La génération des statistiques prend plus de temps que prévu. Veuillez réessayer."
+
+  /admin/clear-cache:
+    post:
+      tags:
+        - Admin
+      summary: Nettoyer le cache
+      description: |
+        Nettoie le cache serveur (Admin uniquement).
+        
+        **Permissions requises :**
+        - **ADMIN** ou **SUPER_ADMIN**
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pattern:
+                  type: string
+                  description: Pattern pour nettoyer une partie spécifique du cache
+                  example: "stats"
+      responses:
+        '200':
+          description: Cache nettoyé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/cache-status:
+    get:
+      tags:
+        - Admin
+      summary: Voir l'état du cache
+      description: |
+        Affiche l'état actuel du cache serveur (Admin uniquement).
+        
+        **Permissions requises :**
+        - **ADMIN** ou **SUPER_ADMIN**
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: État du cache récupéré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+
+  /security/stats:
+    get:
+      tags:
+        - Security
+      summary: Récupérer les statistiques de sécurité
+      description: Récupère les statistiques de sécurité du système
+      responses:
+        '200':
+          description: Statistiques de sécurité
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /messages/send:
+    post:
+      tags:
+        - Messages
+      summary: Envoyer un message
+      description: Envoie un message à un ou plusieurs utilisateurs
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Message'
+      responses:
+        '201':
+          description: Message envoyé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /messages/received:
+    get:
+      tags:
+        - Messages
+      summary: Récupérer les messages reçus
+      description: Récupère les messages reçus par l'utilisateur connecté
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Messages reçus
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /messages/sent:
+    get:
+      tags:
+        - Messages
+      summary: Récupérer les messages envoyés
+      description: Récupère les messages envoyés par l'utilisateur connecté
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Messages envoyés
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /messages/conversations:
+    get:
+      tags:
+        - Messages
+      summary: Récupérer les conversations
+      description: Récupère la liste des conversations de l'utilisateur connecté
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Conversations récupérées
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /messages/{id}/read:
+    put:
+      tags:
+        - Messages
+      summary: Marquer un message comme lu
+      description: Marque un message comme lu
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du message
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Message marqué comme lu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Message non trouvé
+
+  /messages/mark-multiple-read:
+    put:
+      tags:
+        - Messages
+      summary: Marquer plusieurs messages comme lus
+      description: Marque plusieurs messages comme lus
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                messageIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: IDs des messages à marquer comme lus
+      responses:
+        '200':
+          description: Messages marqués comme lus
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /messages/{id}/acknowledge:
+    put:
+      tags:
+        - Messages
+      summary: Accuser réception d'un message
+      description: Accuse réception d'un message
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du message
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Réception accusée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Message non trouvé
+
+  /messages/stats:
+    get:
+      tags:
+        - Messages
+      summary: Récupérer les statistiques des messages
+      description: Récupère les statistiques des messages de l'utilisateur connecté
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Statistiques des messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /messages/users:
+    get:
+      tags:
+        - Messages
+      summary: Récupérer les utilisateurs pour la messagerie
+      description: Récupère la liste des utilisateurs disponibles pour la messagerie
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Utilisateurs pour la messagerie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /messages/conversation/{userId}:
+    get:
+      tags:
+        - Messages
+      summary: Récupérer l'historique d'une conversation
+      description: Récupère l'historique d'une conversation avec un utilisateur spécifique
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: ID de l'utilisateur
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Historique de la conversation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Utilisateur non trouvé
+
+  /messages/{messageId}/read-status:
+    get:
+      tags:
+        - Messages
+      summary: Récupérer le statut de lecture d'un message
+      description: Récupère le statut de lecture d'un message
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          description: ID du message
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Statut de lecture du message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Message non trouvé
+
+  /emergency/create-super-admin:
+    post:
+      tags:
+        - Emergency
+      summary: Créer un super admin d'urgence
+      description: Crée un super admin d'urgence (ne fonctionne que si aucun super admin n'existe)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  description: Nom d'utilisateur
+                pseudo:
+                  type: string
+                  description: Pseudo
+                password:
+                  type: string
+                  description: Mot de passe
+                email:
+                  type: string
+                  format: email
+                  description: Email
+      responses:
+        '201':
+          description: Super admin créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Un super admin existe déjà
+
+  /roles/change-role:
+    post:
+      tags:
+        - Roles
+      summary: Changer de rôle
+      description: Permet à un utilisateur de changer de rôle parmi ses rôles assignés
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  enum: [ADMIN, SUPER_ADMIN, MANAGER, SUPERVISEUR, COLLECTEUR_RESEAUX, COLLECTEUR_CULTE, MEMBRE]
+                  description: Nouveau rôle à activer
+      responses:
+        '200':
+          description: Rôle changé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /roles/available-roles:
+    get:
+      tags:
+        - Roles
+      summary: Récupérer les rôles disponibles
+      description: Récupère les rôles disponibles pour l'utilisateur connecté
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Rôles disponibles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /roles/assign:
+    post:
+      tags:
+        - Roles
+      summary: Assigner un rôle à un utilisateur
+      description: Assigne un rôle à un utilisateur (Admin uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                  description: ID de l'utilisateur
+                role:
+                  type: string
+                  enum: [ADMIN, SUPER_ADMIN, MANAGER, SUPERVISEUR, COLLECTEUR_RESEAUX, COLLECTEUR_CULTE, MEMBRE]
+                  description: Rôle à assigner
+      responses:
+        '200':
+          description: Rôle assigné
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /roles/remove:
+    delete:
+      tags:
+        - Roles
+      summary: Retirer un rôle d'un utilisateur
+      description: Retire un rôle d'un utilisateur (Admin uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                  description: ID de l'utilisateur
+                role:
+                  type: string
+                  enum: [ADMIN, SUPER_ADMIN, MANAGER, SUPERVISEUR, COLLECTEUR_RESEAUX, COLLECTEUR_CULTE, MEMBRE]
+                  description: Rôle à retirer
+      responses:
+        '200':
+          description: Rôle retiré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /roles/assign-multiple:
+    post:
+      tags:
+        - Roles
+      summary: Assigner plusieurs rôles à un utilisateur
+      description: Assigne plusieurs rôles à un utilisateur (Admin uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                  description: ID de l'utilisateur
+                roles:
+                  type: array
+                  items:
+                    type: string
+                    enum: [ADMIN, SUPER_ADMIN, MANAGER, SUPERVISEUR, COLLECTEUR_RESEAUX, COLLECTEUR_CULTE, MEMBRE]
+                  description: Rôles à assigner
+      responses:
+        '200':
+          description: Rôles assignés
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /roles/user/{userId}:
+    get:
+      tags:
+        - Roles
+      summary: Récupérer les rôles d'un utilisateur
+      description: Récupère les rôles d'un utilisateur spécifique (Admin uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: ID de l'utilisateur
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Rôles de l'utilisateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Utilisateur non trouvé
+
+  /preferences:
+    get:
+      tags:
+        - Preferences
+      summary: Récupérer les préférences de l'utilisateur
+      description: Récupère les préférences de l'utilisateur connecté
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Préférences récupérées
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+    put:
+      tags:
+        - Preferences
+      summary: Mettre à jour les préférences de l'utilisateur
+      description: Met à jour les préférences de l'utilisateur connecté
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                language:
+                  type: string
+                  description: Langue préférée
+                theme:
+                  type: string
+                  description: Thème préféré
+                email_notifications:
+                  type: boolean
+                  description: Notifications email activées
+      responses:
+        '200':
+          description: Préférences mises à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /preferences/email:
+    put:
+      tags:
+        - Preferences
+      summary: Mettre à jour les préférences email
+      description: Met à jour uniquement les préférences email de l'utilisateur connecté
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email_notifications:
+                  type: boolean
+                  description: Notifications email activées
+      responses:
+        '200':
+          description: Préférences email mises à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /testimonies/churches:
+    get:
+      tags:
+        - Testimonies
+      summary: Récupérer les églises pour les témoignages
+      description: Récupère la liste des églises disponibles pour les témoignages (accessible sans authentification)
+      responses:
+        '200':
+          description: Églises récupérées
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /testimonies/networks/{churchId}:
+    get:
+      tags:
+        - Testimonies
+      summary: Récupérer les réseaux d'une église
+      description: Récupère les réseaux d'une église pour les témoignages (accessible sans authentification)
+      parameters:
+        - name: churchId
+          in: path
+          required: true
+          description: ID de l'église
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Réseaux de l'église
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Église non trouvée
+
+  /testimonies/categories:
+    get:
+      tags:
+        - Testimonies
+      summary: Récupérer les catégories de témoignages
+      description: Récupère la liste des catégories de témoignages (accessible sans authentification)
+      responses:
+        '200':
+          description: Catégories récupérées
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /testimonies/approved:
+    get:
+      tags:
+        - Testimonies
+      summary: Récupérer les témoignages approuvés
+      description: Récupère la liste des témoignages approuvés (accessible sans authentification)
+      responses:
+        '200':
+          description: Témoignages approuvés
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /testimonies/admin/all:
+    get:
+      tags:
+        - Testimonies
+      summary: Récupérer tous les témoignages (Admin)
+      description: Récupère tous les témoignages pour l'administration
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Tous les témoignages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /testimonies:
+    post:
+      tags:
+        - Testimonies
+      summary: Créer un témoignage
+      description: Crée un nouveau témoignage (accessible sans authentification)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Testimony'
+      responses:
+        '201':
+          description: Témoignage créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /testimonies/{id}:
+    get:
+      tags:
+        - Testimonies
+      summary: Récupérer un témoignage par ID
+      description: Récupère les détails d'un témoignage spécifique
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du témoignage
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Témoignage récupéré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Témoignage non trouvé
+
+    delete:
+      tags:
+        - Testimonies
+      summary: Supprimer un témoignage
+      description: Supprime un témoignage (Admin uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du témoignage
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Témoignage supprimé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+        '404':
+          description: Témoignage non trouvé
+
+  /testimonies/{id}/mark-read:
+    put:
+      tags:
+        - Testimonies
+      summary: Marquer un témoignage comme lu
+      description: Marque un témoignage comme lu (Admin uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du témoignage
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Témoignage marqué comme lu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+        '404':
+          description: Témoignage non trouvé
+
+  /testimonies/{id}/note:
+    put:
+      tags:
+        - Testimonies
+      summary: Ajouter une note à un témoignage
+      description: Ajoute une note administrative à un témoignage (Admin uniquement)
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID du témoignage
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  description: Note administrative
+      responses:
+        '200':
+          description: Note ajoutée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+        '404':
+          description: Témoignage non trouvé
+
+  /activities/history:
+    get:
+      tags:
+        - Activities
+      summary: Récupérer l'historique des activités
+      description: Récupère l'historique des activités de l'utilisateur connecté
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Historique des activités
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /activities/stats:
+    get:
+      tags:
+        - Activities
+      summary: Récupérer les statistiques des activités
+      description: Récupère les statistiques des activités
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      responses:
+        '200':
+          description: Statistiques des activités
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
+
+  /activities/log:
+    post:
+      tags:
+        - Activities
+      summary: Enregistrer une activité
+      description: Enregistre une nouvelle activité
+      security:
+        - BearerAuth: []
+        - CSRFProtection: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityLog'
+      responses:
+        '201':
+          description: Activité enregistrée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/CSRFError'
