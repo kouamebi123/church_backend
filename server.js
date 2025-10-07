@@ -70,7 +70,8 @@ const allowedOrigins = [
   'http://localhost:8080', // Port Swagger UI
   'https://multitudeszno.vercel.app',
   'https://church-production-9a34.up.railway.app', // Railway production
-  'https://web-production-f5a55.up.railway.app' // Railway frontend
+  'https://web-production-f5a55.up.railway.app',
+  'https://multitudeszno.up.railway.app/' // Railway frontend
 ];
 
 const corsOptions = {
