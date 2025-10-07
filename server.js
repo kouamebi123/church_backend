@@ -69,9 +69,9 @@ const allowedOrigins = [
   'http://localhost', // Production via nginx
   'http://localhost:8080', // Port Swagger UI
   'https://multitudeszno.vercel.app',
-  'https://church-production-9a34.up.railway.app', // Railway backend
+  'https://churchbackend-production.up.railway.app', // Railway backend
   'https://web-production-f5a55.up.railway.app',
-  'https://multitudeszno.up.railway.app' // Railway frontend (pas de slash final!)
+  'https://multitudeszno.up.railway.app' // Railway frontend
 ];
 
 const corsOptions = {
