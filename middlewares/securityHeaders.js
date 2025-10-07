@@ -21,7 +21,7 @@ const securityHeaders = (req, res, next) => {
 
   // Content Security Policy ultra-strict
   const backendUrl = process.env.APP_BACKEND_URL || 'https://church-production-9a34.up.railway.app' || 'http://localhost:5001';
-  const frontendUrl = process.env.APP_URL || 'http://localhost:3000';
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   const wsBackendUrl = backendUrl.replace('http', 'ws').replace('https', 'wss');
   const wsFrontendUrl = frontendUrl.replace('http', 'ws').replace('https', 'wss');
   

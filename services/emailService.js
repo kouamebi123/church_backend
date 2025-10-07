@@ -118,7 +118,7 @@ class EmailService {
    */
   generateMessageNotificationHTML(recipient, sender, message, messageUrl) {
     const appName = process.env.APP_NAME || 'Système de Gestion d\'Église';
-    const appUrl = process.env.APP_URL || 'http://localhost';
+    const appUrl = process.env.FRONTEND_URL || 'http://localhost';
     
     return `
     <!DOCTYPE html>
