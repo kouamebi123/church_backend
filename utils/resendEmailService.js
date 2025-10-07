@@ -35,7 +35,7 @@ class ResendEmailService {
 
     try {
       const result = await this.resend.emails.send({
-        from: 'Church Management <onboarding@resend.dev>',
+        from: 'Multitudes ZNO <onboarding@resend.dev>',
         to: [email],
         subject: '🔐 Réinitialisation de votre mot de passe',
         html: ResendEmailService.generatePasswordResetHTML(resetLink, username),
@@ -126,14 +126,14 @@ class ResendEmailService {
       </head>
       <body>
         <div class="header">
-          <h1>🏛️ Church Management System</h1>
+          <h1>🏛️ Multitudes ZNO</h1>
           <p>Réinitialisation de mot de passe</p>
         </div>
         
         <div class="content">
           <p>Bonjour <strong>${username}</strong>,</p>
           
-          <p>Vous avez demandé la réinitialisation de votre mot de passe pour votre compte Church Management System.</p>
+          <p>Vous avez demandé la réinitialisation de votre mot de passe pour votre compte Multitudes ZNO.</p>
           
           <p>Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe :</p>
           
@@ -153,7 +153,7 @@ class ResendEmailService {
         
         <div class="footer">
           <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
-          <p>© 2024 Church Management System - Tous droits réservés</p>
+          <p>© 2024 Multitudes ZNO - Tous droits réservés</p>
         </div>
       </body>
       </html>
@@ -162,12 +162,12 @@ class ResendEmailService {
 
   static generatePasswordResetText(resetLink, username) {
     return `
-🏛️ Church Management System
+🏛️ Multitudes ZNO
 Réinitialisation de mot de passe
 
 Bonjour ${username},
 
-Vous avez demandé la réinitialisation de votre mot de passe pour votre compte Church Management System.
+Vous avez demandé la réinitialisation de votre mot de passe pour votre compte Multitudes ZNO.
 
 Pour créer un nouveau mot de passe, cliquez sur le lien suivant :
 ${resetLink}
@@ -178,7 +178,7 @@ Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.
 
 ---
 Cet email a été envoyé automatiquement, merci de ne pas y répondre.
-© 2024 Church Management System - Tous droits réservés
+© 2024 Multitudes ZNO - Tous droits réservés
     `;
   }
 
