@@ -68,10 +68,9 @@ const allowedOrigins = [
   'http://localhost:3000', // Développement direct
   'http://localhost', // Production via nginx
   'http://localhost:8080', // Port Swagger UI
-  'https://multitudeszno.vercel.app',
+  'https://multitudeszno.up.railway.app', // Railway frontend
   'https://churchbackend-production.up.railway.app', // Railway backend
-  'https://web-production-f5a55.up.railway.app',
-  'https://multitudeszno.up.railway.app' // Railway frontend
+  'https://web-production-f5a55.up.railway.app'
 ];
 
 const corsOptions = {
@@ -224,13 +223,13 @@ app.use(injectPrisma);
 
 // Servir les fichiers statiques avec CORS pour les images
 app.use('/uploads', cors({
-  origin: ['http://localhost:3000', 'http://localhost', 'https://church-frontend-51m6.onrender.com', 'https://church-front-lilac.vercel.app', 'https://multitudeszno.vercel.app', 'https://web-production-f5a55.up.railway.app'],
+  origin: ['http://localhost:3000', 'http://localhost', 'https://multitudeszno.up.railway.app'],
   credentials: false
 }), express.static(path.join(__dirname, 'uploads')));
 
 // Servir spécifiquement les fichiers de témoignages
 app.use('/uploads/testimonies', cors({
-  origin: ['http://localhost:3000', 'http://localhost', 'https://church-frontend-51m6.onrender.com', 'https://church-front-lilac.vercel.app', 'https://multitudeszno.vercel.app', 'https://web-production-f5a55.up.railway.app'],
+  origin: ['http://localhost:3000', 'http://localhost', 'https://multitudeszno.up.railway.app'],
   credentials: false
 }), express.static(path.join(__dirname, 'uploads/testimonies')));
 

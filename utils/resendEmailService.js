@@ -184,7 +184,7 @@ Cet email a été envoyé automatiquement, merci de ne pas y répondre.
 
   static generateMessageNotificationHTML(recipient, sender, message, messageUrl) {
     const appName = process.env.APP_NAME || 'Système de Gestion d\'Église';
-    const appUrl = process.env.APP_URL || 'https://multitudeszno.vercel.app';
+    const appUrl = process.env.APP_URL || 'https://multitudeszno.up.railway.app';
     
     return `
     <!DOCTYPE html>
@@ -347,7 +347,7 @@ Cet email a été envoyé automatiquement, merci de ne pas y répondre.
 
   static generateMessageNotificationText(recipient, sender, message, messageUrl) {
     const appName = process.env.APP_NAME || 'Système de Gestion d\'Église';
-    const appUrl = process.env.APP_URL || 'https://multitudeszno.vercel.app';
+    const appUrl = process.env.APP_URL || 'https://multitudeszno.up.railway.app';
     
     return `
 🏛️ ${appName}

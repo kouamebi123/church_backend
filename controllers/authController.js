@@ -495,7 +495,7 @@ exports.forgotPassword = async (req, res) => {
     );
 
     // Créer un lien de réinitialisation sécurisé
-    const resetLink = `${process.env.FRONTEND_URL || 'https://multitudeszno.vercel.app'}/reset-password?token=${resetToken}`;
+    const resetLink = `${process.env.FRONTEND_URL || 'https://multitudeszno.up.railway.app'}/reset-password?token=${resetToken}`;
 
     // Toujours essayer d'envoyer l'email
     try {

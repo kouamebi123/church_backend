@@ -19,8 +19,8 @@ class SocketService {
           'http://localhost', // Production via nginx
           'http://localhost:80',
           'http://localhost:8080', // Port Swagger UI
-          'https://multitudeszno.vercel.app',
-          'https://church-production-9a34.up.railway.app' // Railway production  
+          'https://multitudeszno.up.railway.app', // Railway frontend
+          'https://churchbackend-production.up.railway.app' // Railway backend  
         ],
         methods: ['GET', 'POST'],
         credentials: true
