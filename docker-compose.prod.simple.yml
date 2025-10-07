@@ -89,7 +89,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # Frontend en mode production
+  # Frontend en mode production (Vite)
   frontend:
     build:
       context: ../frontend
@@ -98,9 +98,9 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV}
-      REACT_APP_API_URL: ${APP_URL}/api
-      REACT_APP_SOCKET_URL: http://localhost:5001
-      REACT_APP_HIDE_CONSOLE: 'true'
+      VITE_API_URL: ${APP_URL}/api
+      VITE_SOCKET_URL: http://localhost:5001
+      VITE_HIDE_CONSOLE: 'true'
     ports:
       - "3000:3000"
     depends_on:

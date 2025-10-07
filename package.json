@@ -65,7 +65,6 @@
     "setup": "npm run db:auto-setup",
     "test:setup": "npm run db:test-setup",
     "clear": "npm run db:clear",
-    "deploy:production": "chmod +x scripts/deploy-production.sh && ./scripts/deploy-production.sh",
     "docs:swagger": "./docs/start-swagger.sh",
     "docs:swagger:win": "cd docs && python -m http.server 8080",
     "cleanup": "node scripts/cleanup.js",
