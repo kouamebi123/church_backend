@@ -60,7 +60,7 @@ const checkEmailConfig = async (req, res) => {
       smtp_port: process.env.SMTP_PORT || 'Non configuré',
       smtp_user: process.env.SMTP_USER || process.env.EMAIL_USER || 'Non configuré',
       app_name: process.env.APP_NAME || 'Non configuré',
-      app_url: process.env.APP_URL || 'Non configuré',
+      app_url: process.env.FRONTEND_URL || 'Non configuré',
       has_smtp_pass: !!(process.env.SMTP_PASS || process.env.EMAIL_PASSWORD)
     };
 

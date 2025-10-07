@@ -117,7 +117,7 @@ const sendMessage = async (req, res) => {
       eglise_locale: req.user.eglise_locale
     };
 
-    const appUrl = process.env.APP_URL || 'http://localhost';
+    const appUrl = process.env.FRONTEND_URL || 'http://localhost';
     const messageUrl = `${appUrl}/`; // Rediriger vers la page d'accueil
 
     // Exécuter l'envoi d'emails en arrière-plan sans bloquer la réponse
