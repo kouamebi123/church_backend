@@ -5,30 +5,18 @@ async function fixFailedMigration() {
     console.log('🔧 Génération du client Prisma...');
     execSync('npx prisma generate', { stdio: 'inherit' });
     
-    console.log('🔧 Nettoyage des migrations échouées...');
+    console.log('🔧 Connexion à la base de données pour nettoyer les migrations échouées...');
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
     
-    // Vérifier et supprimer la migration échouée
-    const failedMigration = await prisma.$queryRaw`
-      SELECT * FROM "_prisma_migrations" 
-      WHERE migration_name = '20250115000001_add_testimonies_and_activity_logs' 
-      AND finished_at IS NULL
+    // Supprimer TOUTES les migrations échouées ou en attente
+    console.log('🧹 Suppression des migrations en échec...');
+    const result = await prisma.$executeRaw`
+      DELETE FROM "_prisma_migrations" 
+      WHERE finished_at IS NULL OR (started_at IS NOT NULL AND finished_at IS NULL)
     `;
     
-    if (failedMigration && failedMigration.length > 0) {
-      console.log('⚠️  Migration échouée détectée, suppression...');
-      
-      await prisma.$executeRaw`
-        DELETE FROM "_prisma_migrations" 
-        WHERE migration_name = '20250115000001_add_testimonies_and_activity_logs' 
-        AND finished_at IS NULL
-      `;
-      
-      console.log('✅ Migration échouée supprimée');
-    } else {
-      console.log('✅ Aucune migration échouée détectée');
-    }
+    console.log(`✅ ${result} migrations échouées supprimées`);
     
     await prisma.$disconnect();
     
@@ -39,10 +27,8 @@ async function fixFailedMigration() {
     
   } catch (error) {
     console.error('❌ Erreur lors de la résolution de la migration:', error.message);
-    // Ne pas faire échouer le démarrage du serveur
     console.log('⚠️  Démarrant le serveur malgré l\'erreur de migration...');
   }
 }
 
 fixFailedMigration().catch(console.error);
-
