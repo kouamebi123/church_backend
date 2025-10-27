@@ -1065,7 +1065,7 @@ exports.getNetworkStatsById = async (req, res) => {
         ['LEADER', 'RESPONSABLE_RESEAU', 'QUALIFICATION_12', 'QUALIFICATION_144', 'QUALIFICATION_1728', 'COMPAGNON_OEUVRE'].includes(q)
       ).length,
       'Membre simple': qualificationsArray.filter(q =>
-        !['QUALIFICATION_12', 'QUALIFICATION_144', 'QUALIFICATION_1728', 'LEADER', 'RESPONSABLE_RESEAU'].includes(q)
+        !['QUALIFICATION_12', 'QUALIFICATION_144', 'QUALIFICATION_1728', 'LEADER', 'RESPONSABLE_RESEAU', 'COMPAGNON_OEUVRE'].includes(q)
       ).length,
       totalMembers: memberIds.size
     };
