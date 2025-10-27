@@ -962,6 +962,14 @@ exports.getAvailableUsers = async (req, res) => {
       return ids;
     }, []);
 
+    // Récupérer les IDs des utilisateurs qui sont déjà compagnons d'un réseau
+    const companionsInNetworks = await prisma.networkCompanion.findMany({
+      select: {
+        user_id: true
+      }
+    });
+    const companionIdsInNetworks = companionsInNetworks.map(c => c.user_id);
+
     // Filtrer les utilisateurs disponibles
     const availableUsers = allUsers.filter(user => {
       // Exclure les utilisateurs déjà dans des groupes
@@ -971,6 +979,11 @@ exports.getAvailableUsers = async (req, res) => {
 
       // Exclure les responsables de réseaux
       if (networkResponsableIds.includes(user.id)) {
+        return false;
+      }
+
+      // Exclure les compagnons d'œuvre qui sont déjà dans un réseau
+      if (companionIdsInNetworks.includes(user.id)) {
         return false;
       }
 
@@ -997,6 +1010,7 @@ exports.getAvailableUsers = async (req, res) => {
       totalUsers: allUsers.length,
       usersInGroups: userIdsInGroups.length,
       networkResponsables: networkResponsableIds.length,
+      companionsInNetworks: companionIdsInNetworks.length,
       availableUsers: availableUsers.length
     });
 
