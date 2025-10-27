@@ -957,6 +957,19 @@ exports.getNetworkStatsById = async (req, res) => {
       }
     });
 
+    // Récupérer les compagnons d'œuvre du réseau
+    const companions = await prisma.networkCompanion.findMany({
+      where: { network_id: id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            qualification: true
+          }
+        }
+      }
+    });
+
     // Calculer les statistiques par qualification
     const memberIds = new Set();
     const userQualifications = new Map(); // Map pour éviter les doublons par utilisateur
@@ -999,6 +1012,17 @@ exports.getNetworkStatsById = async (req, res) => {
       }
     });
 
+    // Ajouter les compagnons d'œuvre aux statistiques
+    companions.forEach(companion => {
+      const companionUserId = companion.user?.id || companion.user_id;
+      if (companionUserId) {
+        memberIds.add(companionUserId);
+        if (!userQualifications.has(companionUserId)) {
+          userQualifications.set(companionUserId, companion.user?.qualification || 'COMPAGNON_OEUVRE');
+        }
+      }
+    });
+
     logger.debug('Résumé des données', {
       membresUniques: Array.from(memberIds),
       qualificationsUniques: Object.fromEntries(userQualifications),
@@ -1035,7 +1059,7 @@ exports.getNetworkStatsById = async (req, res) => {
       '1728': qualificationsArray.filter(q => q === 'QUALIFICATION_1728').length,
       totalGroups: groups.length,
       'Responsables de GR': groupResponsables.size,
-      'Compagnon d\'œuvre': qualificationsArray.filter(q => q === 'COMPAGNON_OEUVRE').length,
+      'Compagnon d\'œuvre': companions.length,
       'Leader': qualificationsArray.filter(q => q === 'LEADER').length,
       'Leader (Tous)': qualificationsArray.filter(q =>
         ['LEADER', 'RESPONSABLE_RESEAU', 'QUALIFICATION_12', 'QUALIFICATION_144', 'QUALIFICATION_1728', 'COMPAGNON_OEUVRE'].includes(q)
