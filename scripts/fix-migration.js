@@ -1,11 +1,15 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { execSync } = require('child_process');
 
 async function fixFailedMigration() {
   try {
-    console.log('🔧 Vérification des migrations échouées...');
+    console.log('🔧 Génération du client Prisma...');
+    execSync('npx prisma generate', { stdio: 'inherit' });
     
-    // Vérifier si la migration a échoué
+    console.log('🔧 Nettoyage des migrations échouées...');
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    // Vérifier et supprimer la migration échouée
     const failedMigration = await prisma.$queryRaw`
       SELECT * FROM "_prisma_migrations" 
       WHERE migration_name = '20250115000001_add_testimonies_and_activity_logs' 
@@ -15,7 +19,6 @@ async function fixFailedMigration() {
     if (failedMigration && failedMigration.length > 0) {
       console.log('⚠️  Migration échouée détectée, suppression...');
       
-      // Supprimer la migration échouée
       await prisma.$executeRaw`
         DELETE FROM "_prisma_migrations" 
         WHERE migration_name = '20250115000001_add_testimonies_and_activity_logs' 
@@ -27,18 +30,17 @@ async function fixFailedMigration() {
       console.log('✅ Aucune migration échouée détectée');
     }
     
-    console.log('🚀 Application des nouvelles migrations...');
-    const { execSync } = require('child_process');
+    await prisma.$disconnect();
+    
+    console.log('🚀 Application des migrations...');
     execSync('npx prisma migrate deploy', { stdio: 'inherit' });
     
     console.log('✅ Migrations appliquées avec succès');
     
   } catch (error) {
-    console.error('❌ Erreur lors de la résolution de la migration:', error);
+    console.error('❌ Erreur lors de la résolution de la migration:', error.message);
     // Ne pas faire échouer le démarrage du serveur
-    console.log('⚠️  Continuer malgré l\'erreur...');
-  } finally {
-    await prisma.$disconnect();
+    console.log('⚠️  Démarrant le serveur malgré l\'erreur de migration...');
   }
 }
 
