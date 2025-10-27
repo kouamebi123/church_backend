@@ -50,7 +50,7 @@
     "emergency:reset": "node scripts/emergency-reset.js",
     "emergency:force": "node scripts/emergency-reset.js --force",
     "emergency:help": "node scripts/emergency-reset.js --help",
-    "start": "node server.js",
+    "start": "prisma migrate deploy && node server.js",
     "railway:deploy": "./scripts/railway-deploy.sh",
     "start:cluster": "node cluster.js",
     "start:single": "node server.js",
