@@ -1035,9 +1035,10 @@ exports.getNetworkStatsById = async (req, res) => {
       '1728': qualificationsArray.filter(q => q === 'QUALIFICATION_1728').length,
       totalGroups: groups.length,
       'Responsables de GR': groupResponsables.size,
+      'Compagnon d\'œuvre': qualificationsArray.filter(q => q === 'COMPAGNON_OEUVRE').length,
       'Leader': qualificationsArray.filter(q => q === 'LEADER').length,
       'Leader (Tous)': qualificationsArray.filter(q =>
-        ['LEADER', 'RESPONSABLE_RESEAU', 'QUALIFICATION_12', 'QUALIFICATION_144', 'QUALIFICATION_1728'].includes(q)
+        ['LEADER', 'RESPONSABLE_RESEAU', 'QUALIFICATION_12', 'QUALIFICATION_144', 'QUALIFICATION_1728', 'COMPAGNON_OEUVRE'].includes(q)
       ).length,
       'Membre simple': qualificationsArray.filter(q =>
         !['QUALIFICATION_12', 'QUALIFICATION_144', 'QUALIFICATION_1728', 'LEADER', 'RESPONSABLE_RESEAU'].includes(q)
@@ -1292,6 +1293,198 @@ exports.getNetworksQualificationStats = async (req, res) => {
     // Utilisation du gestionnaire d'erreurs centralisé
     const { status, message } = handleError(error, 'la récupération des statistiques de qualification des réseaux');
 
+    res.status(status).json({
+      success: false,
+      message
+    });
+  }
+};
+
+// Ajouter un compagnon d'œuvre à un réseau
+exports.addCompanion = async (req, res) => {
+  try {
+    const { prisma } = req;
+    const { id } = req.params;
+    const { user_id } = req.body;
+
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'user_id est requis'
+      });
+    }
+
+    // Vérifier que le réseau existe
+    const network = await prisma.network.findUnique({
+      where: { id }
+    });
+
+    if (!network) {
+      return res.status(404).json({
+        success: false,
+        message: 'Réseau non trouvé'
+      });
+    }
+
+    // Vérifier que l'utilisateur existe
+    const user = await prisma.user.findUnique({
+      where: { id: user_id }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    // Vérifier si le compagnon d'œuvre n'est pas déjà ajouté
+    const existingCompanion = await prisma.networkCompanion.findUnique({
+      where: {
+        network_id_user_id: {
+          network_id: id,
+          user_id: user_id
+        }
+      }
+    });
+
+    if (existingCompanion) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ce compagnon d\'œuvre est déjà ajouté à ce réseau'
+      });
+    }
+
+    // Créer le compagnon d'œuvre
+    const companion = await prisma.networkCompanion.create({
+      data: {
+        network_id: id,
+        user_id: user_id
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true,
+            qualification: true
+          }
+        }
+      }
+    });
+
+    logger.info(`Network - addCompanion - Compagnon d'œuvre ajouté au réseau ${id}`);
+
+    res.status(201).json({
+      success: true,
+      data: companion
+    });
+
+  } catch (error) {
+    logger.error('Network - addCompanion - Erreur complète', error);
+    const { status, message } = handleError(error, 'l\'ajout du compagnon d\'œuvre');
+    res.status(status).json({
+      success: false,
+      message
+    });
+  }
+};
+
+// Supprimer un compagnon d'œuvre d'un réseau
+exports.removeCompanion = async (req, res) => {
+  try {
+    const { prisma } = req;
+    const { id, companionId } = req.params;
+
+    // Vérifier que le compagnon d'œuvre existe
+    const companion = await prisma.networkCompanion.findUnique({
+      where: { id: companionId },
+      include: {
+        network: {
+          select: {
+            id: true,
+            nom: true
+          }
+        }
+      }
+    });
+
+    if (!companion) {
+      return res.status(404).json({
+        success: false,
+        message: 'Compagnon d\'œuvre non trouvé'
+      });
+    }
+
+    // Vérifier que le compagnon appartient bien au réseau
+    if (companion.network_id !== id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Ce compagnon d\'œuvre n\'appartient pas à ce réseau'
+      });
+    }
+
+    // Supprimer le compagnon d'œuvre
+    await prisma.networkCompanion.delete({
+      where: { id: companionId }
+    });
+
+    logger.info(`Network - removeCompanion - Compagnon d'œuvre supprimé du réseau ${id}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Compagnon d\'œuvre supprimé avec succès'
+    });
+
+  } catch (error) {
+    logger.error('Network - removeCompanion - Erreur complète', error);
+    const { status, message } = handleError(error, 'la suppression du compagnon d\'œuvre');
+    res.status(status).json({
+      success: false,
+      message
+    });
+  }
+};
+
+// Récupérer tous les compagnons d'œuvre d'un réseau
+exports.getNetworkCompanions = async (req, res) => {
+  try {
+    const { prisma } = req;
+    const { id } = req.params;
+
+    const companions = await prisma.networkCompanion.findMany({
+      where: {
+        network_id: id
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true,
+            qualification: true,
+            email: true,
+            telephone: true,
+            genre: true,
+            tranche_age: true,
+            image: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      count: companions.length,
+      data: companions
+    });
+
+  } catch (error) {
+    logger.error('Network - getNetworkCompanions - Erreur complète', error);
+    const { status, message } = handleError(error, 'la récupération des compagnons d\'œuvre');
     res.status(status).json({
       success: false,
       message

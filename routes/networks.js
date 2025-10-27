@@ -17,7 +17,10 @@ const {
   getNetworkStatsById,
   getNetworkGroups,
   getNetworkMembers,
-  getNetworksQualificationStats
+  getNetworksQualificationStats,
+  addCompanion,
+  removeCompanion,
+  getNetworkCompanions
 } = require('../controllers/networkController');
 
 router.use(protect);
@@ -36,6 +39,13 @@ router.get('/qualification-stats', authorize('ADMIN', 'MANAGER'), getNetworksQua
 router.get('/:id/stats', getNetworkStatsById);
 router.get('/:id/grs', getNetworkGroups);
 router.get('/:id/members', getNetworkMembers);
+router.get('/:id/companions', getNetworkCompanions);
+
+router.route('/:id/companions')
+  .post(authorize('ADMIN', 'MANAGER'), authorizeManagerNetworkAccess, addCompanion);
+
+router.route('/:id/companions/:companionId')
+  .delete(authorize('ADMIN', 'MANAGER'), authorizeManagerNetworkAccess, removeCompanion);
 
 router.route('/:id')
   .get(getNetwork)

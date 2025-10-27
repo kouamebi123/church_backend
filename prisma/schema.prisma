@@ -57,6 +57,7 @@ model User {
   approved_testimonies         Testimony[]          @relation("TestimonyApprover")
   confirmed_testimonies        Testimony[]          @relation("TestimonyConfirmer")
   activity_logs                ActivityLog[]        @relation("ActivityLogs")
+  network_companions           NetworkCompanion[]
 
   @@map("users")
 }
@@ -101,6 +102,7 @@ model Network {
   assistance      Assistance[]
   chaine_impact   ChaineImpact[]
   groups          Group[]
+  companions      NetworkCompanion[]
   church          Church         @relation(fields: [church_id], references: [id])
   responsable1    User           @relation("NetworkResponsable1", fields: [responsable1_id], references: [id])
   responsable2    User?          @relation("NetworkResponsable2", fields: [responsable2_id], references: [id])
@@ -160,6 +162,19 @@ model GroupMemberHistory {
   user      User     @relation(fields: [user_id], references: [id])
 
   @@map("group_member_history")
+}
+
+model NetworkCompanion {
+  id         String   @id @default(cuid())
+  network_id String
+  user_id    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  network    Network  @relation(fields: [network_id], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([network_id, user_id])
+  @@map("network_companions")
 }
 
 model Department {
@@ -457,6 +472,7 @@ enum Qualification {
   QUALIFICATION_20738
   QUALIFICATION_248832
   RESPONSABLE_EGLISE
+  COMPAGNON_OEUVRE
 }
 
 enum ChurchType {
