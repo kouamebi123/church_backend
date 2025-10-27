@@ -1362,7 +1362,34 @@ exports.addCompanion = async (req, res) => {
       });
     }
 
-    // Vérifier si le compagnon d'œuvre n'est pas déjà ajouté
+    // Contrainte 1: Vérifier que l'utilisateur n'est pas déjà compagnon d'un autre réseau
+    const existingCompanionInOtherNetwork = await prisma.networkCompanion.findFirst({
+      where: {
+        user_id: user_id,
+        network_id: { not: id }
+      }
+    });
+
+    if (existingCompanionInOtherNetwork) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cet utilisateur appartient déjà à un autre réseau en tant que compagnon d\'œuvre'
+      });
+    }
+
+    // Contrainte 2: Vérifier que l'utilisateur n'est pas membre d'un GR
+    const isMemberOfGroup = await prisma.groupMember.findFirst({
+      where: { user_id: user_id }
+    });
+
+    if (isMemberOfGroup) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cet utilisateur est déjà membre d\'un groupe de réveil. Un compagnon d\'œuvre ne peut pas être membre d\'un GR'
+      });
+    }
+
+    // Contrainte 3: Vérifier si le compagnon d'œuvre n'est pas déjà ajouté à CE réseau
     const existingCompanion = await prisma.networkCompanion.findUnique({
       where: {
         network_id_user_id: {
