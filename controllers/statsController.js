@@ -78,7 +78,7 @@ exports.getGlobalStats = async (req, res) => {
 
     const total_leaders_all = await prisma.user.count({
       where: {
-        qualification: { in: ['LEADER', 'RESPONSABLE_RESEAU', 'QUALIFICATION_12', 'QUALIFICATION_144', 'QUALIFICATION_1728'] },
+        qualification: { in: ['LEADER', 'RESPONSABLE_RESEAU', 'QUALIFICATION_12', 'QUALIFICATION_144', 'QUALIFICATION_1728', 'COMPAGNON_OEUVRE'] },
         ...churchFilter
       }
     });
@@ -107,6 +107,10 @@ exports.getGlobalStats = async (req, res) => {
       where: { qualification: 'RESPONSABLE_ECODIM', ...churchFilter }
     });
 
+    const total_companions = await prisma.user.count({
+      where: { qualification: 'COMPAGNON_OEUVRE', ...churchFilter }
+    });
+
     // Calcul des personnes isolées (comme dans Mongoose)
     let usersInGroups = [];
     if (churchId) {
@@ -131,7 +135,7 @@ exports.getGlobalStats = async (req, res) => {
     const total_personnes_isolees = await prisma.user.count({
       where: {
         id: { notIn: usersInGroups },
-        qualification: { notIn: ['RESPONSABLE_RESEAU', 'GOUVERNANCE', 'ECODIM', 'RESPONSABLE_ECODIM'] },
+        qualification: { notIn: ['RESPONSABLE_RESEAU', 'GOUVERNANCE', 'ECODIM', 'RESPONSABLE_ECODIM', 'COMPAGNON_OEUVRE'] },
         ...churchFilter // Filtre par église comme dans Mongoose
       }
     });
@@ -152,6 +156,7 @@ exports.getGlobalStats = async (req, res) => {
       total_irreguliers,
       total_ecodim,
       total_resp_ecodim,
+      total_companions,
       total_personnes_isolees,
       total_all
     });
@@ -169,6 +174,7 @@ exports.getGlobalStats = async (req, res) => {
       total_irreguliers,
       total_ecodim,
       total_resp_ecodim,
+      total_companions,
       total_personnes_isolees,
       total_all
     });
