@@ -33,11 +33,11 @@ exports.getSessions = async (req, res) => {
       userId: req.user?.id
     });
 
-    const cachedData = cache.get(cacheKey);
-    if (cachedData) {
-      logger.info('Session getSessions - Using cached data');
-      return res.status(200).json(cachedData);
-    }
+    // DÉSACTIVÉ LE CACHE TEMPORAIREMENT POUR DIAGNOSTIC (comme networks)
+    // const cachedData = cache.get(cacheKey);
+    // if (cachedData) {
+    //   return res.status(200).json(cachedData);
+    // }
 
     const sessions = await prisma.session.findMany({
       where: filter,
@@ -89,7 +89,8 @@ exports.getSessions = async (req, res) => {
       data: sessions
     };
 
-    cache.set(cacheKey, response, 120000);
+    // DÉSACTIVÉ LE CACHE TEMPORAIREMENT POUR DIAGNOSTIC (comme networks)
+    // cache.set(cacheKey, response, 120000);
 
     res.status(200).json(response);
   } catch (error) {
