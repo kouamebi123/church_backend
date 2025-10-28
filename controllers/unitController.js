@@ -395,10 +395,18 @@ exports.deleteUnit = async (req, res) => {
 
     logger.info('Unit deleteUnit - Starting deletion for unit:', id);
 
-    // Vérifier que l'unité existe et récupérer les membres
+    // Vérifier que l'unité existe et récupérer les membres et responsables
     const unit = await prisma.unit.findUnique({
       where: { id },
       include: {
+        members: {
+          select: { user_id: true }
+        }
+      },
+      select: {
+        id: true,
+        responsable1_id: true,
+        responsable2_id: true,
         members: {
           select: { user_id: true }
         }
@@ -412,14 +420,25 @@ exports.deleteUnit = async (req, res) => {
       });
     }
 
-    // Mettre à jour la qualification des membres à MEMBRE_IRREGULIER avant suppression
-    const memberIds = unit.members.map(member => member.user_id);
-    if (memberIds.length > 0) {
+    // Collecter tous les utilisateurs à mettre à jour (membres + responsables)
+    const allUserIds = new Set();
+    
+    // Ajouter les membres
+    unit.members.forEach(member => {
+      allUserIds.add(member.user_id);
+    });
+    
+    // Ajouter les responsables
+    if (unit.responsable1_id) allUserIds.add(unit.responsable1_id);
+    if (unit.responsable2_id) allUserIds.add(unit.responsable2_id);
+
+    // Mettre à jour la qualification de tous les utilisateurs à MEMBRE_IRREGULIER
+    if (allUserIds.size > 0) {
       await prisma.user.updateMany({
-        where: { id: { in: memberIds } },
+        where: { id: { in: Array.from(allUserIds) } },
         data: { qualification: 'MEMBRE_IRREGULIER' }
       });
-      logger.info('Unit deleteUnit - Membres remis à MEMBRE_IRREGULIER', { memberIds });
+      logger.info('Unit deleteUnit - Utilisateurs remis à MEMBRE_IRREGULIER', { userIds: Array.from(allUserIds) });
     }
 
     // Supprimer tous les membres de l'unité
@@ -541,6 +560,24 @@ exports.removeMember = async (req, res) => {
       });
     }
 
+    // Vérifier si le membre existe dans l'unité
+    const existingMember = await prisma.unitMember.findUnique({
+      where: {
+        unit_id_user_id: {
+          unit_id: id,
+          user_id: memberId
+        }
+      }
+    });
+
+    if (!existingMember) {
+      return res.status(404).json({
+        success: false,
+        message: 'Membre introuvable dans cette unité'
+      });
+    }
+
+    // Supprimer le membre de l'unité
     await prisma.unitMember.delete({
       where: {
         unit_id_user_id: {
