@@ -239,7 +239,7 @@ exports.getIsoles = async (req, res) => {
       }
     }
 
-    const specialQualifications = ['RESPONSABLE_RESEAU', 'GOUVERNANCE', 'ECODIM', 'RESPONSABLE_ECODIM'];
+    const specialQualifications = ['RESPONSABLE_RESEAU', 'GOUVERNANCE', 'ECODIM'];
     const users = await prisma.user.findMany({
       where: {
         id: { notIn: usersInGroups },
@@ -329,7 +329,7 @@ exports.getNonIsoles = async (req, res) => {
       }
     }
 
-    const specialQualifications = ['RESPONSABLE_RESEAU', 'GOUVERNANCE', 'ECODIM', 'RESPONSABLE_ECODIM'];
+    const specialQualifications = ['RESPONSABLE_RESEAU', 'GOUVERNANCE', 'ECODIM'];
     const users = await prisma.user.findMany({
       where: {
         OR: [
@@ -1040,8 +1040,7 @@ exports.getAvailableUsers = async (req, res) => {
       // Note: LEADER est autorisé car c'est la qualification des responsables de groupes
       const excludedQualifications = [
         'RESPONSABLE_RESEAU',  // Responsables de réseaux (pas de groupes)
-        'ECODIM',              // Membres Ecodim (pas de groupes)
-        'RESPONSABLE_ECODIM'   // Responsables Ecodim (pas de groupes)
+        'ECODIM'               // Membres Ecodim (pas de groupes)
       ];
       if (excludedQualifications.includes(user.qualification)) {
         return false;

@@ -510,7 +510,7 @@ enum TestimonyCategory {
 
 enum TestimonyType {
   GOUVERNANCE      // Personnes avec qualification GOUVERNANCE
-  ECODIM           // Personnes avec qualification ECODIM ou RESPONSABLE_ECODIM
+  ECODIM           // Personnes avec qualification ECODIM
   SECTION          // Personnes dans une section (avec section et unit)
   VISITOR          // Visiteur
   NETWORK_MEMBER   // Membre de réseau (si networkId est renseigné)
@@ -528,7 +528,6 @@ enum Qualification {
   EN_INTEGRATION
   GOUVERNANCE
   ECODIM
-  RESPONSABLE_ECODIM
   QUALIFICATION_20738
   QUALIFICATION_248832
   RESPONSABLE_EGLISE

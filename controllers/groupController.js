@@ -1133,8 +1133,7 @@ exports.addMember = async (req, res) => {
     const excludedQualifications = [
       'GOUVERNANCE',
       'RESPONSABLE_RESEAU',
-      'ECODIM',
-      'RESPONSABLE_ECODIM'
+      'ECODIM'
     ];
 
     if (excludedQualifications.includes(user.qualification)) {
