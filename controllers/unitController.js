@@ -395,9 +395,14 @@ exports.deleteUnit = async (req, res) => {
 
     logger.info('Unit deleteUnit - Starting deletion for unit:', id);
 
-    // Vérifier que l'unité existe
+    // Vérifier que l'unité existe et récupérer les membres
     const unit = await prisma.unit.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        members: {
+          select: { user_id: true }
+        }
+      }
     });
 
     if (!unit) {
@@ -405,6 +410,16 @@ exports.deleteUnit = async (req, res) => {
         success: false,
         message: 'Unité introuvable'
       });
+    }
+
+    // Mettre à jour la qualification des membres à MEMBRE_IRREGULIER avant suppression
+    const memberIds = unit.members.map(member => member.user_id);
+    if (memberIds.length > 0) {
+      await prisma.user.updateMany({
+        where: { id: { in: memberIds } },
+        data: { qualification: 'MEMBRE_IRREGULIER' }
+      });
+      logger.info('Unit deleteUnit - Membres remis à MEMBRE_IRREGULIER', { memberIds });
     }
 
     // Supprimer tous les membres de l'unité

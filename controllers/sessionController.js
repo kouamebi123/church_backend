@@ -406,12 +406,17 @@ exports.deleteSession = async (req, res) => {
 
     logger.info('Session deleteSession - Starting deletion for session:', id);
 
-    // Vérifier que la session existe et récupérer les responsables
+    // Vérifier que la session existe et récupérer les responsables et membres
     const session = await prisma.session.findUnique({
       where: { id },
       include: {
         units: {
-          select: { id: true }
+          select: { 
+            id: true,
+            members: {
+              select: { user_id: true }
+            }
+          }
         }
       },
       select: {
@@ -419,7 +424,12 @@ exports.deleteSession = async (req, res) => {
         responsable1_id: true,
         responsable2_id: true,
         units: {
-          select: { id: true }
+          select: { 
+            id: true,
+            members: {
+              select: { user_id: true }
+            }
+          }
         }
       }
     });
@@ -442,6 +452,22 @@ exports.deleteSession = async (req, res) => {
         data: { qualification: 'LEADER' }
       });
       logger.info('Session deleteSession - Responsables remis à LEADER avant suppression', { responsables });
+    }
+
+    // Mettre à jour la qualification des membres de toutes les unités à MEMBRE_IRREGULIER
+    const allMemberIds = [];
+    session.units.forEach(unit => {
+      unit.members.forEach(member => {
+        allMemberIds.push(member.user_id);
+      });
+    });
+
+    if (allMemberIds.length > 0) {
+      await prisma.user.updateMany({
+        where: { id: { in: allMemberIds } },
+        data: { qualification: 'MEMBRE_IRREGULIER' }
+      });
+      logger.info('Session deleteSession - Membres des unités remis à MEMBRE_IRREGULIER', { allMemberIds });
     }
 
     // Supprimer tous les membres de chaque unité
