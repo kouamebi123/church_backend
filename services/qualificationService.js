@@ -229,18 +229,6 @@ class QualificationService {
     try {
       const session = await this.prisma.session.findUnique({
         where: { id: sessionId },
-        include: {
-          units: {
-            select: {
-              id: true,
-              responsable1_id: true,
-              responsable2_id: true,
-              members: {
-                select: { user_id: true }
-              }
-            }
-          }
-        },
         select: {
           responsable1_id: true,
           responsable2_id: true,
