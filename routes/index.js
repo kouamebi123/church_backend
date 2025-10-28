@@ -33,6 +33,8 @@ const roleRoutes = require('./roles');
 const preferencesRoutes = require('./preferences');
 const testimonyRoutes = require('./testimonyRoutes');
 const activityRoutes = require('./activity');
+const sessionRoutes = require('./sessions');
+const unitRoutes = require('./units');
 
 // Endpoint de sécurité
 const securityLogger = require('../utils/securityLogger');
@@ -58,6 +60,8 @@ router.use('/roles', roleRoutes);
 router.use('/preferences', preferencesRoutes);
 router.use('/testimonies', testimonyRoutes);
 router.use('/activities', activityRoutes);
+router.use('/sessions', sessionRoutes);
+router.use('/units', unitRoutes);
 
 // Endpoint de sécurité
 router.get('/security/stats', (req, res) => {
