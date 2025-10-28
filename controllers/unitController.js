@@ -3,71 +3,22 @@ const { handleError } = require('../utils/errorHandler');
 const logger = require('../utils/logger');
 const { getNiveauFromQualification } = require('../utils/chaineImpactUtils');
 
-// Fonction pour formater les noms selon la logique demandée
-const formatResponsableName = (username) => {
-  if (!username) return '';
-  
-  const statusPrefixes = ['Past.', 'MC.', 'PE.', 'CE.', 'Resp.'];
-  const words = username.split(' ');
-  
-  const firstWord = words[0];
-  const isStatusPrefix = statusPrefixes.includes(firstWord);
-  
-  if (isStatusPrefix) {
-    return words.length >= 2 ? words[1] : firstWord;
-  } else {
-    return words[0];
-  }
-};
-
 // Fonction utilitaire pour générer le nom automatique d'une unité
-const generateUnitName = async (prisma, responsable1Id, responsable2Id = null) => {
+const generateUnitName = async (prisma, sessionId) => {
   try {
-    let responsableName = '';
+    // Compter le nombre d'unités existantes dans la session
+    const unitCount = await prisma.unit.count({
+      where: { session_id: sessionId }
+    });
 
-    if (responsable1Id) {
-      const responsable1 = await prisma.user.findUnique({
-        where: { id: responsable1Id },
-        select: { username: true, pseudo: true }
-      });
+    // Générer une lettre de l'alphabet pour l'unité
+    const letter = String.fromCharCode(97 + unitCount); // 97 = 'a' en ASCII
+    const letterUpper = letter.toUpperCase();
 
-      if (responsable1) {
-        if (responsable1.username) {
-          responsableName = formatResponsableName(responsable1.username);
-        } else {
-          responsableName = responsable1.pseudo || '';
-        }
-      }
-    }
-
-    if (!responsableName && responsable2Id) {
-      const responsable2 = await prisma.user.findUnique({
-        where: { id: responsable2Id },
-        select: { username: true, pseudo: true }
-      });
-
-      if (responsable2) {
-        if (responsable2.username) {
-          responsableName = formatResponsableName(responsable2.username);
-        } else {
-          responsableName = responsable2.pseudo || '';
-        }
-      }
-    }
-
-    if (!responsableName) {
-      return 'Unité_Sans_Responsable';
-    }
-
-    const cleanName = responsableName
-      .replace(/[^a-zA-ZÀ-ÿ0-9\s]/g, '')
-      .replace(/\s+/g, '_')
-      .trim();
-
-    return `Unité_${cleanName}`;
+    return `Unité ${letterUpper}`;
   } catch (error) {
     logger.error('Erreur lors de la génération du nom de l\'unité', error);
-    return 'Unité_Sans_Responsable';
+    return 'Unité A';
   }
 };
 
@@ -238,7 +189,7 @@ exports.createUnit = async (req, res) => {
     }
 
     // Générer le nom automatiquement
-    const nom = await generateUnitName(prisma, responsable1_id, responsable2_id);
+    const nom = await generateUnitName(prisma, session_id);
 
     const unit = await prisma.unit.create({
       data: {
