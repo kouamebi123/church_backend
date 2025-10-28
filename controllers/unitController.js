@@ -502,6 +502,30 @@ exports.removeMember = async (req, res) => {
     const { prisma } = req;
     const { id, memberId } = req.params;
 
+    // Vérifier si l'utilisateur est responsable de cette unité
+    const unit = await prisma.unit.findUnique({
+      where: { id },
+      select: {
+        responsable1_id: true,
+        responsable2_id: true
+      }
+    });
+
+    if (!unit) {
+      return res.status(404).json({
+        success: false,
+        message: 'Unité introuvable'
+      });
+    }
+
+    // Empêcher la suppression d'un responsable de sa propre unité
+    if (unit.responsable1_id === memberId || unit.responsable2_id === memberId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Impossible de supprimer un responsable de sa propre unité. Pour supprimer un responsable, vous devez d\'abord changer le responsable de l\'unité ou supprimer l\'unité entière.'
+      });
+    }
+
     await prisma.unitMember.delete({
       where: {
         unit_id_user_id: {
@@ -510,23 +534,6 @@ exports.removeMember = async (req, res) => {
         }
       }
     });
-
-    // Mettre à jour la qualification de l'utilisateur
-    // Récupérer la qualification actuelle de l'utilisateur
-    const user = await prisma.user.findUnique({
-      where: { id: memberId },
-      select: { qualification: true }
-    });
-
-    // Si l'utilisateur a la qualification MEMBRE_SESSION, réinitialiser à une qualification par défaut
-    if (user && user.qualification === 'MEMBRE_SESSION') {
-      // Réinitialiser à REGULIER (qualification par défaut)
-      await prisma.user.update({
-        where: { id: memberId },
-        data: { qualification: 'REGULIER' }
-      });
-      logger.info('Unit removeMember - Qualification MEMBRE_SESSION réinitialisée à REGULIER', { userId: memberId });
-    }
 
     res.status(200).json({
       success: true,
