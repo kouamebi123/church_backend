@@ -535,6 +535,14 @@ exports.removeMember = async (req, res) => {
       }
     });
 
+    // Mettre à jour la qualification de l'utilisateur à MEMBRE_IRREGULIER
+    await prisma.user.update({
+      where: { id: memberId },
+      data: { qualification: 'MEMBRE_IRREGULIER' }
+    });
+
+    logger.info('Unit - removeMember - Utilisateur remis à MEMBRE_IRREGULIER', { memberId });
+
     res.status(200).json({
       success: true,
       message: 'Membre supprimé de l\'unité avec succès'

@@ -128,6 +128,14 @@ const removeMemberFromGroup = async (prisma, groupId, userId) => {
       }
     });
 
+    // Mettre à jour la qualification de l'utilisateur à MEMBRE_IRREGULIER
+    await prisma.user.update({
+      where: { id: userId },
+      data: { qualification: 'MEMBRE_IRREGULIER' }
+    });
+
+    logger.info('Group - removeMemberFromGroup - Utilisateur remis à MEMBRE_IRREGULIER', { userId });
+
     return true;
   } catch (error) {
     logger.error('Erreur lors du retrait du membre', error);
@@ -1243,24 +1251,6 @@ exports.removeMember = async (req, res) => {
         success: false,
         message: 'Erreur lors du retrait du membre'
       });
-    }
-
-    // Mettre à jour la qualification de l'utilisateur
-    // Récupérer la qualification actuelle de l'utilisateur
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { qualification: true }
-    });
-
-    // Si l'utilisateur a une qualification spécifique au groupe, réinitialiser à une qualification par défaut
-    // Les qualifications LEADER, QUALIFICATION_12, QUALIFICATION_144, QUALIFICATION_1728 doivent être préservées
-    if (user && ['REGULIER', 'IRREGULIER', 'EN_INTEGRATION'].includes(user.qualification)) {
-      // Si c'est une qualification de membre simple, on peut la réinitialiser
-      await prisma.user.update({
-        where: { id: userId },
-        data: { qualification: 'REGULIER' } // Qualification par défaut
-      });
-      logger.info('Group removeMember - Qualification réinitialisée à REGULIER', { userId });
     }
 
     res.json({
