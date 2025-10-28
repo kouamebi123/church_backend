@@ -190,6 +190,37 @@ class QualificationService {
   }
 
   /**
+   * Nettoyer les qualifications lors de la suppression d'un réseau.
+   * @param networkId
+   * @example
+   */
+  async cleanupNetworkQualification(networkId) {
+    try {
+      const network = await this.prisma.network.findUnique({
+        where: { id: networkId },
+        select: {
+          responsable1_id: true,
+          responsable2_id: true
+        }
+      });
+
+      if (network) {
+        if (network.responsable1_id) {
+          await this.downgradeNetworkResponsable(network.responsable1_id);
+        }
+        if (network.responsable2_id) {
+          await this.downgradeNetworkResponsable(network.responsable2_id);
+        }
+      }
+
+      logger.info(`Qualifications nettoyées pour le réseau ${networkId}`);
+    } catch (error) {
+      logger.error(`Erreur lors du nettoyage des qualifications du réseau ${networkId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Nettoyer les qualifications lors de la suppression d'une session.
    * @param sessionId
    * @example
@@ -198,11 +229,24 @@ class QualificationService {
     try {
       const session = await this.prisma.session.findUnique({
         where: { id: sessionId },
+        include: {
+          units: {
+            select: {
+              id: true,
+              responsable1_id: true,
+              responsable2_id: true,
+              members: {
+                select: { user_id: true }
+              }
+            }
+          }
+        },
         select: {
           responsable1_id: true,
           responsable2_id: true,
           units: {
             select: {
+              id: true,
               responsable1_id: true,
               responsable2_id: true,
               members: {
@@ -214,36 +258,33 @@ class QualificationService {
       });
 
       if (session) {
-        // Remettre LEADER aux responsables de session
-        const responsables = [];
-        if (session.responsable1_id) responsables.push(session.responsable1_id);
-        if (session.responsable2_id) responsables.push(session.responsable2_id);
-
-        if (responsables.length > 0) {
-          await this.prisma.user.updateMany({
-            where: { id: { in: responsables } },
-            data: { qualification: 'LEADER' }
-          });
-          logger.info('Session cleanup - Responsables remis à LEADER', { responsables });
+        // Rétrograder les responsables de session
+        if (session.responsable1_id) {
+          await this.updateUserQualification(session.responsable1_id, 'LEADER');
+        }
+        if (session.responsable2_id) {
+          await this.updateUserQualification(session.responsable2_id, 'LEADER');
         }
 
-        // Remettre IRREGULIER aux membres et responsables des unités
+        // Rétrograder tous les membres et responsables des unités
         const allUserIds = new Set();
         
         session.units.forEach(unit => {
+          // Ajouter les membres des unités
           unit.members.forEach(member => {
             allUserIds.add(member.user_id);
           });
+          // Ajouter les responsables des unités
           if (unit.responsable1_id) allUserIds.add(unit.responsable1_id);
           if (unit.responsable2_id) allUserIds.add(unit.responsable2_id);
         });
 
+        // Mettre tous les utilisateurs en IRREGULIER
         if (allUserIds.size > 0) {
           await this.prisma.user.updateMany({
             where: { id: { in: Array.from(allUserIds) } },
             data: { qualification: 'IRREGULIER' }
           });
-          logger.info('Session cleanup - Membres et responsables unités remis à IRREGULIER', { allUserIds: Array.from(allUserIds) });
         }
       }
 

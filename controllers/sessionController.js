@@ -1,246 +1,106 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { handleError } = require('../utils/errorHandler');
 const logger = require('../utils/logger');
 const cache = require('../utils/cache');
-const QualificationService = require('../services/qualificationService');
-
-// Créer une nouvelle session
-exports.createSession = async (req, res) => {
-  try {
-    const { prisma } = req;
-    const { nom, responsable1_id, responsable2_id, church_id } = req.body;
-    const created_by_id = req.user.id;
-
-    logger.info('Session createSession - Données reçues:', { nom, responsable1_id, responsable2_id, church_id });
-
-    // Vérifier que l'église existe
-    const church = await prisma.church.findUnique({
-      where: { id: church_id }
-    });
-
-    if (!church) {
-      return res.status(404).json({
-        success: false,
-        message: 'Église non trouvée'
-      });
-    }
-
-    // Créer la session
-    const session = await prisma.session.create({
-      data: {
-        nom,
-        responsable1_id,
-        responsable2_id,
-        church_id,
-        created_by_id
-      }
-    });
-
-    // Mettre à jour les qualifications des responsables
-    const responsables = [];
-    if (responsable1_id) responsables.push(responsable1_id);
-    if (responsable2_id) responsables.push(responsable2_id);
-
-    if (responsables.length > 0) {
-      await prisma.user.updateMany({
-        where: { id: { in: responsables } },
-        data: { qualification: 'RESPONSABLE_SESSION' }
-      });
-      logger.info('Session createSession - Responsables mis à RESPONSABLE_SESSION', { responsables });
-    }
-
-    // Invalider le cache
-    try {
-      cache.flushByPattern('sessions');
-    } catch (cacheError) {
-      logger.error('Session - createSession - Erreur cache', cacheError);
-    }
-
-    res.status(201).json({
-      success: true,
-      message: 'Session créée avec succès',
-      data: session
-    });
-  } catch (error) {
-    logger.error('Session - createSession - Erreur complète', error);
-    
-    let errorMessage = 'Erreur lors de la création de la session';
-    
-    if (error.code === 'P2002') {
-      if (error.meta?.target?.includes('nom')) {
-        errorMessage = 'Une session avec ce nom existe déjà';
-      } else if (error.meta?.target?.includes('responsable1_id')) {
-        errorMessage = 'Cette personne est déjà responsable d\'une autre session';
-      } else if (error.meta?.target?.includes('responsable2_id')) {
-        errorMessage = 'Cette personne est déjà responsable d\'une autre session';
-      }
-    }
-
-    res.status(500).json({
-      success: false,
-      message: errorMessage
-    });
-  }
-};
-
-// Supprimer une session
-exports.deleteSession = async (req, res) => {
-  try {
-    const { prisma } = req;
-    const { id } = req.params;
-
-    logger.info('Session deleteSession - Starting deletion for session:', id);
-
-    // Vérifier que la session existe
-    const existingSession = await prisma.session.findUnique({
-      where: { id }
-    });
-
-    if (!existingSession) {
-      return res.status(404).json({
-        success: false,
-        message: 'Session introuvable'
-      });
-    }
-
-    // Supprimer la session dans une transaction
-    await prisma.$transaction(async (tx) => {
-      logger.info('Session deleteSession - Début de la suppression en cascade', { session_id: id });
-
-      // 1. Supprimer d'abord tous les membres des unités
-      const units = await tx.unit.findMany({
-        where: { session_id: id }
-      });
-
-      logger.info('Session deleteSession - Unités trouvées', { count: units.length });
-
-      for (const unit of units) {
-        // Supprimer les membres de l'unité
-        const deletedMembers = await tx.unitMember.deleteMany({
-          where: { unit_id: unit.id }
-        });
-
-        logger.info('Session deleteSession - Unité nettoyée', { 
-          unit_id: unit.id, 
-          unit_name: unit.nom,
-          members_deleted: deletedMembers.count
-        });
-      }
-
-      // Supprimer toutes les unités de cette session
-      const deletedUnits = await tx.unit.deleteMany({
-        where: { session_id: id }
-      });
-
-      logger.info('Session deleteSession - Unités supprimées', { count: deletedUnits.count });
-
-      // 2. Nettoyer les qualifications des responsables avant de supprimer la session
-      const qualificationService = new QualificationService(tx);
-      await qualificationService.cleanupSessionQualification(id);
-
-      // 3. Supprimer la session
-      await tx.session.delete({
-        where: { id }
-      });
-
-      logger.info('Session deleteSession - Session supprimée avec succès', { session_id: id });
-    });
-
-    // Invalider le cache (ne pas faire échouer la requête si cela échoue)
-    try {
-      cache.flushByPattern('sessions');
-    } catch (cacheError) {
-      logger.error('Session - deleteSession - Erreur cache', cacheError);
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Session supprimée avec succès'
-    });
-  } catch (error) {
-    logger.error('Session - deleteSession - Erreur complète', error);
-    
-    // Message d'erreur plus informatif
-    let errorMessage = 'Erreur lors de la suppression de la session';
-    
-    if (error.code === 'P2003') {
-      errorMessage = 'Impossible de supprimer cette session. Il y a encore des unités ou des membres associés.';
-    } else if (error.code === 'P2025') {
-      errorMessage = 'Session introuvable';
-    } else if (error.meta) {
-      errorMessage = error.meta.cause || errorMessage;
-    }
-
-    res.status(500).json({
-      success: false,
-      message: errorMessage
-    });
-  }
-};
 
 // Récupérer toutes les sessions
 exports.getSessions = async (req, res) => {
   try {
     const { prisma } = req;
-    const { churchId } = req.query;
 
-    logger.info('Session getSessions - churchId:', churchId);
+    const filter = {};
+
+    // Si l'utilisateur est un manager, filtrer automatiquement par son église
+    if (req.user && req.user.role === 'MANAGER' && req.user.eglise_locale_id) {
+      const churchId = typeof req.user.eglise_locale_id === 'object'
+        ? req.user.eglise_locale_id.id || req.user.eglise_locale_id._id
+        : req.user.eglise_locale_id;
+
+      if (churchId) {
+        filter.church_id = churchId;
+      }
+    } else {
+      if (req.query.churchId) {
+        filter.church_id = req.query.churchId;
+      }
+    }
+
+    logger.info('Session getSessions - Filter:', JSON.stringify(filter));
+    logger.info('Session getSessions - Query churchId:', req.query.churchId);
+
+    const cacheKey = cache.generateKey('sessions', {
+      ...filter,
+      role: req.user?.role,
+      userId: req.user?.id
+    });
+
+    // DÉSACTIVÉ LE CACHE TEMPORAIREMENT POUR DIAGNOSTIC (comme networks)
+    // const cachedData = cache.get(cacheKey);
+    // if (cachedData) {
+    //   return res.status(200).json(cachedData);
+    // }
 
     const sessions = await prisma.session.findMany({
-      where: churchId ? { church_id: churchId } : {},
+      where: filter,
       include: {
-        responsable1: {
+        church: {
           select: {
             id: true,
             nom: true,
-            prenom: true,
-            qualification: true
+            adresse: true
+          }
+        },
+        responsable1: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true
           }
         },
         responsable2: {
           select: {
             id: true,
-            nom: true,
-            prenom: true,
-            qualification: true
+            username: true,
+            pseudo: true
           }
         },
         units: {
-          include: {
-            members: true,
-            responsable1: {
+          select: {
+            id: true,
+            nom: true,
+            active: true,
+            _count: {
               select: {
-                id: true,
-                nom: true,
-                prenom: true,
-                qualification: true
-              }
-            },
-            responsable2: {
-              select: {
-                id: true,
-                nom: true,
-                prenom: true,
-                qualification: true
+                members: true
               }
             }
           }
         }
       },
-      orderBy: { created_at: 'desc' }
+      orderBy: {
+        createdAt: 'desc'
+      }
     });
 
-    logger.info('Session getSessions - Sessions trouvées:', sessions.length);
+    logger.info('Session getSessions - Found sessions:', sessions.length);
 
-    res.json({
+    const response = {
       success: true,
+      count: sessions.length,
       data: sessions
-    });
+    };
+
+    // DÉSACTIVÉ LE CACHE TEMPORAIREMENT POUR DIAGNOSTIC (comme networks)
+    // cache.set(cacheKey, response, 120000);
+
+    res.status(200).json(response);
   } catch (error) {
     logger.error('Session - getSessions - Erreur complète', error);
-    res.status(500).json({
+
+    const { status, message } = handleError(error, 'la récupération des sessions');
+
+    res.status(status).json({
       success: false,
-      message: 'Erreur lors de la récupération des sessions'
+      message
     });
   }
 };
@@ -254,50 +114,66 @@ exports.getSession = async (req, res) => {
     const session = await prisma.session.findUnique({
       where: { id },
       include: {
-        responsable1: {
+        church: {
           select: {
             id: true,
             nom: true,
-            prenom: true,
+            adresse: true
+          }
+        },
+        responsable1: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true,
             qualification: true
           }
         },
         responsable2: {
           select: {
             id: true,
-            nom: true,
-            prenom: true,
+            username: true,
+            pseudo: true,
             qualification: true
           }
         },
         units: {
           include: {
-            members: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    nom: true,
-                    prenom: true,
-                    qualification: true
-                  }
-                }
-              }
-            },
             responsable1: {
               select: {
                 id: true,
-                nom: true,
-                prenom: true,
+                username: true,
+                pseudo: true,
                 qualification: true
               }
             },
             responsable2: {
               select: {
                 id: true,
-                nom: true,
-                prenom: true,
+                username: true,
+                pseudo: true,
                 qualification: true
+              }
+            },
+            superieur_hierarchique: {
+              select: {
+                id: true,
+                username: true,
+                pseudo: true,
+                qualification: true
+              }
+            },
+            members: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    username: true,
+                    pseudo: true,
+                    qualification: true,
+                    image: true
+                  }
+                }
               }
             }
           }
@@ -312,15 +188,113 @@ exports.getSession = async (req, res) => {
       });
     }
 
-    res.json({
+    res.status(200).json({
       success: true,
       data: session
     });
   } catch (error) {
     logger.error('Session - getSession - Erreur complète', error);
-    res.status(500).json({
+    const { status, message } = handleError(error, 'la récupération de la session');
+    res.status(status).json({
       success: false,
-      message: 'Erreur lors de la récupération de la session'
+      message
+    });
+  }
+};
+
+// Créer une nouvelle session
+exports.createSession = async (req, res) => {
+  try {
+    const { prisma } = req;
+    const { nom, church_id, responsable1_id, responsable2_id } = req.body;
+
+    if (!nom || !church_id || !responsable1_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nom, église et responsable 1 sont requis'
+      });
+    }
+
+    const session = await prisma.session.create({
+      data: {
+        nom,
+        church_id,
+        responsable1_id,
+        responsable2_id: responsable2_id || null
+      },
+      include: {
+        church: {
+          select: {
+            id: true,
+            nom: true
+          }
+        },
+        responsable1: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true
+          }
+        },
+        responsable2: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true
+          }
+        }
+      }
+    });
+
+    // Mettre à jour la qualification des responsables
+    const responsables = [];
+    if (session.responsable1_id) responsables.push(session.responsable1_id);
+    if (session.responsable2_id) responsables.push(session.responsable2_id);
+
+    if (responsables.length > 0) {
+      await prisma.user.updateMany({
+        where: { id: { in: responsables } },
+        data: { qualification: 'RESPONSABLE_SESSION' }
+      });
+      logger.info('Session createSession - Qualifications mises à jour pour les responsables', { responsables });
+    }
+
+    // Invalider le cache (ne pas faire échouer la requête si cela échoue)
+    try {
+      cache.flushByPattern('sessions');
+    } catch (cacheError) {
+      logger.error('Session - createSession - Erreur cache', cacheError);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Session créée avec succès',
+      data: session
+    });
+  } catch (error) {
+    logger.error('Session - createSession - Erreur complète', error);
+
+    if (error.code === 'P2002') {
+      // Vérifier quel champ est en conflit
+      const target = error.meta?.target;
+      let message = 'Une session avec ce nom existe déjà';
+      
+      if (target && target.includes('responsable1_id')) {
+        message = 'Ce responsable est déjà responsable d\'une session ou d\'un réseau';
+      } else if (target && target.includes('responsable2_id')) {
+        message = 'Ce responsable 2 est déjà responsable d\'une session ou d\'un réseau';
+      }
+      
+      return res.status(400).json({
+        success: false,
+        message
+      });
+    }
+
+    const { status, message } = handleError(error, 'la création de la session');
+    res.status(status).json({
+      success: false,
+      message
     });
   }
 };
@@ -330,9 +304,9 @@ exports.updateSession = async (req, res) => {
   try {
     const { prisma } = req;
     const { id } = req.params;
-    const { nom, responsable1_id, responsable2_id } = req.body;
+    const { nom, responsable1_id, responsable2_id, active } = req.body;
 
-    // Récupérer l'ancienne session pour les responsables
+    // Récupérer l'ancienne session pour comparer les responsables
     const oldSession = await prisma.session.findUnique({
       where: { id },
       select: {
@@ -341,24 +315,39 @@ exports.updateSession = async (req, res) => {
       }
     });
 
-    if (!oldSession) {
-      return res.status(404).json({
-        success: false,
-        message: 'Session introuvable'
-      });
-    }
-
-    // Mettre à jour la session
     const updatedSession = await prisma.session.update({
       where: { id },
       data: {
-        nom,
-        responsable1_id,
-        responsable2_id
+        ...(nom && { nom }),
+        ...(responsable1_id && { responsable1_id }),
+        ...(responsable2_id !== undefined && { responsable2_id }),
+        ...(active !== undefined && { active })
+      },
+      include: {
+        church: {
+          select: {
+            id: true,
+            nom: true
+          }
+        },
+        responsable1: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true
+          }
+        },
+        responsable2: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true
+          }
+        }
       }
     });
 
-    // Gérer les changements de qualification des responsables
+    // Gérer les qualifications des responsables
     const anciensResponsables = [];
     if (oldSession.responsable1_id) anciensResponsables.push(oldSession.responsable1_id);
     if (oldSession.responsable2_id) anciensResponsables.push(oldSession.responsable2_id);
@@ -383,39 +372,107 @@ exports.updateSession = async (req, res) => {
         where: { id: { in: nouveauxResponsables } },
         data: { qualification: 'RESPONSABLE_SESSION' }
       });
-      logger.info('Session updateSession - Nouveaux responsables mis à RESPONSABLE_SESSION', { nouveauxResponsables });
+      logger.info('Session updateSession - Nouveaux responsables assignés RESPONSABLE_SESSION', { nouveauxResponsables });
     }
 
-    // Invalider le cache
+    // Invalider le cache (ne pas faire échouer la requête si cela échoue)
     try {
       cache.flushByPattern('sessions');
     } catch (cacheError) {
       logger.error('Session - updateSession - Erreur cache', cacheError);
     }
 
-    res.json({
+    res.status(200).json({
       success: true,
       message: 'Session mise à jour avec succès',
       data: updatedSession
     });
   } catch (error) {
     logger.error('Session - updateSession - Erreur complète', error);
-    
-    let errorMessage = 'Erreur lors de la mise à jour de la session';
-    
-    if (error.code === 'P2002') {
-      if (error.meta?.target?.includes('nom')) {
-        errorMessage = 'Une session avec ce nom existe déjà';
-      } else if (error.meta?.target?.includes('responsable1_id')) {
-        errorMessage = 'Cette personne est déjà responsable d\'une autre session';
-      } else if (error.meta?.target?.includes('responsable2_id')) {
-        errorMessage = 'Cette personne est déjà responsable d\'une autre session';
-      }
+
+    const { status, message } = handleError(error, 'la mise à jour de la session');
+    res.status(status).json({
+      success: false,
+      message
+    });
+  }
+};
+
+// Supprimer une session
+exports.deleteSession = async (req, res) => {
+  try {
+    const { prisma } = req;
+    const { id } = req.params;
+
+    // Vérifier si la session existe
+    const existingSession = await prisma.session.findUnique({
+      where: { id }
+    });
+
+    if (!existingSession) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session non trouvée'
+      });
     }
 
-    res.status(500).json({
+    // Supprimer la session dans une transaction
+    await prisma.$transaction(async (tx) => {
+      logger.info('deleteSession - Début de la suppression en cascade', { session_id: id });
+
+      // 1. Supprimer d'abord toutes les unités de la session (et leurs membres)
+      const units = await tx.unit.findMany({
+        where: { session_id: id }
+      });
+
+      logger.info('deleteSession - Unités trouvées', { count: units.length });
+
+      for (const unit of units) {
+        // Supprimer les membres de l'unité
+        const deletedMembers = await tx.unitMember.deleteMany({
+          where: { unit_id: unit.id }
+        });
+
+        logger.info('deleteSession - Unité supprimée', { 
+          unit_id: unit.id, 
+          unit_name: unit.nom,
+          members_deleted: deletedMembers.count
+        });
+      }
+
+      // Supprimer toutes les unités de la session
+      const deletedUnits = await tx.unit.deleteMany({
+        where: { session_id: id }
+      });
+
+      logger.info('deleteSession - Unités supprimées', { count: deletedUnits.count });
+
+      // 2. Nettoyer les qualifications des responsables avant de supprimer la session
+      const QualificationService = require('../services/qualificationService');
+      const qualificationService = new QualificationService(tx);
+      await qualificationService.cleanupSessionQualification(id);
+
+      // 3. Supprimer la session
+      await tx.session.delete({
+        where: { id }
+      });
+
+      logger.info('deleteSession - Session supprimée avec succès', { session_id: id });
+    });
+
+    res.json({
+      success: true,
+      message: 'Session supprimée avec succès'
+    });
+  } catch (error) {
+    logger.error('Session - deleteSession - Erreur complète', error);
+
+    // Utilisation du gestionnaire d'erreurs centralisé
+    const { status, message } = handleError(error, 'la suppression de la session');
+
+    res.status(status).json({
       success: false,
-      message: errorMessage
+      message
     });
   }
 };
@@ -465,7 +522,7 @@ exports.getSessionStatsById = async (req, res) => {
       });
     }
 
-    // Collecter tous les IDs d'utilisateurs uniques
+    // Calculer les statistiques par qualification (même logique que networkController)
     const memberIds = new Set();
     const userQualifications = new Map(); // Map pour éviter les doublons par utilisateur
     const unitResponsables = new Set();
@@ -523,9 +580,7 @@ exports.getSessionStatsById = async (req, res) => {
     const qualificationsArray = Array.from(userQualifications.values());
     const stats = {
       totalUnits: session.units.length,
-      'RESPONSABLE_SESSION': qualificationsArray.filter(q => q === 'RESPONSABLE_SESSION').length,
       'RESPONSABLE_UNITE': qualificationsArray.filter(q => q === 'RESPONSABLE_UNITE').length,
-      'MEMBRE_SESSION': qualificationsArray.filter(q => q === 'MEMBRE_SESSION').length,
       'Membre simple': qualificationsArray.filter(q => q === 'MEMBRE_SESSION').length,
       totalMembers: memberIds.size
     };
@@ -536,9 +591,10 @@ exports.getSessionStatsById = async (req, res) => {
     });
   } catch (error) {
     logger.error('Session - getSessionStatsById - Erreur complète', error);
-    res.status(500).json({
+    const { status, message } = handleError(error, 'la récupération des statistiques de la session');
+    res.status(status).json({
       success: false,
-      message: 'Erreur lors de la récupération des statistiques de la session'
+      message
     });
   }
 };
@@ -552,47 +608,56 @@ exports.getSessionUnits = async (req, res) => {
     const units = await prisma.unit.findMany({
       where: { session_id: id },
       include: {
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                nom: true,
-                prenom: true,
-                qualification: true
-              }
-            }
-          }
-        },
         responsable1: {
           select: {
             id: true,
-            nom: true,
-            prenom: true,
+            username: true,
+            pseudo: true,
             qualification: true
           }
         },
         responsable2: {
           select: {
             id: true,
-            nom: true,
-            prenom: true,
+            username: true,
+            pseudo: true,
             qualification: true
           }
+        },
+        superieur_hierarchique: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true,
+            qualification: true
+          }
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                pseudo: true,
+                qualification: true,
+                image: true
+              }
+            }
+          }
         }
-      },
-      orderBy: { created_at: 'asc' }
+      }
     });
 
-    res.json({
+    res.status(200).json({
       success: true,
       data: units
     });
   } catch (error) {
     logger.error('Session - getSessionUnits - Erreur complète', error);
-    res.status(500).json({
+    const { status, message } = handleError(error, 'la récupération des unités');
+    res.status(status).json({
       success: false,
-      message: 'Erreur lors de la récupération des unités de la session'
+      message
     });
   }
 };
