@@ -346,34 +346,48 @@ exports.deleteSession = async (req, res) => {
     const { prisma } = req;
     const { id } = req.params;
 
-    // D'abord, récupérer toutes les unités de cette session
-    const units = await prisma.unit.findMany({
-      where: { session_id: id },
-      select: { id: true }
+    logger.info('Session deleteSession - Starting deletion for session:', id);
+
+    // Vérifier que la session existe
+    const session = await prisma.session.findUnique({
+      where: { id },
+      include: {
+        units: {
+          select: { id: true }
+        }
+      }
     });
 
-    const unitIds = units.map(unit => unit.id);
-
-    // Supprimer tous les membres de ces unités
-    if (unitIds.length > 0) {
-      await prisma.unitMember.deleteMany({
-        where: {
-          unit_id: { in: unitIds }
-        }
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session introuvable'
       });
     }
 
-    // Ensuite, supprimer toutes les unités
+    // Supprimer tous les membres de chaque unité
+    for (const unit of session.units) {
+      await prisma.unitMember.deleteMany({
+        where: {
+          unit_id: unit.id
+        }
+      });
+      logger.info(`Session deleteSession - Deleted members for unit ${unit.id}`);
+    }
+
+    // Supprimer toutes les unités de cette session
     await prisma.unit.deleteMany({
       where: {
         session_id: id
       }
     });
+    logger.info('Session deleteSession - Deleted all units');
 
-    // Enfin, supprimer la session
+    // Supprimer la session
     await prisma.session.delete({
       where: { id }
     });
+    logger.info('Session deleteSession - Deleted session');
 
     // Invalider le cache
     cache.flushByPattern('sessions');
@@ -384,11 +398,22 @@ exports.deleteSession = async (req, res) => {
     });
   } catch (error) {
     logger.error('Session - deleteSession - Erreur complète', error);
+    
+    // Message d'erreur plus informatif
+    let errorMessage = 'Erreur lors de la suppression de la session';
+    
+    if (error.code === 'P2003') {
+      errorMessage = 'Impossible de supprimer cette session. Il y a encore des unités ou des membres associés.';
+    } else if (error.code === 'P2025') {
+      errorMessage = 'Session introuvable';
+    } else if (error.meta) {
+      errorMessage = error.meta.cause || errorMessage;
+    }
 
-    const { status, message } = handleError(error, 'la suppression de la session');
-    res.status(status).json({
+    res.status(400).json({
       success: false,
-      message
+      message: errorMessage,
+      details: error.message
     });
   }
 };
