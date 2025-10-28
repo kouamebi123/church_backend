@@ -511,6 +511,23 @@ exports.removeMember = async (req, res) => {
       }
     });
 
+    // Mettre à jour la qualification de l'utilisateur
+    // Récupérer la qualification actuelle de l'utilisateur
+    const user = await prisma.user.findUnique({
+      where: { id: memberId },
+      select: { qualification: true }
+    });
+
+    // Si l'utilisateur a la qualification MEMBRE_SESSION, réinitialiser à une qualification par défaut
+    if (user && user.qualification === 'MEMBRE_SESSION') {
+      // Réinitialiser à REGULIER (qualification par défaut)
+      await prisma.user.update({
+        where: { id: memberId },
+        data: { qualification: 'REGULIER' }
+      });
+      logger.info('Unit removeMember - Qualification MEMBRE_SESSION réinitialisée à REGULIER', { userId: memberId });
+    }
+
     res.status(200).json({
       success: true,
       message: 'Membre supprimé de l\'unité avec succès'

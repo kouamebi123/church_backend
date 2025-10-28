@@ -557,16 +557,6 @@ exports.getSessionStatsById = async (req, res) => {
 
     // Compter uniquement les qualifications session/unité
     const qualificationsArray = Array.from(userQualifications.values());
-    
-    // Debug logs pour voir ce qui est compté
-    logger.info('Session getSessionStatsById - Debug qualifications', {
-      sessionId: id,
-      qualificationsArray,
-      memberIds: Array.from(memberIds),
-      userQualifications: Object.fromEntries(userQualifications),
-      membresSimples: qualificationsArray.filter(q => q === 'MEMBRE_SESSION').length
-    });
-    
     const stats = {
       totalUnits: session.units.length,
       'RESPONSABLE_UNITE': qualificationsArray.filter(q => q === 'RESPONSABLE_UNITE').length,

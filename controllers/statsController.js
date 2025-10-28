@@ -111,12 +111,21 @@ exports.getGlobalStats = async (req, res) => {
       where: { qualification: 'COMPAGNON_OEUVRE', ...churchFilter }
     });
 
-    // Statistiques des sessions et unités
-    let total_sessions = 0;
+    // Statistiques des sessions
+    const total_sessions = churchId
+      ? await prisma.session.count({ where: { church_id: churchId } })
+      : await prisma.session.count();
+
+    const total_resp_sessions = await prisma.user.count({
+      where: {
+        qualification: 'RESPONSABLE_SESSION',
+        ...churchFilter
+      }
+    });
+
+    // Statistiques des unités et responsables d'unité
     let total_unites = 0;
-    let total_resp_sessions = 0;
     let total_resp_unites = 0;
-    let total_membres_session = 0;
 
     if (churchId) {
       // Si on filtre par église, on doit d'abord récupérer les sessions de cette église
@@ -125,78 +134,40 @@ exports.getGlobalStats = async (req, res) => {
         select: { id: true }
       });
       const sessionIds = sessionsInChurch.map(s => s.id);
-      total_sessions = sessionIds.length;
 
       // Compter les unités dans ces sessions
       total_unites = await prisma.unit.count({
         where: { session_id: { in: sessionIds } }
       });
 
-      // Récupérer toutes les sessions avec leurs responsables et unités
-      const sessions = await prisma.session.findMany({
-        where: { id: { in: sessionIds } },
-        select: { responsable1_id: true, responsable2_id: true }
-      });
-      const responsableSessionIds = new Set();
-      sessions.forEach(session => {
-        if (session.responsable1_id) responsableSessionIds.add(session.responsable1_id);
-        if (session.responsable2_id) responsableSessionIds.add(session.responsable2_id);
-      });
-      total_resp_sessions = responsableSessionIds.size;
-
-      // Compter les responsables d'unité
+      // Compter les responsables d'unité dans ces sessions
       const unitsInChurch = await prisma.unit.findMany({
         where: { session_id: { in: sessionIds } },
         select: { responsable1_id: true, responsable2_id: true }
       });
-      const responsableUnitIds = new Set();
+      const responsableIds = new Set();
       unitsInChurch.forEach(unit => {
-        if (unit.responsable1_id) responsableUnitIds.add(unit.responsable1_id);
-        if (unit.responsable2_id) responsableUnitIds.add(unit.responsable2_id);
+        if (unit.responsable1_id) responsableIds.add(unit.responsable1_id);
+        if (unit.responsable2_id) responsableIds.add(unit.responsable2_id);
       });
-      total_resp_unites = responsableUnitIds.size;
-
-      // Compter les membres d'unités (utilisateurs qui sont dans une unité)
-      const unitMembers = await prisma.unitMember.findMany({
-        where: { unit: { session_id: { in: sessionIds } } },
-        select: { user_id: true }
-      });
-      const memberIds = new Set(unitMembers.map(um => um.user_id));
-      total_membres_session = memberIds.size;
+      total_resp_unites = responsableIds.size;
     } else {
       // Toutes les églises
-      total_sessions = await prisma.session.count();
-
       total_unites = await prisma.unit.count();
-
-      // Récupérer toutes les sessions avec leurs responsables
-      const sessions = await prisma.session.findMany({
-        select: { responsable1_id: true, responsable2_id: true }
-      });
-      const responsableSessionIds = new Set();
-      sessions.forEach(session => {
-        if (session.responsable1_id) responsableSessionIds.add(session.responsable1_id);
-        if (session.responsable2_id) responsableSessionIds.add(session.responsable2_id);
-      });
-      total_resp_sessions = responsableSessionIds.size;
-
       const allUnits = await prisma.unit.findMany({
         select: { responsable1_id: true, responsable2_id: true }
       });
-      const responsableUnitIds = new Set();
+      const responsableIds = new Set();
       allUnits.forEach(unit => {
-        if (unit.responsable1_id) responsableUnitIds.add(unit.responsable1_id);
-        if (unit.responsable2_id) responsableUnitIds.add(unit.responsable2_id);
+        if (unit.responsable1_id) responsableIds.add(unit.responsable1_id);
+        if (unit.responsable2_id) responsableIds.add(unit.responsable2_id);
       });
-      total_resp_unites = responsableUnitIds.size;
-
-      // Compter les membres d'unités
-      const unitMembers = await prisma.unitMember.findMany({
-        select: { user_id: true }
-      });
-      const memberIds = new Set(unitMembers.map(um => um.user_id));
-      total_membres_session = memberIds.size;
+      total_resp_unites = responsableIds.size;
     }
+
+    const total_membres_session = await prisma.user.count({
+      where: { qualification: 'MEMBRE_SESSION', ...churchFilter }
+    });
 
     // Calcul des personnes isolées (comme dans Mongoose)
     let usersInGroups = [];
