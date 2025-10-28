@@ -74,8 +74,147 @@ async function fixFailedMigration() {
       console.log('✅ Table network_companions existe déjà');
     }
     
+    // Appliquer la migration Sessions et Units
+    console.log('🚀 Application de la migration Sessions et Units...');
+    
+    // Vérifier si la table sessions existe déjà
+    const sessionsTableCheck = await prisma.$queryRaw`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'sessions'
+      )
+    `;
+    
+    if (!sessionsTableCheck[0].exists) {
+      await prisma.$executeRaw`
+        CREATE TABLE "sessions" (
+          "id" TEXT NOT NULL,
+          "nom" TEXT NOT NULL,
+          "active" BOOLEAN NOT NULL DEFAULT true,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL,
+          "responsable1_id" TEXT NOT NULL,
+          "responsable2_id" TEXT,
+          "church_id" TEXT NOT NULL,
+          CONSTRAINT "sessions_pkey" PRIMARY KEY ("id")
+        )
+      `;
+      console.log('✅ Table sessions créée');
+      
+      await prisma.$executeRaw`CREATE UNIQUE INDEX "sessions_nom_key" ON "sessions"("nom")`;
+      await prisma.$executeRaw`CREATE UNIQUE INDEX "sessions_responsable1_id_key" ON "sessions"("responsable1_id")`;
+      await prisma.$executeRaw`CREATE UNIQUE INDEX "sessions_responsable2_id_key" ON "sessions"("responsable2_id")`;
+      
+      await prisma.$executeRaw`
+        ALTER TABLE "sessions" ADD CONSTRAINT "sessions_church_id_fkey" 
+        FOREIGN KEY ("church_id") REFERENCES "churches"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+      `;
+      await prisma.$executeRaw`
+        ALTER TABLE "sessions" ADD CONSTRAINT "sessions_responsable1_id_fkey" 
+        FOREIGN KEY ("responsable1_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+      `;
+      await prisma.$executeRaw`
+        ALTER TABLE "sessions" ADD CONSTRAINT "sessions_responsable2_id_fkey" 
+        FOREIGN KEY ("responsable2_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE
+      `;
+      console.log('✅ Contraintes sessions ajoutées');
+    } else {
+      console.log('✅ Table sessions existe déjà');
+    }
+    
+    // Vérifier si la table units existe déjà
+    const unitsTableCheck = await prisma.$queryRaw`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'units'
+      )
+    `;
+    
+    if (!unitsTableCheck[0].exists) {
+      await prisma.$executeRaw`
+        CREATE TABLE "units" (
+          "id" TEXT NOT NULL,
+          "nom" TEXT NOT NULL,
+          "description" TEXT,
+          "active" BOOLEAN NOT NULL DEFAULT true,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL,
+          "session_id" TEXT NOT NULL,
+          "responsable1_id" TEXT NOT NULL,
+          "responsable2_id" TEXT,
+          "superieur_hierarchique_id" TEXT,
+          CONSTRAINT "units_pkey" PRIMARY KEY ("id")
+        )
+      `;
+      console.log('✅ Table units créée');
+      
+      await prisma.$executeRaw`CREATE UNIQUE INDEX "units_responsable1_id_key" ON "units"("responsable1_id")`;
+      await prisma.$executeRaw`CREATE UNIQUE INDEX "units_responsable2_id_key" ON "units"("responsable2_id")`;
+      
+      await prisma.$executeRaw`
+        ALTER TABLE "units" ADD CONSTRAINT "units_session_id_fkey" 
+        FOREIGN KEY ("session_id") REFERENCES "sessions"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+      `;
+      await prisma.$executeRaw`
+        ALTER TABLE "units" ADD CONSTRAINT "units_responsable1_id_fkey" 
+        FOREIGN KEY ("responsable1_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+      `;
+      await prisma.$executeRaw`
+        ALTER TABLE "units" ADD CONSTRAINT "units_responsable2_id_fkey" 
+        FOREIGN KEY ("responsable2_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE
+      `;
+      await prisma.$executeRaw`
+        ALTER TABLE "units" ADD CONSTRAINT "units_superieur_hierarchique_id_fkey" 
+        FOREIGN KEY ("superieur_hierarchique_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE
+      `;
+      console.log('✅ Contraintes units ajoutées');
+    } else {
+      console.log('✅ Table units existe déjà');
+    }
+    
+    // Vérifier si la table unit_members existe déjà
+    const unitMembersTableCheck = await prisma.$queryRaw`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'unit_members'
+      )
+    `;
+    
+    if (!unitMembersTableCheck[0].exists) {
+      await prisma.$executeRaw`
+        CREATE TABLE "unit_members" (
+          "id" TEXT NOT NULL,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "unit_id" TEXT NOT NULL,
+          "user_id" TEXT NOT NULL,
+          CONSTRAINT "unit_members_pkey" PRIMARY KEY ("id")
+        )
+      `;
+      console.log('✅ Table unit_members créée');
+      
+      await prisma.$executeRaw`
+        CREATE UNIQUE INDEX "unit_members_unit_id_user_id_key" 
+        ON "unit_members"("unit_id", "user_id")
+      `;
+      
+      await prisma.$executeRaw`
+        ALTER TABLE "unit_members" ADD CONSTRAINT "unit_members_unit_id_fkey" 
+        FOREIGN KEY ("unit_id") REFERENCES "units"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+      `;
+      await prisma.$executeRaw`
+        ALTER TABLE "unit_members" ADD CONSTRAINT "unit_members_user_id_fkey" 
+        FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+      `;
+      console.log('✅ Contraintes unit_members ajoutées');
+    } else {
+      console.log('✅ Table unit_members existe déjà');
+    }
+    
     await prisma.$disconnect();
-    console.log('✅ Migration COMPAGNON_OEUVRE appliquée avec succès');
+    console.log('✅ Migrations appliquées avec succès');
     
   } catch (error) {
     console.error('❌ Erreur:', error.message);
