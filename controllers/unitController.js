@@ -420,13 +420,13 @@ exports.deleteUnit = async (req, res) => {
     if (unit.responsable1_id) allUserIds.add(unit.responsable1_id);
     if (unit.responsable2_id) allUserIds.add(unit.responsable2_id);
 
-    // Mettre à jour la qualification de tous les utilisateurs à MEMBRE_IRREGULIER avant suppression
+    // Mettre à jour la qualification de tous les utilisateurs à IRREGULIER avant suppression
     if (allUserIds.size > 0) {
       await prisma.user.updateMany({
         where: { id: { in: Array.from(allUserIds) } },
-        data: { qualification: 'MEMBRE_IRREGULIER' }
+        data: { qualification: 'IRREGULIER' }
       });
-      logger.info('Unit deleteUnit - Tous les utilisateurs remis à MEMBRE_IRREGULIER', { allUserIds: Array.from(allUserIds) });
+      logger.info('Unit deleteUnit - Tous les utilisateurs remis à IRREGULIER', { allUserIds: Array.from(allUserIds) });
     }
 
     // Supprimer tous les membres de l'unité
@@ -531,13 +531,13 @@ const removeMemberFromUnit = async (prisma, unitId, userId) => {
       }
     });
 
-    // Mettre à jour la qualification de l'utilisateur à MEMBRE_IRREGULIER
+    // Mettre à jour la qualification de l'utilisateur à IRREGULIER
     await prisma.user.update({
       where: { id: userId },
-      data: { qualification: 'MEMBRE_IRREGULIER' }
+      data: { qualification: 'IRREGULIER' }
     });
 
-    logger.info('Unit - removeMemberFromUnit - Utilisateur remis à MEMBRE_IRREGULIER', { userId });
+    logger.info('Unit - removeMemberFromUnit - Utilisateur remis à IRREGULIER', { userId });
 
     return true;
   } catch (error) {

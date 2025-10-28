@@ -413,8 +413,6 @@ exports.deleteSession = async (req, res) => {
         units: {
           select: { 
             id: true,
-            responsable1_id: true,
-            responsable2_id: true,
             members: {
               select: { user_id: true }
             }
@@ -428,8 +426,6 @@ exports.deleteSession = async (req, res) => {
         units: {
           select: { 
             id: true,
-            responsable1_id: true,
-            responsable2_id: true,
             members: {
               select: { user_id: true }
             }
@@ -458,26 +454,20 @@ exports.deleteSession = async (req, res) => {
       logger.info('Session deleteSession - Responsables remis à LEADER avant suppression', { responsables });
     }
 
-    // Mettre à jour la qualification des membres de toutes les unités à MEMBRE_IRREGULIER
-    const allUserIds = new Set();
-    
+    // Mettre à jour la qualification des membres de toutes les unités à IRREGULIER
+    const allMemberIds = [];
     session.units.forEach(unit => {
-      // Ajouter les membres de l'unité
       unit.members.forEach(member => {
-        allUserIds.add(member.user_id);
+        allMemberIds.push(member.user_id);
       });
-      
-      // Ajouter les responsables de l'unité (s'ils existent)
-      if (unit.responsable1_id) allUserIds.add(unit.responsable1_id);
-      if (unit.responsable2_id) allUserIds.add(unit.responsable2_id);
     });
 
-    if (allUserIds.size > 0) {
+    if (allMemberIds.length > 0) {
       await prisma.user.updateMany({
-        where: { id: { in: Array.from(allUserIds) } },
-        data: { qualification: 'MEMBRE_IRREGULIER' }
+        where: { id: { in: allMemberIds } },
+        data: { qualification: 'IRREGULIER' }
       });
-      logger.info('Session deleteSession - Membres des unités remis à MEMBRE_IRREGULIER', { allUserIds: Array.from(allUserIds) });
+      logger.info('Session deleteSession - Membres des unités remis à IRREGULIER', { allMemberIds });
     }
 
     // Supprimer tous les membres de chaque unité
@@ -520,26 +510,19 @@ exports.deleteSession = async (req, res) => {
     
     // Message d'erreur plus informatif
     let errorMessage = 'Erreur lors de la suppression de la session';
-    let statusCode = 500;
     
     if (error.code === 'P2003') {
-      errorMessage = 'Impossible de supprimer cette session. Il y a encore des références actives.';
-      statusCode = 400;
+      errorMessage = 'Impossible de supprimer cette session. Il y a encore des unités ou des membres associés.';
     } else if (error.code === 'P2025') {
       errorMessage = 'Session introuvable';
-      statusCode = 404;
-    } else if (error.code === 'P2002') {
-      errorMessage = 'Contrainte de clé unique violée lors de la suppression';
-      statusCode = 400;
-    } else if (error.meta && error.meta.cause) {
-      errorMessage = error.meta.cause;
-      statusCode = 400;
+    } else if (error.meta) {
+      errorMessage = error.meta.cause || errorMessage;
     }
 
-    res.status(statusCode).json({
+    res.status(400).json({
       success: false,
       message: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: error.message
     });
   }
 };

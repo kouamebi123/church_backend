@@ -128,13 +128,13 @@ const removeMemberFromGroup = async (prisma, groupId, userId) => {
       }
     });
 
-    // Mettre à jour la qualification de l'utilisateur à MEMBRE_IRREGULIER
+    // Mettre à jour la qualification de l'utilisateur à IRREGULIER
     await prisma.user.update({
       where: { id: userId },
-      data: { qualification: 'MEMBRE_IRREGULIER' }
+      data: { qualification: 'IRREGULIER' }
     });
 
-    logger.info('Group - removeMemberFromGroup - Utilisateur remis à MEMBRE_IRREGULIER', { userId });
+    logger.info('Group - removeMemberFromGroup - Utilisateur remis à IRREGULIER', { userId });
 
     return true;
   } catch (error) {
