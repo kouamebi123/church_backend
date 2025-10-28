@@ -835,6 +835,40 @@ exports.deleteUser = async (req, res) => {
       });
     }
 
+    // Vérifier si l'utilisateur est responsable d'une session
+    const userAsSessionResponsible = await prisma.session.findFirst({
+      where: {
+        OR: [
+          { responsable1_id: id },
+          { responsable2_id: id }
+        ]
+      }
+    });
+
+    if (userAsSessionResponsible) {
+      return res.status(400).json({
+        success: false,
+        message: 'Impossible de supprimer cet utilisateur car il est responsable d\'une session. Veuillez d\'abord changer le responsable ou supprimer la session.'
+      });
+    }
+
+    // Vérifier si l'utilisateur est responsable d'une unité
+    const userAsUnitResponsible = await prisma.unit.findFirst({
+      where: {
+        OR: [
+          { responsable1_id: id },
+          { responsable2_id: id }
+        ]
+      }
+    });
+
+    if (userAsUnitResponsible) {
+      return res.status(400).json({
+        success: false,
+        message: 'Impossible de supprimer cet utilisateur car il est responsable d\'une unité. Veuillez d\'abord changer le responsable ou supprimer l\'unité.'
+      });
+    }
+
     // Nettoyage automatique de toutes les références
     try {
       // Retirer l'utilisateur du groupe dont il est membre (un seul groupe possible)
@@ -844,6 +878,16 @@ exports.deleteUser = async (req, res) => {
 
       // Retirer l'utilisateur de l'historique des groupes
       await prisma.groupMemberHistory.deleteMany({
+        where: { user_id: id }
+      });
+
+      // Retirer l'utilisateur des unités (en tant que membre)
+      await prisma.unitMember.deleteMany({
+        where: { user_id: id }
+      });
+
+      // Retirer l'utilisateur des compagnons d'œuvre de réseaux
+      await prisma.networkCompanion.deleteMany({
         where: { user_id: id }
       });
 
