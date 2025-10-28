@@ -64,6 +64,7 @@ model User {
   unit_responsable2            Unit[]                @relation("UnitResponsable2")
   unit_members                 UnitMember[]          @relation("UnitMemberUser")
   unit_superieur_hierarchique  Unit[]                @relation("UnitSuperieurHierarchique")
+  calendar_events_created      CalendarEvent[]       @relation("CalendarEventCreator")
 
   @@map("users")
 }
@@ -93,6 +94,7 @@ model Church {
   members        User[]         @relation("ChurchMembers")
   testimonies    Testimony[]
   sessions       Session[]       @relation("ChurchSessions")
+  calendar_events CalendarEvent[]
 
   @@map("churches")
 }
@@ -586,6 +588,39 @@ enum ActivityAction {
   IMPORT
 }
 
+model CalendarEvent {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  start_date  DateTime
+  end_date    DateTime?
+  location    String?
+  event_type  EventType   @default(GENERAL)
+  is_public   Boolean     @default(true)
+  church_id   String
+  church      Church      @relation(fields: [church_id], references: [id], onDelete: Cascade)
+  created_by_id String
+  created_by  User        @relation("CalendarEventCreator", fields: [created_by_id], references: [id])
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+
+  @@map("calendar_events")
+}
+
+enum EventType {
+  GENERAL
+  CULTE
+  REUNION
+  FORMATION
+  EVANGELISATION
+  SOCIAL
+  JEUNESSE
+  ENFANTS
+  FEMMES
+  HOMMES
+  AUTRE
+}
+
 enum EntityType {
   USER
   NETWORK
@@ -600,4 +635,5 @@ enum EntityType {
   MESSAGE
   SESSION
   UNIT
+  CALENDAR_EVENT
 }

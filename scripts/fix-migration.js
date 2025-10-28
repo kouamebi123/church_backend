@@ -316,6 +316,72 @@ async function fixFailedMigration() {
     } catch (error) {
       console.log('⚠️  Colonnes prévisionnel/assistance existent déjà ou erreur:', error.message);
     }
+
+    // Migration pour le calendrier
+    console.log('🚀 Migration du calendrier...');
+    
+    try {
+      // Ajouter EventType enum
+      await prisma.$executeRaw`CREATE TYPE "EventType" AS ENUM ('GENERAL', 'CULTE', 'REUNION', 'FORMATION', 'EVANGELISATION', 'SOCIAL', 'JEUNESSE', 'ENFANTS', 'FEMMES', 'HOMMES', 'AUTRE')`;
+      console.log('✅ EventType enum créé');
+    } catch (error) {
+      console.log('⚠️  EventType enum existe déjà');
+    }
+
+    try {
+      // Créer la table calendar_events
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "calendar_events" (
+          "id" TEXT NOT NULL,
+          "title" TEXT NOT NULL,
+          "description" TEXT,
+          "start_date" TIMESTAMP(3) NOT NULL,
+          "end_date" TIMESTAMP(3),
+          "location" TEXT,
+          "event_type" "EventType" NOT NULL DEFAULT 'GENERAL',
+          "is_public" BOOLEAN NOT NULL DEFAULT true,
+          "church_id" TEXT NOT NULL,
+          "created_by_id" TEXT NOT NULL,
+          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updated_at" TIMESTAMP(3) NOT NULL,
+          CONSTRAINT "calendar_events_pkey" PRIMARY KEY ("id")
+        );
+      `;
+      console.log('✅ Table calendar_events créée');
+    } catch (error) {
+      console.log('⚠️  Table calendar_events existe déjà');
+    }
+
+    try {
+      // Ajouter les contraintes de clé étrangère
+      await prisma.$executeRaw`
+        ALTER TABLE "calendar_events" 
+        ADD CONSTRAINT "calendar_events_church_id_fkey" 
+        FOREIGN KEY ("church_id") REFERENCES "churches"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+      `;
+      console.log('✅ Contrainte FK church_id ajoutée');
+    } catch (error) {
+      console.log('⚠️  Contrainte FK church_id existe déjà');
+    }
+
+    try {
+      await prisma.$executeRaw`
+        ALTER TABLE "calendar_events" 
+        ADD CONSTRAINT "calendar_events_created_by_id_fkey" 
+        FOREIGN KEY ("created_by_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+      `;
+      console.log('✅ Contrainte FK created_by_id ajoutée');
+    } catch (error) {
+      console.log('⚠️  Contrainte FK created_by_id existe déjà');
+    }
+
+    try {
+      // Ajouter CALENDAR_EVENT à EntityType
+      await prisma.$executeRaw`ALTER TYPE "EntityType" ADD VALUE IF NOT EXISTS 'CALENDAR_EVENT'`;
+      console.log('✅ CALENDAR_EVENT ajouté à EntityType');
+    } catch (error) {
+      console.log('⚠️  CALENDAR_EVENT existe déjà dans EntityType');
+    }
     
   } catch (error) {
     console.error('❌ Erreur:', error.message);
