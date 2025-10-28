@@ -73,19 +73,34 @@ const createAssistance = async (req, res) => {
       return res.status(404).json({ message: 'Réseau non trouvé' });
     }
 
+    // Calculer le dimanche de la semaine correspondante
+    const culteDate = new Date(date);
+    const dayOfWeek = culteDate.getDay(); // 0 = dimanche, 1 = lundi, etc.
+    const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek; // Si c'est déjà dimanche, on reste sur dimanche
+    const sundayDate = new Date(culteDate);
+    sundayDate.setDate(culteDate.getDate() + daysToSunday);
+    sundayDate.setHours(0, 0, 0, 0); // Mettre à minuit pour éviter les problèmes d'heure
+
+    logger.info('📅 Calcul dimanche de la semaine:', {
+      culte_date: culteDate.toISOString(),
+      day_of_week: dayOfWeek,
+      days_to_sunday: daysToSunday,
+      sunday_date: sundayDate.toISOString()
+    });
+
     // Vérifier s'il n'y a pas déjà une assistance pour cette semaine et ce type de culte
-    const duplicateAssistance = await checkDuplicateAssistance(network_id, date, type_culte);
+    const duplicateAssistance = await checkDuplicateAssistance(network_id, sundayDate, type_culte);
     if (duplicateAssistance) {
       logger.warn('⚠️ Tentative de création d\'une assistance en doublon:', {
         network_id,
-        date,
+        sunday_date: sundayDate.toISOString(),
         type_culte,
         existing_id: duplicateAssistance.id
       });
       
       return res.status(409).json({
         success: false,
-        message: `Il existe déjà une assistance pour la semaine du ${new Date(date).toLocaleDateString('fr-FR')} avec le type de culte "${type_culte}". Impossible de créer un doublon.`
+        message: `Il existe déjà une assistance pour la semaine du ${sundayDate.toLocaleDateString('fr-FR')} avec le type de culte "${type_culte}". Impossible de créer un doublon.`
       });
     }
 
@@ -93,7 +108,7 @@ const createAssistance = async (req, res) => {
     const assistance = await prisma.$transaction(async (tx) => {
       const newAssistance = await tx.assistance.create({
         data: {
-          date: new Date(date),
+          date: sundayDate,
           type_culte,
           total_presents,
           invites: invites || 0,
@@ -315,17 +330,32 @@ const updateAssistance = async (req, res) => {
       return res.status(403).json({ message: 'Non autorisé à modifier cette assistance' });
     }
 
+    // Calculer le dimanche de la semaine correspondante
+    const culteDate = new Date(date);
+    const dayOfWeek = culteDate.getDay(); // 0 = dimanche, 1 = lundi, etc.
+    const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek; // Si c'est déjà dimanche, on reste sur dimanche
+    const sundayDate = new Date(culteDate);
+    sundayDate.setDate(culteDate.getDate() + daysToSunday);
+    sundayDate.setHours(0, 0, 0, 0); // Mettre à minuit pour éviter les problèmes d'heure
+
+    logger.info('📅 Calcul dimanche de la semaine (update):', {
+      culte_date: culteDate.toISOString(),
+      day_of_week: dayOfWeek,
+      days_to_sunday: daysToSunday,
+      sunday_date: sundayDate.toISOString()
+    });
+
     // Vérifier s'il n'y a pas déjà une assistance pour cette semaine et ce type de culte (en excluant l'actuelle)
     const duplicateAssistance = await checkDuplicateAssistance(
       existingAssistance.network_id, 
-      date, 
+      sundayDate, 
       type_culte, 
       id
     );
     if (duplicateAssistance) {
       logger.warn('⚠️ Tentative de mise à jour vers une assistance en doublon:', {
         network_id: existingAssistance.network_id,
-        date,
+        sunday_date: sundayDate.toISOString(),
         type_culte,
         existing_id: duplicateAssistance.id,
         updating_id: id
@@ -333,7 +363,7 @@ const updateAssistance = async (req, res) => {
       
       return res.status(409).json({
         success: false,
-        message: `Il existe déjà une assistance pour la semaine du ${new Date(date).toLocaleDateString('fr-FR')} avec le type de culte "${type_culte}". Impossible de créer un doublon.`
+        message: `Il existe déjà une assistance pour la semaine du ${sundayDate.toLocaleDateString('fr-FR')} avec le type de culte "${type_culte}". Impossible de créer un doublon.`
       });
     }
 
@@ -343,7 +373,7 @@ const updateAssistance = async (req, res) => {
       const updatedAssistance = await tx.assistance.update({
         where: { id },
         data: {
-          date: new Date(date),
+          date: sundayDate,
           type_culte,
           total_presents,
           responsables_reseau: responsables_reseau || 0,
