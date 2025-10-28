@@ -415,25 +415,18 @@ exports.deleteUnit = async (req, res) => {
       });
     }
 
-    // Collecter tous les utilisateurs à mettre à jour (membres + responsables)
-    const allUserIds = new Set();
-    
-    // Ajouter les membres
-    unit.members.forEach(member => {
-      allUserIds.add(member.user_id);
-    });
-    
-    // Ajouter les responsables
+    // Collecter tous les IDs d'utilisateurs (membres + responsables)
+    const allUserIds = new Set(unit.members.map(member => member.user_id));
     if (unit.responsable1_id) allUserIds.add(unit.responsable1_id);
     if (unit.responsable2_id) allUserIds.add(unit.responsable2_id);
 
-    // Mettre à jour la qualification de tous les utilisateurs à MEMBRE_IRREGULIER
+    // Mettre à jour la qualification de tous les utilisateurs à MEMBRE_IRREGULIER avant suppression
     if (allUserIds.size > 0) {
       await prisma.user.updateMany({
         where: { id: { in: Array.from(allUserIds) } },
         data: { qualification: 'MEMBRE_IRREGULIER' }
       });
-      logger.info('Unit deleteUnit - Utilisateurs remis à MEMBRE_IRREGULIER', { userIds: Array.from(allUserIds) });
+      logger.info('Unit deleteUnit - Tous les utilisateurs remis à MEMBRE_IRREGULIER', { allUserIds: Array.from(allUserIds) });
     }
 
     // Supprimer tous les membres de l'unité
@@ -459,26 +452,19 @@ exports.deleteUnit = async (req, res) => {
 
     // Message d'erreur plus informatif
     let errorMessage = 'Erreur lors de la suppression de l\'unité';
-    let statusCode = 500;
     
     if (error.code === 'P2003') {
-      errorMessage = 'Impossible de supprimer cette unité. Il y a encore des références actives.';
-      statusCode = 400;
+      errorMessage = 'Impossible de supprimer cette unité. Il y a encore des membres associés.';
     } else if (error.code === 'P2025') {
       errorMessage = 'Unité introuvable';
-      statusCode = 404;
-    } else if (error.code === 'P2002') {
-      errorMessage = 'Contrainte de clé unique violée lors de la suppression';
-      statusCode = 400;
-    } else if (error.meta && error.meta.cause) {
-      errorMessage = error.meta.cause;
-      statusCode = 400;
+    } else if (error.meta) {
+      errorMessage = error.meta.cause || errorMessage;
     }
 
-    res.status(statusCode).json({
+    res.status(400).json({
       success: false,
       message: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: error.message
     });
   }
 };
@@ -538,44 +524,15 @@ exports.removeMember = async (req, res) => {
     const { prisma } = req;
     const { id, memberId } = req.params;
 
-    // Vérifier si l'utilisateur est responsable de cette unité
+    // Vérifier que l'unité existe
     const unit = await prisma.unit.findUnique({
-      where: { id },
-      select: {
-        responsable1_id: true,
-        responsable2_id: true
-      }
+      where: { id }
     });
 
     if (!unit) {
       return res.status(404).json({
         success: false,
         message: 'Unité introuvable'
-      });
-    }
-
-    // Empêcher la suppression d'un responsable de sa propre unité
-    if (unit.responsable1_id === memberId || unit.responsable2_id === memberId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Impossible de supprimer un responsable de sa propre unité. Pour supprimer un responsable, vous devez d\'abord changer le responsable de l\'unité ou supprimer l\'unité entière.'
-      });
-    }
-
-    // Vérifier si le membre existe dans l'unité
-    const existingMember = await prisma.unitMember.findUnique({
-      where: {
-        unit_id_user_id: {
-          unit_id: id,
-          user_id: memberId
-        }
-      }
-    });
-
-    if (!existingMember) {
-      return res.status(404).json({
-        success: false,
-        message: 'Membre introuvable dans cette unité'
       });
     }
 
@@ -595,7 +552,7 @@ exports.removeMember = async (req, res) => {
       data: { qualification: 'MEMBRE_IRREGULIER' }
     });
 
-    logger.info('Unit - removeMember - Utilisateur remis à MEMBRE_IRREGULIER', { memberId });
+    logger.info('Unit - removeMember - Membre supprimé et remis à MEMBRE_IRREGULIER', { memberId });
 
     res.status(200).json({
       success: true,
