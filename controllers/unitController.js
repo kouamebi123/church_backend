@@ -252,6 +252,15 @@ exports.createUnit = async (req, res) => {
       }
     }
 
+    // Mettre à jour la qualification des responsables
+    if (responsablesToAdd.length > 0) {
+      await prisma.user.updateMany({
+        where: { id: { in: responsablesToAdd } },
+        data: { qualification: 'RESPONSABLE_UNITE' }
+      });
+      logger.info('Unit createUnit - Qualifications mises à jour pour les responsables', { responsables: responsablesToAdd });
+    }
+
     res.status(201).json({
       success: true,
       message: 'Unité créée avec succès',
@@ -350,6 +359,19 @@ exports.updateUnit = async (req, res) => {
       }
     }
 
+    // Mettre à jour la qualification des responsables (anciens et nouveaux)
+    const responsablesToUpdate = [];
+    if (updatedUnit.responsable1_id) responsablesToUpdate.push(updatedUnit.responsable1_id);
+    if (updatedUnit.responsable2_id) responsablesToUpdate.push(updatedUnit.responsable2_id);
+
+    if (responsablesToUpdate.length > 0) {
+      await prisma.user.updateMany({
+        where: { id: { in: responsablesToUpdate } },
+        data: { qualification: 'RESPONSABLE_UNITE' }
+      });
+      logger.info('Unit updateUnit - Qualifications mises à jour pour les responsables', { responsables: responsablesToUpdate });
+    }
+
     res.status(200).json({
       success: true,
       message: 'Unité mise à jour avec succès',
@@ -444,6 +466,12 @@ exports.addMember = async (req, res) => {
         unit_id: id,
         user_id
       }
+    });
+
+    // Mettre à jour la qualification du membre
+    await prisma.user.update({
+      where: { id: user_id },
+      data: { qualification: 'MEMBRE_SESSION' }
     });
 
     res.status(200).json({

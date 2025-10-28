@@ -27,7 +27,16 @@ async function fixFailedMigration() {
     console.log('🚀 Application de la migration COMPAGNON_OEUVRE...');
     
     await prisma.$executeRaw`ALTER TYPE "Qualification" ADD VALUE IF NOT EXISTS 'COMPAGNON_OEUVRE'`;
-    console.log('✅ Enum Qualification mis à jour');
+    console.log('✅ COMPAGNON_OEUVRE ajouté à Qualification');
+    
+    await prisma.$executeRaw`ALTER TYPE "Qualification" ADD VALUE IF NOT EXISTS 'RESPONSABLE_SESSION'`;
+    console.log('✅ RESPONSABLE_SESSION ajouté à Qualification');
+    
+    await prisma.$executeRaw`ALTER TYPE "Qualification" ADD VALUE IF NOT EXISTS 'RESPONSABLE_UNITE'`;
+    console.log('✅ RESPONSABLE_UNITE ajouté à Qualification');
+    
+    await prisma.$executeRaw`ALTER TYPE "Qualification" ADD VALUE IF NOT EXISTS 'MEMBRE_SESSION'`;
+    console.log('✅ MEMBRE_SESSION ajouté à Qualification');
     
     // Ajouter SESSION et UNIT à l'enum EntityType
     console.log('🚀 Mise à jour de l\'enum EntityType...');

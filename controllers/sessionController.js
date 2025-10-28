@@ -246,6 +246,19 @@ exports.createSession = async (req, res) => {
       }
     });
 
+    // Mettre à jour la qualification des responsables
+    const responsables = [];
+    if (session.responsable1_id) responsables.push(session.responsable1_id);
+    if (session.responsable2_id) responsables.push(session.responsable2_id);
+
+    if (responsables.length > 0) {
+      await prisma.user.updateMany({
+        where: { id: { in: responsables } },
+        data: { qualification: 'RESPONSABLE_SESSION' }
+      });
+      logger.info('Session createSession - Qualifications mises à jour pour les responsables', { responsables });
+    }
+
     // Invalider le cache (ne pas faire échouer la requête si cela échoue)
     try {
       cache.flushByPattern('sessions');
@@ -324,6 +337,19 @@ exports.updateSession = async (req, res) => {
         }
       }
     });
+
+    // Mettre à jour la qualification des responsables
+    const responsables = [];
+    if (updatedSession.responsable1_id) responsables.push(updatedSession.responsable1_id);
+    if (updatedSession.responsable2_id) responsables.push(updatedSession.responsable2_id);
+
+    if (responsables.length > 0) {
+      await prisma.user.updateMany({
+        where: { id: { in: responsables } },
+        data: { qualification: 'RESPONSABLE_SESSION' }
+      });
+      logger.info('Session updateSession - Qualifications mises à jour pour les responsables', { responsables });
+    }
 
     // Invalider le cache (ne pas faire échouer la requête si cela échoue)
     try {
