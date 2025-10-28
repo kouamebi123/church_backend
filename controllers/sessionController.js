@@ -413,6 +413,8 @@ exports.deleteSession = async (req, res) => {
         units: {
           select: { 
             id: true,
+            responsable1_id: true,
+            responsable2_id: true,
             members: {
               select: { user_id: true }
             }
@@ -426,6 +428,8 @@ exports.deleteSession = async (req, res) => {
         units: {
           select: { 
             id: true,
+            responsable1_id: true,
+            responsable2_id: true,
             members: {
               select: { user_id: true }
             }
@@ -454,20 +458,25 @@ exports.deleteSession = async (req, res) => {
       logger.info('Session deleteSession - Responsables remis à LEADER avant suppression', { responsables });
     }
 
-    // Mettre à jour la qualification des membres de toutes les unités à IRREGULIER
-    const allMemberIds = [];
+    // Mettre à jour la qualification des membres et responsables des unités à IRREGULIER
+    const allUserIds = new Set();
+    
+    // Ajouter les membres des unités
     session.units.forEach(unit => {
       unit.members.forEach(member => {
-        allMemberIds.push(member.user_id);
+        allUserIds.add(member.user_id);
       });
+      // Ajouter les responsables des unités
+      if (unit.responsable1_id) allUserIds.add(unit.responsable1_id);
+      if (unit.responsable2_id) allUserIds.add(unit.responsable2_id);
     });
 
-    if (allMemberIds.length > 0) {
+    if (allUserIds.size > 0) {
       await prisma.user.updateMany({
-        where: { id: { in: allMemberIds } },
+        where: { id: { in: Array.from(allUserIds) } },
         data: { qualification: 'IRREGULIER' }
       });
-      logger.info('Session deleteSession - Membres des unités remis à IRREGULIER', { allMemberIds });
+      logger.info('Session deleteSession - Membres et responsables des unités remis à IRREGULIER', { allUserIds: Array.from(allUserIds) });
     }
 
     // Supprimer tous les membres de chaque unité
