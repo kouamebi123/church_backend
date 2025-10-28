@@ -258,9 +258,19 @@ exports.createSession = async (req, res) => {
     logger.error('Session - createSession - Erreur complète', error);
 
     if (error.code === 'P2002') {
+      // Vérifier quel champ est en conflit
+      const target = error.meta?.target;
+      let message = 'Une session avec ce nom existe déjà';
+      
+      if (target && target.includes('responsable1_id')) {
+        message = 'Ce responsable est déjà responsable d\'une session ou d\'un réseau';
+      } else if (target && target.includes('responsable2_id')) {
+        message = 'Ce responsable 2 est déjà responsable d\'une session ou d\'un réseau';
+      }
+      
       return res.status(400).json({
         success: false,
-        message: 'Une session avec ce nom existe déjà'
+        message
       });
     }
 
