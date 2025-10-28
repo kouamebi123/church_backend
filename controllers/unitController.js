@@ -525,10 +525,12 @@ exports.removeMember = async (req, res) => {
     const { id, memberId } = req.params;
 
     // Vérifier si le membre existe dans l'unité
-    const existingMember = await prisma.unitMember.findFirst({
+    const existingMember = await prisma.unitMember.findUnique({
       where: {
-        unit_id: id,
-        user_id: memberId
+        unit_id_user_id: {
+          unit_id: id,
+          user_id: memberId
+        }
       }
     });
 
