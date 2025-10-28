@@ -10,9 +10,9 @@ router.get('/public/:id', calendarController.getEventById);
 
 // Routes protégées (avec authentification)
 router.get('/', auth, calendarController.getAllEvents);
-router.get('/:id', auth, calendarController.getEventById);
 router.post('/', auth, calendarController.createEvent);
 router.put('/:id', auth, calendarController.updateEvent);
 router.delete('/:id', auth, calendarController.deleteEvent);
+router.get('/:id', auth, calendarController.getEventById);
 
 module.exports = router;
