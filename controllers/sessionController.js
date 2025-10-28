@@ -246,8 +246,12 @@ exports.createSession = async (req, res) => {
       }
     });
 
-    // Invalider le cache
-    cache.flushByPattern('sessions');
+    // Invalider le cache (ne pas faire échouer la requête si cela échoue)
+    try {
+      cache.flushByPattern('sessions');
+    } catch (cacheError) {
+      logger.error('Session - createSession - Erreur cache', cacheError);
+    }
 
     res.status(201).json({
       success: true,
@@ -321,8 +325,12 @@ exports.updateSession = async (req, res) => {
       }
     });
 
-    // Invalider le cache
-    cache.flushByPattern('sessions');
+    // Invalider le cache (ne pas faire échouer la requête si cela échoue)
+    try {
+      cache.flushByPattern('sessions');
+    } catch (cacheError) {
+      logger.error('Session - updateSession - Erreur cache', cacheError);
+    }
 
     res.status(200).json({
       success: true,
@@ -389,8 +397,12 @@ exports.deleteSession = async (req, res) => {
     });
     logger.info('Session deleteSession - Deleted session');
 
-    // Invalider le cache
-    cache.flushByPattern('sessions');
+    // Invalider le cache (ne pas faire échouer la requête si cela échoue)
+    try {
+      cache.flushByPattern('sessions');
+    } catch (cacheError) {
+      logger.error('Session - deleteSession - Erreur cache', cacheError);
+    }
 
     res.status(200).json({
       success: true,
