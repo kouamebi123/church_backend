@@ -274,6 +274,33 @@ exports.createUnit = async (req, res) => {
       }
     });
 
+    // Ajouter automatiquement les responsables comme membres de l'unité
+    const responsablesToAdd = [];
+    if (responsable1_id) {
+      responsablesToAdd.push(responsable1_id);
+    }
+    if (responsable2_id) {
+      responsablesToAdd.push(responsable2_id);
+    }
+
+    // Ajouter les responsables comme membres de l'unité
+    for (const responsableId of responsablesToAdd) {
+      try {
+        await prisma.unitMember.create({
+          data: {
+            unit_id: unit.id,
+            user_id: responsableId
+          }
+        });
+        logger.info('Responsable ajouté comme membre de l\'unité', { responsableId, unitId: unit.id });
+      } catch (error) {
+        // Ignorer l'erreur si le responsable est déjà membre (contrainte unique)
+        if (error.code !== 'P2002') {
+          logger.error('Erreur lors de l\'ajout du responsable comme membre', { responsableId, error });
+        }
+      }
+    }
+
     res.status(201).json({
       success: true,
       message: 'Unité créée avec succès',
@@ -296,6 +323,15 @@ exports.updateUnit = async (req, res) => {
     const { prisma } = req;
     const { id } = req.params;
     const { nom, responsable1_id, responsable2_id, superieur_hierarchique_id, active } = req.body;
+
+    // Récupérer l'unité actuelle pour connaître les anciens responsables
+    const currentUnit = await prisma.unit.findUnique({
+      where: { id },
+      select: {
+        responsable1_id: true,
+        responsable2_id: true
+      }
+    });
 
     const updatedUnit = await prisma.unit.update({
       where: { id },
@@ -331,6 +367,37 @@ exports.updateUnit = async (req, res) => {
         }
       }
     });
+
+    // Ajouter les nouveaux responsables comme membres s'ils ont changé
+    const responsablesToAdd = [];
+    
+    // Vérifier si responsable1 a changé
+    if (responsable1_id && responsable1_id !== currentUnit.responsable1_id) {
+      responsablesToAdd.push(responsable1_id);
+    }
+    
+    // Vérifier si responsable2 a changé
+    if (responsable2_id && responsable2_id !== currentUnit.responsable2_id) {
+      responsablesToAdd.push(responsable2_id);
+    }
+
+    // Ajouter les nouveaux responsables comme membres de l'unité
+    for (const responsableId of responsablesToAdd) {
+      try {
+        await prisma.unitMember.create({
+          data: {
+            unit_id: updatedUnit.id,
+            user_id: responsableId
+          }
+        });
+        logger.info('Nouveau responsable ajouté comme membre de l\'unité', { responsableId, unitId: updatedUnit.id });
+      } catch (error) {
+        // Ignorer l'erreur si le responsable est déjà membre (contrainte unique)
+        if (error.code !== 'P2002') {
+          logger.error('Erreur lors de l\'ajout du responsable comme membre', { responsableId, error });
+        }
+      }
+    }
 
     res.status(200).json({
       success: true,
