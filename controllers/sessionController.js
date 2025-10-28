@@ -489,7 +489,18 @@ exports.deleteSession = async (req, res) => {
       logger.info(`Session deleteSession - Deleted members for unit ${unit.id}`);
     }
 
-    // Supprimer toutes les unités de cette session
+    // Supprimer toutes les unités de cette session (en mettant à NULL les références responsables)
+    await prisma.unit.updateMany({
+      where: {
+        session_id: id
+      },
+      data: {
+        responsable1_id: null,
+        responsable2_id: null
+      }
+    });
+    
+    // Maintenant supprimer les unités
     await prisma.unit.deleteMany({
       where: {
         session_id: id
@@ -497,7 +508,16 @@ exports.deleteSession = async (req, res) => {
     });
     logger.info('Session deleteSession - Deleted all units');
 
-    // Supprimer la session
+    // Supprimer la session (en mettant à NULL les références responsables d'abord)
+    await prisma.session.update({
+      where: { id },
+      data: {
+        responsable1_id: null,
+        responsable2_id: null
+      }
+    });
+    
+    // Maintenant supprimer la session
     await prisma.session.delete({
       where: { id }
     });
