@@ -503,6 +503,7 @@ exports.getSessionStatsById = async (req, res) => {
 
     const memberIds = new Set();
     const userQualifications = new Map();
+    const membresSimplesQualifications = new Map(); // Map séparée pour les membres simples
 
     session.units.forEach(unit => {
       // Collecter les IDs des responsables pour ne pas les compter comme membres simples
@@ -522,10 +523,12 @@ exports.getSessionStatsById = async (req, res) => {
           if (!userQualifications.has(userId)) {
             userQualifications.set(userId, member.user.qualification);
           }
+          // Ajouter seulement les membres non-responsables pour le calcul des membres simples
+          membresSimplesQualifications.set(userId, member.user.qualification);
         }
       });
       
-      // Ajouter les responsables (pour le total, pas pour membres simples)
+      // Ajouter les responsables (pour le total seulement)
       if (unit.responsable1) {
         memberIds.add(unit.responsable1.id);
         if (!userQualifications.has(unit.responsable1.id)) {
@@ -551,7 +554,8 @@ exports.getSessionStatsById = async (req, res) => {
     const totalUnits = session.units.length;
     
     // Calculer les membres simples (uniquement ceux avec qualification MEMBRE_SESSION)
-    const membresSimples = qualificationsArray.filter(q => q === 'MEMBRE_SESSION').length;
+    const membresSimplesArray = Array.from(membresSimplesQualifications.values());
+    const membresSimples = membresSimplesArray.filter(q => q === 'MEMBRE_SESSION').length;
     
     // Ajouter "Membres simples" dans les stats
     stats['Membre simple'] = membresSimples;
