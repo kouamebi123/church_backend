@@ -24,6 +24,9 @@ exports.getSessions = async (req, res) => {
       }
     }
 
+    logger.info('Session getSessions - Filter:', JSON.stringify(filter));
+    logger.info('Session getSessions - Query churchId:', req.query.churchId);
+
     const cacheKey = cache.generateKey('sessions', {
       ...filter,
       role: req.user?.role,
@@ -32,6 +35,7 @@ exports.getSessions = async (req, res) => {
 
     const cachedData = cache.get(cacheKey);
     if (cachedData) {
+      logger.info('Session getSessions - Using cached data');
       return res.status(200).json(cachedData);
     }
 
@@ -76,6 +80,8 @@ exports.getSessions = async (req, res) => {
         createdAt: 'desc'
       }
     });
+
+    logger.info('Session getSessions - Found sessions:', sessions.length);
 
     const response = {
       success: true,
