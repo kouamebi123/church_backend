@@ -111,31 +111,112 @@ exports.getGlobalStats = async (req, res) => {
       where: { qualification: 'COMPAGNON_OEUVRE', ...churchFilter }
     });
 
+    // Statistiques des sessions
+    const total_sessions = churchId
+      ? await prisma.session.count({ where: { church_id: churchId } })
+      : await prisma.session.count();
+
+    const total_resp_sessions = await prisma.user.count({
+      where: {
+        qualification: 'RESPONSABLE_SESSION',
+        ...churchFilter
+      }
+    });
+
+    // Statistiques des unités et responsables d'unité
+    let total_unites = 0;
+    let total_resp_unites = 0;
+
+    if (churchId) {
+      // Si on filtre par église, on doit d'abord récupérer les sessions de cette église
+      const sessionsInChurch = await prisma.session.findMany({
+        where: { church_id: churchId },
+        select: { id: true }
+      });
+      const sessionIds = sessionsInChurch.map(s => s.id);
+
+      // Compter les unités dans ces sessions
+      total_unites = await prisma.unit.count({
+        where: { session_id: { in: sessionIds } }
+      });
+
+      // Compter les responsables d'unité dans ces sessions
+      const unitsInChurch = await prisma.unit.findMany({
+        where: { session_id: { in: sessionIds } },
+        select: { responsable1_id: true, responsable2_id: true }
+      });
+      const responsableIds = new Set();
+      unitsInChurch.forEach(unit => {
+        if (unit.responsable1_id) responsableIds.add(unit.responsable1_id);
+        if (unit.responsable2_id) responsableIds.add(unit.responsable2_id);
+      });
+      total_resp_unites = responsableIds.size;
+    } else {
+      // Toutes les églises
+      total_unites = await prisma.unit.count();
+      const allUnits = await prisma.unit.findMany({
+        select: { responsable1_id: true, responsable2_id: true }
+      });
+      const responsableIds = new Set();
+      allUnits.forEach(unit => {
+        if (unit.responsable1_id) responsableIds.add(unit.responsable1_id);
+        if (unit.responsable2_id) responsableIds.add(unit.responsable2_id);
+      });
+      total_resp_unites = responsableIds.size;
+    }
+
+    const total_membres_session = await prisma.user.count({
+      where: { qualification: 'MEMBRE_SESSION', ...churchFilter }
+    });
+
     // Calcul des personnes isolées (comme dans Mongoose)
     let usersInGroups = [];
+    let usersInUnits = [];
+    
     if (churchId) {
-      // Si on filtre par église, on doit d'abord récupérer les réseaux de cette église
+      // Si on filtre par église, on doit d'abord récupérer les réseaux et sessions de cette église
       const networksInChurch = await prisma.network.findMany({
         where: { church_id: churchId },
         select: { id: true }
       });
       const networkIds = networksInChurch.map(n => n.id);
+      
+      const sessionsInChurch = await prisma.session.findMany({
+        where: { church_id: churchId },
+        select: { id: true }
+      });
+      const sessionIds = sessionsInChurch.map(s => s.id);
+      
       const groupMembers = await prisma.groupMember.findMany({
         where: { group: { network_id: { in: networkIds } } },
         select: { user_id: true }
       });
       usersInGroups = groupMembers.map(gm => gm.user_id);
+      
+      const unitMembers = await prisma.unitMember.findMany({
+        where: { unit: { session_id: { in: sessionIds } } },
+        select: { user_id: true }
+      });
+      usersInUnits = unitMembers.map(um => um.user_id);
     } else {
       const groupMembers = await prisma.groupMember.findMany({
         select: { user_id: true }
       });
       usersInGroups = groupMembers.map(gm => gm.user_id);
+      
+      const unitMembers = await prisma.unitMember.findMany({
+        select: { user_id: true }
+      });
+      usersInUnits = unitMembers.map(um => um.user_id);
     }
+    
+    // Combiner tous les utilisateurs dans des groupes ou unités
+    const allUsersInStructures = [...new Set([...usersInGroups, ...usersInUnits])];
 
     const total_personnes_isolees = await prisma.user.count({
       where: {
-        id: { notIn: usersInGroups },
-        qualification: { notIn: ['RESPONSABLE_RESEAU', 'GOUVERNANCE', 'ECODIM', 'RESPONSABLE_ECODIM', 'COMPAGNON_OEUVRE'] },
+        id: { notIn: allUsersInStructures },
+        qualification: { notIn: ['RESPONSABLE_RESEAU', 'RESPONSABLE_SESSION', 'RESPONSABLE_UNITE', 'GOUVERNANCE', 'ECODIM', 'RESPONSABLE_ECODIM', 'COMPAGNON_OEUVRE', 'MEMBRE_SESSION'] },
         ...churchFilter // Filtre par église comme dans Mongoose
       }
     });
@@ -149,6 +230,11 @@ exports.getGlobalStats = async (req, res) => {
       total_resp_reseaux,
       total_gr,
       total_resp_gr,
+      total_sessions,
+      total_resp_sessions,
+      total_unites,
+      total_resp_unites,
+      total_membres_session,
       total_leaders,
       total_leaders_all,
       total_reguliers,
@@ -167,6 +253,11 @@ exports.getGlobalStats = async (req, res) => {
       total_resp_reseaux,
       total_gr,
       total_resp_gr,
+      total_sessions,
+      total_resp_sessions,
+      total_unites,
+      total_resp_unites,
+      total_membres_session,
       total_leaders,
       total_leaders_all,
       total_reguliers,
