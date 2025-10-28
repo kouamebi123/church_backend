@@ -518,32 +518,58 @@ exports.addMember = async (req, res) => {
   }
 };
 
+// Fonction utilitaire pour retirer un membre d'une unité
+const removeMemberFromUnit = async (prisma, unitId, userId) => {
+  try {
+    // Retirer le membre de l'unité
+    await prisma.unitMember.delete({
+      where: {
+        unit_id_user_id: {
+          unit_id: unitId,
+          user_id: userId
+        }
+      }
+    });
+
+    // Mettre à jour la qualification de l'utilisateur à MEMBRE_IRREGULIER
+    await prisma.user.update({
+      where: { id: userId },
+      data: { qualification: 'MEMBRE_IRREGULIER' }
+    });
+
+    logger.info('Unit - removeMemberFromUnit - Utilisateur remis à MEMBRE_IRREGULIER', { userId });
+
+    return true;
+  } catch (error) {
+    logger.error('Erreur lors du retrait du membre', error);
+    return false;
+  }
+};
+
 // Supprimer un membre d'une unité
 exports.removeMember = async (req, res) => {
   try {
     const { prisma } = req;
-    const { id, memberId } = req.params;
+    const { id: unitId, memberId } = req.params;
 
-    // Vérifier si le membre existe dans l'unité
-    const existingMember = await prisma.unitMember.findUnique({
+    // Vérifier si le membre existe
+    const existingMember = await prisma.unitMember.findFirst({
       where: {
-        unit_id_user_id: {
-          unit_id: id,
-          user_id: memberId
-        }
+        unit_id: unitId,
+        user_id: memberId
       }
     });
 
     if (!existingMember) {
       return res.status(404).json({
         success: false,
-        message: 'Membre introuvable dans cette unité'
+        message: 'Membre non trouvé dans cette unité'
       });
     }
 
     // Vérifier si l'utilisateur est responsable de cette unité
     const unit = await prisma.unit.findUnique({
-      where: { id },
+      where: { id: unitId },
       select: {
         responsable1_id: true,
         responsable2_id: true
@@ -565,31 +591,26 @@ exports.removeMember = async (req, res) => {
       });
     }
 
-    // Supprimer le membre de l'unité
-    await prisma.unitMember.delete({
-      where: {
-        unit_id_user_id: {
-          unit_id: id,
-          user_id: memberId
-        }
-      }
-    });
+    // Retirer le membre
+    const success = await removeMemberFromUnit(prisma, unitId, memberId);
 
-    // Mettre à jour la qualification de l'utilisateur à MEMBRE_IRREGULIER
-    await prisma.user.update({
-      where: { id: memberId },
-      data: { qualification: 'MEMBRE_IRREGULIER' }
-    });
+    if (!success) {
+      return res.status(500).json({
+        success: false,
+        message: 'Erreur lors du retrait du membre'
+      });
+    }
 
-    logger.info('Unit - removeMember - Membre supprimé et remis à MEMBRE_IRREGULIER', { memberId });
-
-    res.status(200).json({
+    res.json({
       success: true,
-      message: 'Membre supprimé de l\'unité avec succès'
+      message: 'Membre retiré de l\'unité avec succès'
     });
   } catch (error) {
     logger.error('Unit - removeMember - Erreur complète', error);
-    const { status, message } = handleError(error, 'la suppression du membre de l\'unité');
+
+    // Utilisation du gestionnaire d'erreurs centralisé
+    const { status, message } = handleError(error, 'le retrait du membre');
+
     res.status(status).json({
       success: false,
       message
