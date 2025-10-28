@@ -78,7 +78,7 @@ exports.getGlobalStats = async (req, res) => {
 
     const total_leaders_all = await prisma.user.count({
       where: {
-        qualification: { in: ['LEADER', 'RESPONSABLE_RESEAU', 'QUALIFICATION_12', 'QUALIFICATION_144', 'QUALIFICATION_1728', 'COMPAGNON_OEUVRE'] },
+        qualification: { in: ['LEADER', 'RESPONSABLE_RESEAU', 'QUALIFICATION_12', 'QUALIFICATION_144', 'QUALIFICATION_1728', 'COMPAGNON_OEUVRE', 'RESPONSABLE_SESSION', 'RESPONSABLE_UNITE'] },
         ...churchFilter
       }
     });
