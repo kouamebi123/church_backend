@@ -278,6 +278,45 @@ async function fixFailedMigration() {
     await prisma.$disconnect();
     console.log('✅ Migrations appliquées avec succès');
     
+    // Ajouter les colonnes pour prévisionnel et assistance
+    console.log('🚀 Ajout des colonnes responsables_reseau et compagnons_oeuvre...');
+    
+    try {
+      // Ajouter les colonnes à la table previsionnels
+      await prisma.$executeRaw`
+        ALTER TABLE "previsionnels" 
+        ADD COLUMN IF NOT EXISTS "responsables_reseau" INTEGER DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS "compagnons_oeuvre" INTEGER DEFAULT 0;
+      `;
+      console.log('✅ Colonnes ajoutées à previsionnels');
+
+      // Ajouter les colonnes à la table assistance
+      await prisma.$executeRaw`
+        ALTER TABLE "assistance" 
+        ADD COLUMN IF NOT EXISTS "responsables_reseau" INTEGER DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS "compagnons_oeuvre" INTEGER DEFAULT 0;
+      `;
+      console.log('✅ Colonnes ajoutées à assistance');
+
+      // Mettre à jour les enregistrements existants avec des valeurs par défaut
+      const previsionnelsCount = await prisma.$executeRaw`
+        UPDATE "previsionnels" 
+        SET "responsables_reseau" = 0, "compagnons_oeuvre" = 0 
+        WHERE "responsables_reseau" IS NULL OR "compagnons_oeuvre" IS NULL;
+      `;
+
+      const assistanceCount = await prisma.$executeRaw`
+        UPDATE "assistance" 
+        SET "responsables_reseau" = 0, "compagnons_oeuvre" = 0 
+        WHERE "responsables_reseau" IS NULL OR "compagnons_oeuvre" IS NULL;
+      `;
+
+      console.log(`✅ ${previsionnelsCount} prévisionnels mis à jour`);
+      console.log(`✅ ${assistanceCount} assistances mises à jour`);
+    } catch (error) {
+      console.log('⚠️  Colonnes prévisionnel/assistance existent déjà ou erreur:', error.message);
+    }
+    
   } catch (error) {
     console.error('❌ Erreur:', error.message);
     console.log('⚠️  Démarrant le serveur malgré l\'erreur...');
