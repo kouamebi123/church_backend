@@ -501,84 +501,74 @@ exports.getSessionStatsById = async (req, res) => {
       });
     }
 
+    // Calculer les statistiques par qualification (même logique que networkController)
     const memberIds = new Set();
-    const userQualifications = new Map();
-    const membresSimplesQualifications = new Map(); // Map séparée pour les membres simples
+    const userQualifications = new Map(); // Map pour éviter les doublons par utilisateur
+    const unitResponsables = new Set();
 
     session.units.forEach(unit => {
-      // Collecter les IDs des responsables pour ne pas les compter comme membres simples
-      const responsablesIds = new Set();
-      if (unit.responsable1) {
-        responsablesIds.add(unit.responsable1.id);
-      }
-      if (unit.responsable2) {
-        responsablesIds.add(unit.responsable2.id);
-      }
-      
-      // Ajouter les membres de l'unité (exclure les responsables)
+      // Ajouter les membres de l'unité
       unit.members.forEach(member => {
-        const userId = member.user?.id || member.user_id;
-        if (userId && !responsablesIds.has(userId)) {
-          memberIds.add(userId);
-          if (!userQualifications.has(userId)) {
-            userQualifications.set(userId, member.user.qualification);
-          }
-          // Ajouter seulement les membres non-responsables pour le calcul des membres simples
-          membresSimplesQualifications.set(userId, member.user.qualification);
+        memberIds.add(member.user.id);
+        // Ne pas ajouter de doublons pour le même utilisateur
+        if (!userQualifications.has(member.user.id)) {
+          userQualifications.set(member.user.id, member.user.qualification);
         }
       });
-      
-      // Ajouter les responsables (pour le total seulement)
+
+      // Ajouter les responsables de l'unité
       if (unit.responsable1) {
-        memberIds.add(unit.responsable1.id);
+        unitResponsables.add(unit.responsable1.id);
+        // Ajouter la qualification du responsable seulement s'il n'est pas déjà compté
         if (!userQualifications.has(unit.responsable1.id)) {
           userQualifications.set(unit.responsable1.id, unit.responsable1.qualification);
         }
       }
-      
       if (unit.responsable2) {
-        memberIds.add(unit.responsable2.id);
+        unitResponsables.add(unit.responsable2.id);
+        // Ajouter la qualification du responsable seulement s'il n'est pas déjà compté
         if (!userQualifications.has(unit.responsable2.id)) {
           userQualifications.set(unit.responsable2.id, unit.responsable2.qualification);
         }
       }
     });
 
+    // Ajouter les responsables de la session
+    const sessionResponsables = await prisma.user.findMany({
+      where: {
+        OR: [
+          { session_responsable1: { some: { id } } },
+          { session_responsable2: { some: { id } } }
+        ]
+      },
+      select: {
+        id: true,
+        qualification: true
+      }
+    });
+
+    sessionResponsables.forEach(resp => {
+      memberIds.add(resp.id);
+      // Ajouter la qualification seulement si l'utilisateur n'est pas déjà compté
+      if (!userQualifications.has(resp.id)) {
+        userQualifications.set(resp.id, resp.qualification);
+      }
+    });
+
+    // Compter uniquement les qualifications session/unité
     const qualificationsArray = Array.from(userQualifications.values());
-    const stats = {};
-
-    qualificationsArray.forEach(q => {
-      stats[q] = (stats[q] || 0) + 1;
-    });
-
-    const totalUnits = session.units.length;
-    
-    // Calculer les membres simples (uniquement ceux avec qualification MEMBRE_SESSION)
-    const membresSimplesArray = Array.from(membresSimplesQualifications.values());
-    const membresSimples = membresSimplesArray.filter(q => q === 'MEMBRE_SESSION').length;
-    
-    // Debug logs
-    logger.info('Session getSessionStatsById - Debug membres simples', {
-      totalMembers: memberIds.size,
-      membresSimplesQualifications: Array.from(membresSimplesQualifications.entries()),
-      membresSimplesArray,
-      membresSimples,
-      responsablesIds: Array.from(session.units.flatMap(unit => [
-        unit.responsable1?.id,
-        unit.responsable2?.id
-      ].filter(Boolean)))
-    });
-    
-    // Ajouter "Membres simples" dans les stats
-    stats['Membre simple'] = membresSimples;
+    const stats = {
+      totalUnits: session.units.length,
+      'RESPONSABLE_SESSION': qualificationsArray.filter(q => q === 'RESPONSABLE_SESSION').length,
+      'RESPONSABLE_UNITE': qualificationsArray.filter(q => q === 'RESPONSABLE_UNITE').length,
+      'MEMBRE_SESSION': qualificationsArray.filter(q => q === 'MEMBRE_SESSION').length,
+      'Membre simple': qualificationsArray.filter(q => q === 'MEMBRE_SESSION').length,
+      totalMembers: memberIds.size
+    };
 
     res.status(200).json({
       success: true,
-      data: {
-        totalUnits,
-        totalMembers: memberIds.size,
-        stats
-      }
+      data: stats
     });
   } catch (error) {
     logger.error('Session - getSessionStatsById - Erreur complète', error);
