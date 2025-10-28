@@ -450,6 +450,18 @@ exports.getSessionStatsById = async (req, res) => {
                   }
                 }
               }
+            },
+            responsable1: {
+              select: {
+                id: true,
+                qualification: true
+              }
+            },
+            responsable2: {
+              select: {
+                id: true,
+                qualification: true
+              }
             }
           }
         }
@@ -467,6 +479,7 @@ exports.getSessionStatsById = async (req, res) => {
     const userQualifications = new Map();
 
     session.units.forEach(unit => {
+      // Ajouter les membres de l'unité
       unit.members.forEach(member => {
         const userId = member.user?.id || member.user_id;
         if (userId) {
@@ -476,6 +489,22 @@ exports.getSessionStatsById = async (req, res) => {
           }
         }
       });
+      
+      // Ajouter le responsable1 de l'unité
+      if (unit.responsable1) {
+        memberIds.add(unit.responsable1.id);
+        if (!userQualifications.has(unit.responsable1.id)) {
+          userQualifications.set(unit.responsable1.id, unit.responsable1.qualification);
+        }
+      }
+      
+      // Ajouter le responsable2 de l'unité
+      if (unit.responsable2) {
+        memberIds.add(unit.responsable2.id);
+        if (!userQualifications.has(unit.responsable2.id)) {
+          userQualifications.set(unit.responsable2.id, unit.responsable2.qualification);
+        }
+      }
     });
 
     const qualificationsArray = Array.from(userQualifications.values());
