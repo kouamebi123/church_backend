@@ -29,6 +29,23 @@ async function fixFailedMigration() {
     await prisma.$executeRaw`ALTER TYPE "Qualification" ADD VALUE IF NOT EXISTS 'COMPAGNON_OEUVRE'`;
     console.log('✅ Enum Qualification mis à jour');
     
+    // Ajouter SESSION et UNIT à l'enum EntityType
+    console.log('🚀 Mise à jour de l\'enum EntityType...');
+    
+    try {
+      await prisma.$executeRaw`ALTER TYPE "EntityType" ADD VALUE IF NOT EXISTS 'SESSION'`;
+      console.log('✅ SESSION ajouté à EntityType');
+    } catch (error) {
+      console.log('⚠️  SESSION existe déjà dans EntityType');
+    }
+    
+    try {
+      await prisma.$executeRaw`ALTER TYPE "EntityType" ADD VALUE IF NOT EXISTS 'UNIT'`;
+      console.log('✅ UNIT ajouté à EntityType');
+    } catch (error) {
+      console.log('⚠️  UNIT existe déjà dans EntityType');
+    }
+    
     // Vérifier si la table existe déjà
     const tableCheck = await prisma.$queryRaw`
       SELECT EXISTS (
