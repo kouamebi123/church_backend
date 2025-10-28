@@ -520,19 +520,26 @@ exports.deleteSession = async (req, res) => {
     
     // Message d'erreur plus informatif
     let errorMessage = 'Erreur lors de la suppression de la session';
+    let statusCode = 500;
     
     if (error.code === 'P2003') {
-      errorMessage = 'Impossible de supprimer cette session. Il y a encore des unités ou des membres associés.';
+      errorMessage = 'Impossible de supprimer cette session. Il y a encore des références actives.';
+      statusCode = 400;
     } else if (error.code === 'P2025') {
       errorMessage = 'Session introuvable';
-    } else if (error.meta) {
-      errorMessage = error.meta.cause || errorMessage;
+      statusCode = 404;
+    } else if (error.code === 'P2002') {
+      errorMessage = 'Contrainte de clé unique violée lors de la suppression';
+      statusCode = 400;
+    } else if (error.meta && error.meta.cause) {
+      errorMessage = error.meta.cause;
+      statusCode = 400;
     }
 
-    res.status(400).json({
+    res.status(statusCode).json({
       success: false,
       message: errorMessage,
-      details: error.message
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };

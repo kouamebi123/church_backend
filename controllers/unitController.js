@@ -398,11 +398,6 @@ exports.deleteUnit = async (req, res) => {
     // Vérifier que l'unité existe et récupérer les membres et responsables
     const unit = await prisma.unit.findUnique({
       where: { id },
-      include: {
-        members: {
-          select: { user_id: true }
-        }
-      },
       select: {
         id: true,
         responsable1_id: true,
@@ -464,19 +459,26 @@ exports.deleteUnit = async (req, res) => {
 
     // Message d'erreur plus informatif
     let errorMessage = 'Erreur lors de la suppression de l\'unité';
+    let statusCode = 500;
     
     if (error.code === 'P2003') {
-      errorMessage = 'Impossible de supprimer cette unité. Il y a encore des membres associés.';
+      errorMessage = 'Impossible de supprimer cette unité. Il y a encore des références actives.';
+      statusCode = 400;
     } else if (error.code === 'P2025') {
       errorMessage = 'Unité introuvable';
-    } else if (error.meta) {
-      errorMessage = error.meta.cause || errorMessage;
+      statusCode = 404;
+    } else if (error.code === 'P2002') {
+      errorMessage = 'Contrainte de clé unique violée lors de la suppression';
+      statusCode = 400;
+    } else if (error.meta && error.meta.cause) {
+      errorMessage = error.meta.cause;
+      statusCode = 400;
     }
 
-    res.status(400).json({
+    res.status(statusCode).json({
       success: false,
       message: errorMessage,
-      details: error.message
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
