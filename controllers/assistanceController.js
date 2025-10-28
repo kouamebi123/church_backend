@@ -4,16 +4,43 @@ const logger = require('../utils/logger');
 const prisma = new PrismaClient();
 
 // Fonction utilitaire pour calculer le dimanche de la semaine d'une date donnée
+// Utilise la logique ISO 8601 mais retourne le dimanche précédent (fin de semaine précédente)
 const getSundayOfWeek = (date) => {
   const targetDate = new Date(date);
-  const dayOfWeek = targetDate.getDay(); // 0 = dimanche, 1 = lundi, ..., 6 = samedi
+  const year = targetDate.getFullYear();
   
-  // Calculer le dimanche de cette semaine
-  const sunday = new Date(targetDate);
-  sunday.setDate(targetDate.getDate() - dayOfWeek); // Retourner au dimanche
-  sunday.setHours(0, 0, 0, 0); // Mettre à minuit
+  // Calculer le numéro de semaine ISO
+  const startOfYear = new Date(year, 0, 1);
+  const days = Math.floor((targetDate - startOfYear) / (24 * 60 * 60 * 1000));
+  let weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7);
   
-  return sunday;
+  // Ajuster pour les années où le 1er janvier est dans la semaine 52/53 de l'année précédente
+  if (weekNumber === 0) {
+    const lastYear = year - 1;
+    const lastYearStart = new Date(lastYear, 0, 1);
+    const lastYearDays = Math.floor((targetDate - lastYearStart) / (24 * 60 * 60 * 1000));
+    weekNumber = Math.ceil((lastYearDays + lastYearStart.getDay() + 1) / 7);
+  }
+  
+  // Calculer le lundi de cette semaine ISO
+  const firstDayOfYear = new Date(year, 0, 1);
+  const firstThursdayOfYear = new Date(year, 0, 1);
+  
+  // Trouver le premier jeudi de l'année
+  while (firstThursdayOfYear.getDay() !== 4) {
+    firstThursdayOfYear.setDate(firstThursdayOfYear.getDate() + 1);
+  }
+  
+  // Calculer le lundi de la semaine demandée
+  const mondayOfWeek = new Date(firstThursdayOfYear);
+  mondayOfWeek.setDate(firstThursdayOfYear.getDate() + (weekNumber - 1) * 7 - 3);
+  
+  // Calculer le dimanche précédent (fin de la semaine précédente)
+  const sundayOfWeek = new Date(mondayOfWeek);
+  sundayOfWeek.setDate(mondayOfWeek.getDate() - 1);
+  sundayOfWeek.setHours(0, 0, 0, 0);
+  
+  return sundayOfWeek;
 };
 
 // Fonction utilitaire pour vérifier les doublons par semaine et type de culte
