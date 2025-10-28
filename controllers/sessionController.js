@@ -557,6 +557,18 @@ exports.getSessionStatsById = async (req, res) => {
     const membresSimplesArray = Array.from(membresSimplesQualifications.values());
     const membresSimples = membresSimplesArray.filter(q => q === 'MEMBRE_SESSION').length;
     
+    // Debug logs
+    logger.info('Session getSessionStatsById - Debug membres simples', {
+      totalMembers: memberIds.size,
+      membresSimplesQualifications: Array.from(membresSimplesQualifications.entries()),
+      membresSimplesArray,
+      membresSimples,
+      responsablesIds: Array.from(session.units.flatMap(unit => [
+        unit.responsable1?.id,
+        unit.responsable2?.id
+      ].filter(Boolean)))
+    });
+    
     // Ajouter "Membres simples" dans les stats
     stats['Membre simple'] = membresSimples;
 
