@@ -23,6 +23,7 @@ router.route('/')
   .get(getSessions)
   .post(authorize('ADMIN', 'MANAGER'), authorizeManagerNetworkAccess, createSession);
 
+// Routes spécifiques AVANT la route générique pour éviter les conflits
 router.get('/:id/stats', getSessionStatsById);
 router.get('/:id/units', getSessionUnits);
 
