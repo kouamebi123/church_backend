@@ -371,9 +371,33 @@ exports.deleteUnit = async (req, res) => {
     const { prisma } = req;
     const { id } = req.params;
 
+    logger.info('Unit deleteUnit - Starting deletion for unit:', id);
+
+    // Vérifier que l'unité existe
+    const unit = await prisma.unit.findUnique({
+      where: { id }
+    });
+
+    if (!unit) {
+      return res.status(404).json({
+        success: false,
+        message: 'Unité introuvable'
+      });
+    }
+
+    // Supprimer tous les membres de l'unité
+    await prisma.unitMember.deleteMany({
+      where: {
+        unit_id: id
+      }
+    });
+    logger.info('Unit deleteUnit - Deleted all members');
+
+    // Supprimer l'unité
     await prisma.unit.delete({
       where: { id }
     });
+    logger.info('Unit deleteUnit - Deleted unit');
 
     res.status(200).json({
       success: true,
@@ -381,10 +405,22 @@ exports.deleteUnit = async (req, res) => {
     });
   } catch (error) {
     logger.error('Unit - deleteUnit - Erreur complète', error);
-    const { status, message } = handleError(error, 'la suppression de l\'unité');
-    res.status(status).json({
+
+    // Message d'erreur plus informatif
+    let errorMessage = 'Erreur lors de la suppression de l\'unité';
+    
+    if (error.code === 'P2003') {
+      errorMessage = 'Impossible de supprimer cette unité. Il y a encore des membres associés.';
+    } else if (error.code === 'P2025') {
+      errorMessage = 'Unité introuvable';
+    } else if (error.meta) {
+      errorMessage = error.meta.cause || errorMessage;
+    }
+
+    res.status(400).json({
       success: false,
-      message
+      message: errorMessage,
+      details: error.message
     });
   }
 };
