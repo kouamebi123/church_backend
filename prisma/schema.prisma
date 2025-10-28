@@ -58,12 +58,12 @@ model User {
   confirmed_testimonies        Testimony[]          @relation("TestimonyConfirmer")
   activity_logs                ActivityLog[]        @relation("ActivityLogs")
   network_companions           NetworkCompanion[]
-  session_responsable1         Session[]             @relation("SessionResponsable1")
-  session_responsable2         Session[]             @relation("SessionResponsable2")
-  unit_responsable1            Unit[]                @relation("UnitResponsable1")
-  unit_responsable2            Unit[]                @relation("UnitResponsable2")
-  unit_members                 UnitMember[]
-  unit_superieur_hierarchique  Unit[]                @relation("UnitSuperieurHierarchique")
+  session_responsable1         Session[]             @relation("SessionResponsable1", onDelete: Cascade)
+  session_responsable2         Session[]             @relation("SessionResponsable2", onDelete: Cascade)
+  unit_responsable1            Unit[]                @relation("UnitResponsable1", onDelete: Cascade)
+  unit_responsable2            Unit[]                @relation("UnitResponsable2", onDelete: Cascade)
+  unit_members                 UnitMember[]          @relation("UnitMemberUser")
+  unit_superieur_hierarchique  Unit[]                @relation("UnitSuperieurHierarchique", onDelete: Cascade)
 
   @@map("users")
 }
@@ -92,7 +92,7 @@ model Church {
   services       Service[]
   members        User[]         @relation("ChurchMembers")
   testimonies    Testimony[]
-  sessions       Session[]
+  sessions       Session[]       @relation("ChurchSessions", onDelete: Cascade)
 
   @@map("churches")
 }
@@ -193,8 +193,8 @@ model Session {
   responsable1_id String
   responsable2_id String?
   church_id      String
-  units          Unit[]
-  church         Church   @relation(fields: [church_id], references: [id])
+  units          Unit[]    @relation("SessionUnits", onDelete: Cascade)
+  church         Church   @relation("ChurchSessions", fields: [church_id], references: [id], onDelete: Cascade)
   responsable1   User     @relation("SessionResponsable1", fields: [responsable1_id], references: [id])
   responsable2   User?    @relation("SessionResponsable2", fields: [responsable2_id], references: [id])
 
@@ -214,8 +214,8 @@ model Unit {
   responsable1_id           String
   responsable2_id           String?
   superieur_hierarchique_id String?
-  members                   UnitMember[]
-  session                   Session       @relation(fields: [session_id], references: [id])
+  members                   UnitMember[]  @relation("UnitMembers", onDelete: Cascade)
+  session                   Session       @relation("SessionUnits", fields: [session_id], references: [id], onDelete: Cascade)
   responsable1              User          @relation("UnitResponsable1", fields: [responsable1_id], references: [id])
   responsable2              User?         @relation("UnitResponsable2", fields: [responsable2_id], references: [id])
   superieur_hierarchique    User?         @relation("UnitSuperieurHierarchique", fields: [superieur_hierarchique_id], references: [id])
@@ -230,8 +230,8 @@ model UnitMember {
   createdAt DateTime @default(now())
   unit_id   String
   user_id   String
-  unit      Unit     @relation(fields: [unit_id], references: [id])
-  user      User     @relation(fields: [user_id], references: [id])
+  unit      Unit     @relation("UnitMembers", fields: [unit_id], references: [id], onDelete: Cascade)
+  user      User     @relation("UnitMemberUser", fields: [user_id], references: [id], onDelete: Cascade)
 
   @@unique([unit_id, user_id])
   @@map("unit_members")

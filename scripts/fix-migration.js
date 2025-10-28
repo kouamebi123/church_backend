@@ -125,7 +125,7 @@ async function fixFailedMigration() {
       
       await prisma.$executeRaw`
         ALTER TABLE "sessions" ADD CONSTRAINT "sessions_church_id_fkey" 
-        FOREIGN KEY ("church_id") REFERENCES "churches"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+        FOREIGN KEY ("church_id") REFERENCES "churches"("id") ON DELETE CASCADE ON UPDATE CASCADE
       `;
       await prisma.$executeRaw`
         ALTER TABLE "sessions" ADD CONSTRAINT "sessions_responsable1_id_fkey" 
@@ -138,6 +138,15 @@ async function fixFailedMigration() {
       console.log('✅ Contraintes sessions ajoutées');
     } else {
       console.log('✅ Table sessions existe déjà');
+      
+      // Modifier la contrainte church_id pour ajouter CASCADE
+      try {
+        await prisma.$executeRaw`ALTER TABLE "sessions" DROP CONSTRAINT IF EXISTS "sessions_church_id_fkey"`;
+        await prisma.$executeRaw`ALTER TABLE "sessions" ADD CONSTRAINT "sessions_church_id_fkey" FOREIGN KEY ("church_id") REFERENCES "churches"("id") ON DELETE CASCADE ON UPDATE CASCADE`;
+        console.log('✅ Contrainte church_id modifiée en CASCADE pour sessions');
+      } catch (error) {
+        console.log('⚠️  Erreur modification contrainte sessions church_id:', error.message);
+      }
     }
     
     // Vérifier si la table units existe déjà
@@ -172,7 +181,7 @@ async function fixFailedMigration() {
       
       await prisma.$executeRaw`
         ALTER TABLE "units" ADD CONSTRAINT "units_session_id_fkey" 
-        FOREIGN KEY ("session_id") REFERENCES "sessions"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+        FOREIGN KEY ("session_id") REFERENCES "sessions"("id") ON DELETE CASCADE ON UPDATE CASCADE
       `;
       await prisma.$executeRaw`
         ALTER TABLE "units" ADD CONSTRAINT "units_responsable1_id_fkey" 
@@ -189,6 +198,15 @@ async function fixFailedMigration() {
       console.log('✅ Contraintes units ajoutées');
     } else {
       console.log('✅ Table units existe déjà');
+      
+      // Modifier la contrainte session_id pour ajouter CASCADE
+      try {
+        await prisma.$executeRaw`ALTER TABLE "units" DROP CONSTRAINT IF EXISTS "units_session_id_fkey"`;
+        await prisma.$executeRaw`ALTER TABLE "units" ADD CONSTRAINT "units_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "sessions"("id") ON DELETE CASCADE ON UPDATE CASCADE`;
+        console.log('✅ Contrainte session_id modifiée en CASCADE pour units');
+      } catch (error) {
+        console.log('⚠️  Erreur modification contrainte units session_id:', error.message);
+      }
     }
     
     // Vérifier si la table unit_members existe déjà
@@ -219,15 +237,33 @@ async function fixFailedMigration() {
       
       await prisma.$executeRaw`
         ALTER TABLE "unit_members" ADD CONSTRAINT "unit_members_unit_id_fkey" 
-        FOREIGN KEY ("unit_id") REFERENCES "units"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+        FOREIGN KEY ("unit_id") REFERENCES "units"("id") ON DELETE CASCADE ON UPDATE CASCADE
       `;
       await prisma.$executeRaw`
         ALTER TABLE "unit_members" ADD CONSTRAINT "unit_members_user_id_fkey" 
-        FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+        FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE
       `;
       console.log('✅ Contraintes unit_members ajoutées');
     } else {
       console.log('✅ Table unit_members existe déjà');
+      
+      // Modifier la contrainte unit_id pour ajouter CASCADE
+      try {
+        await prisma.$executeRaw`ALTER TABLE "unit_members" DROP CONSTRAINT IF EXISTS "unit_members_unit_id_fkey"`;
+        await prisma.$executeRaw`ALTER TABLE "unit_members" ADD CONSTRAINT "unit_members_unit_id_fkey" FOREIGN KEY ("unit_id") REFERENCES "units"("id") ON DELETE CASCADE ON UPDATE CASCADE`;
+        console.log('✅ Contrainte unit_id modifiée en CASCADE pour unit_members');
+      } catch (error) {
+        console.log('⚠️  Erreur modification contrainte unit_members unit_id:', error.message);
+      }
+      
+      // Modifier la contrainte user_id pour ajouter CASCADE
+      try {
+        await prisma.$executeRaw`ALTER TABLE "unit_members" DROP CONSTRAINT IF EXISTS "unit_members_user_id_fkey"`;
+        await prisma.$executeRaw`ALTER TABLE "unit_members" ADD CONSTRAINT "unit_members_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE`;
+        console.log('✅ Contrainte user_id modifiée en CASCADE pour unit_members');
+      } catch (error) {
+        console.log('⚠️  Erreur modification contrainte unit_members user_id:', error.message);
+      }
     }
     
     await prisma.$disconnect();
