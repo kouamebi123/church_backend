@@ -323,6 +323,31 @@ exports.deleteSession = async (req, res) => {
     const { prisma } = req;
     const { id } = req.params;
 
+    // D'abord, récupérer toutes les unités de cette session
+    const units = await prisma.unit.findMany({
+      where: { session_id: id },
+      select: { id: true }
+    });
+
+    const unitIds = units.map(unit => unit.id);
+
+    // Supprimer tous les membres de ces unités
+    if (unitIds.length > 0) {
+      await prisma.unitMember.deleteMany({
+        where: {
+          unit_id: { in: unitIds }
+        }
+      });
+    }
+
+    // Ensuite, supprimer toutes les unités
+    await prisma.unit.deleteMany({
+      where: {
+        session_id: id
+      }
+    });
+
+    // Enfin, supprimer la session
     await prisma.session.delete({
       where: { id }
     });
