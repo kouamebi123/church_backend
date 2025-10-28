@@ -505,10 +505,19 @@ exports.getSessionStatsById = async (req, res) => {
     const userQualifications = new Map();
 
     session.units.forEach(unit => {
-      // Ajouter les membres de l'unité
+      // Collecter les IDs des responsables pour ne pas les compter comme membres simples
+      const responsablesIds = new Set();
+      if (unit.responsable1) {
+        responsablesIds.add(unit.responsable1.id);
+      }
+      if (unit.responsable2) {
+        responsablesIds.add(unit.responsable2.id);
+      }
+      
+      // Ajouter les membres de l'unité (exclure les responsables)
       unit.members.forEach(member => {
         const userId = member.user?.id || member.user_id;
-        if (userId) {
+        if (userId && !responsablesIds.has(userId)) {
           memberIds.add(userId);
           if (!userQualifications.has(userId)) {
             userQualifications.set(userId, member.user.qualification);
@@ -516,7 +525,7 @@ exports.getSessionStatsById = async (req, res) => {
         }
       });
       
-      // Ajouter le responsable1 de l'unité
+      // Ajouter les responsables (pour le total, pas pour membres simples)
       if (unit.responsable1) {
         memberIds.add(unit.responsable1.id);
         if (!userQualifications.has(unit.responsable1.id)) {
@@ -524,7 +533,6 @@ exports.getSessionStatsById = async (req, res) => {
         }
       }
       
-      // Ajouter le responsable2 de l'unité
       if (unit.responsable2) {
         memberIds.add(unit.responsable2.id);
         if (!userQualifications.has(unit.responsable2.id)) {
