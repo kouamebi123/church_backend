@@ -541,13 +541,18 @@ exports.getSessionStatsById = async (req, res) => {
     });
 
     const totalUnits = session.units.length;
-    const totalMembers = memberIds.size;
+    
+    // Calculer les membres simples (uniquement ceux avec qualification MEMBRE_SESSION)
+    const membresSimples = qualificationsArray.filter(q => q === 'MEMBRE_SESSION').length;
+    
+    // Ajouter "Membres simples" dans les stats
+    stats['Membre simple'] = membresSimples;
 
     res.status(200).json({
       success: true,
       data: {
         totalUnits,
-        totalMembers,
+        totalMembers: memberIds.size,
         stats
       }
     });
