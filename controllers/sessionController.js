@@ -245,6 +245,9 @@ exports.createSession = async (req, res) => {
       }
     });
 
+    // Invalider le cache
+    cache.flushByPattern('sessions');
+
     res.status(201).json({
       success: true,
       message: 'Session créée avec succès',
@@ -307,6 +310,9 @@ exports.updateSession = async (req, res) => {
       }
     });
 
+    // Invalider le cache
+    cache.flushByPattern('sessions');
+
     res.status(200).json({
       success: true,
       message: 'Session mise à jour avec succès',
@@ -357,6 +363,9 @@ exports.deleteSession = async (req, res) => {
     await prisma.session.delete({
       where: { id }
     });
+
+    // Invalider le cache
+    cache.flushByPattern('sessions');
 
     res.status(200).json({
       success: true,
