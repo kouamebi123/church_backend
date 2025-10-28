@@ -42,7 +42,7 @@ const checkDuplicatePrevisionnel = async (network_id, date, type_culte, excludeI
 const createPrevisionnel = async (req, res) => {
   try {
     logger.info('🔍 Création prévisionnel - Données reçues:', { body: req.body });
-    const { date, type_culte, total_prevu, invites, network_id, church_id, groupes_previsions } = req.body;
+    const { date, type_culte, total_prevu, invites, network_id, church_id, groupes_previsions, responsables_reseau, compagnons_oeuvre } = req.body;
     const created_by_id = req.user.id;
 
     logger.info('🔍 Vérification réseau:', { network_id, created_by_id });
@@ -95,6 +95,8 @@ const createPrevisionnel = async (req, res) => {
           type_culte,
           total_prevu,
           invites: invites || 0,
+          responsables_reseau: responsables_reseau || 0,
+          compagnons_oeuvre: compagnons_oeuvre || 0,
           network_id,
           church_id,
           created_by_id
@@ -285,7 +287,7 @@ const getPrevisionnelById = async (req, res) => {
 const updatePrevisionnel = async (req, res) => {
   try {
     const { id } = req.params;
-    const { date, type_culte, total_prevu, invites, groupes_previsions } = req.body;
+    const { date, type_culte, total_prevu, invites, groupes_previsions, responsables_reseau, compagnons_oeuvre } = req.body;
 
     // Vérifier que le prévisionnel existe
     const existingPrevisionnel = await prisma.previsionnel.findUnique({
@@ -339,7 +341,9 @@ const updatePrevisionnel = async (req, res) => {
           date: new Date(date),
           type_culte,
           total_prevu,
-          invites: invites || 0
+          invites: invites || 0,
+          responsables_reseau: responsables_reseau || 0,
+          compagnons_oeuvre: compagnons_oeuvre || 0
         }
       });
 

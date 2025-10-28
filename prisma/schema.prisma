@@ -316,6 +316,8 @@ model Previsionnel {
   type_culte         String
   total_prevu        Int               @default(0)
   invites            Int               @default(0)
+  responsables_reseau Int              @default(0)
+  compagnons_oeuvre   Int              @default(0)
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   network_id         String
@@ -355,6 +357,8 @@ model Assistance {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   invites            Int                @default(0)
+  responsables_reseau Int               @default(0)
+  compagnons_oeuvre   Int                @default(0)
   church             Church             @relation(fields: [church_id], references: [id])
   created_by         User               @relation(fields: [created_by_id], references: [id])
   network            Network            @relation(fields: [network_id], references: [id])

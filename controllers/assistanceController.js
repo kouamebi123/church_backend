@@ -43,7 +43,7 @@ const checkDuplicateAssistance = async (network_id, date, type_culte, excludeId 
 const createAssistance = async (req, res) => {
   try {
     logger.info('🔍 Création assistance - Données reçues:', { body: req.body });
-    const { date, type_culte, total_presents, invites, network_id, church_id, groupes_assistance } = req.body;
+    const { date, type_culte, total_presents, invites, network_id, church_id, groupes_assistance, responsables_reseau, compagnons_oeuvre } = req.body;
     const created_by_id = req.user.id;
 
     // Vérifier les permissions
@@ -97,6 +97,8 @@ const createAssistance = async (req, res) => {
           type_culte,
           total_presents,
           invites: invites || 0,
+          responsables_reseau: responsables_reseau || 0,
+          compagnons_oeuvre: compagnons_oeuvre || 0,
           network_id,
           church_id,
           created_by_id
@@ -296,7 +298,7 @@ const getAssistanceById = async (req, res) => {
 const updateAssistance = async (req, res) => {
   try {
     const { id } = req.params;
-    const { date, type_culte, total_presents, groupes_assistance } = req.body;
+    const { date, type_culte, total_presents, groupes_assistance, responsables_reseau, compagnons_oeuvre } = req.body;
 
     // Vérifier que l'assistance existe
     const existingAssistance = await prisma.assistance.findUnique({
@@ -343,7 +345,9 @@ const updateAssistance = async (req, res) => {
         data: {
           date: new Date(date),
           type_culte,
-          total_presents
+          total_presents,
+          responsables_reseau: responsables_reseau || 0,
+          compagnons_oeuvre: compagnons_oeuvre || 0
         }
       });
 
