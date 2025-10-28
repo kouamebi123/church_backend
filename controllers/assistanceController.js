@@ -3,30 +3,38 @@ const logger = require('../utils/logger');
 
 const prisma = new PrismaClient();
 
+// Fonction utilitaire pour calculer le dimanche de la semaine d'une date donnée
+const getSundayOfWeek = (date) => {
+  const targetDate = new Date(date);
+  const dayOfWeek = targetDate.getDay(); // 0 = dimanche, 1 = lundi, ..., 6 = samedi
+  
+  // Calculer le dimanche de cette semaine
+  const sunday = new Date(targetDate);
+  sunday.setDate(targetDate.getDate() - dayOfWeek); // Retourner au dimanche
+  sunday.setHours(0, 0, 0, 0); // Mettre à minuit
+  
+  return sunday;
+};
+
 // Fonction utilitaire pour vérifier les doublons par semaine et type de culte
 const checkDuplicateAssistance = async (network_id, date, type_culte, excludeId = null) => {
   try {
-    // Calculer le début et la fin de la semaine (lundi à dimanche)
-    const targetDate = new Date(date);
-    const dayOfWeek = targetDate.getDay();
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 0 = dimanche, 1 = lundi
+    // Calculer le dimanche de la semaine pour cette date
+    const sundayOfWeek = getSundayOfWeek(date);
     
-    const monday = new Date(targetDate);
-    monday.setDate(targetDate.getDate() - daysToMonday);
-    monday.setHours(0, 0, 0, 0);
+    // Calculer le dimanche suivant pour la plage de recherche
+    const nextSunday = new Date(sundayOfWeek);
+    nextSunday.setDate(sundayOfWeek.getDate() + 7);
+    nextSunday.setHours(0, 0, 0, 0);
     
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(23, 59, 59, 999);
-    
-    // Vérifier s'il existe déjà une assistance pour cette semaine et ce type de culte
+    // Vérifier s'il existe déjà une assistance pour cette semaine (dimanche) et ce type de culte
     const existingAssistance = await prisma.assistance.findFirst({
       where: {
         network_id,
         type_culte,
         date: {
-          gte: monday,
-          lte: sunday
+          gte: sundayOfWeek,
+          lt: nextSunday
         },
         ...(excludeId && { id: { not: excludeId } })
       }
@@ -45,6 +53,10 @@ const createAssistance = async (req, res) => {
     logger.info('🔍 Création assistance - Données reçues:', { body: req.body });
     const { date, type_culte, total_presents, invites, network_id, church_id, groupes_assistance, responsables_reseau, compagnons_oeuvre } = req.body;
     const created_by_id = req.user.id;
+
+    // Calculer le dimanche de la semaine pour cette date
+    const sundayOfWeek = getSundayOfWeek(date);
+    logger.info('📅 Date du culte:', { originalDate: date, sundayOfWeek: sundayOfWeek.toISOString() });
 
     // Vérifier les permissions
     const user = await prisma.user.findUnique({
@@ -73,34 +85,20 @@ const createAssistance = async (req, res) => {
       return res.status(404).json({ message: 'Réseau non trouvé' });
     }
 
-    // Calculer le dimanche de la semaine correspondante
-    const culteDate = new Date(date);
-    const dayOfWeek = culteDate.getDay(); // 0 = dimanche, 1 = lundi, etc.
-    const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek; // Si c'est déjà dimanche, on reste sur dimanche
-    const sundayDate = new Date(culteDate);
-    sundayDate.setDate(culteDate.getDate() + daysToSunday);
-    sundayDate.setHours(0, 0, 0, 0); // Mettre à minuit pour éviter les problèmes d'heure
-
-    logger.info('📅 Calcul dimanche de la semaine:', {
-      culte_date: culteDate.toISOString(),
-      day_of_week: dayOfWeek,
-      days_to_sunday: daysToSunday,
-      sunday_date: sundayDate.toISOString()
-    });
-
     // Vérifier s'il n'y a pas déjà une assistance pour cette semaine et ce type de culte
-    const duplicateAssistance = await checkDuplicateAssistance(network_id, sundayDate, type_culte);
+    const duplicateAssistance = await checkDuplicateAssistance(network_id, date, type_culte);
     if (duplicateAssistance) {
       logger.warn('⚠️ Tentative de création d\'une assistance en doublon:', {
         network_id,
-        sunday_date: sundayDate.toISOString(),
+        originalDate: date,
+        sundayOfWeek: sundayOfWeek.toISOString(),
         type_culte,
         existing_id: duplicateAssistance.id
       });
       
       return res.status(409).json({
         success: false,
-        message: `Il existe déjà une assistance pour la semaine du ${sundayDate.toLocaleDateString('fr-FR')} avec le type de culte "${type_culte}". Impossible de créer un doublon.`
+        message: `Il existe déjà une assistance pour la semaine du ${sundayOfWeek.toLocaleDateString('fr-FR')} avec le type de culte "${type_culte}". Impossible de créer un doublon.`
       });
     }
 
@@ -108,7 +106,7 @@ const createAssistance = async (req, res) => {
     const assistance = await prisma.$transaction(async (tx) => {
       const newAssistance = await tx.assistance.create({
         data: {
-          date: sundayDate,
+          date: sundayOfWeek, // Utiliser le dimanche de la semaine
           type_culte,
           total_presents,
           invites: invites || 0,
@@ -315,6 +313,10 @@ const updateAssistance = async (req, res) => {
     const { id } = req.params;
     const { date, type_culte, total_presents, groupes_assistance, responsables_reseau, compagnons_oeuvre } = req.body;
 
+    // Calculer le dimanche de la semaine pour cette date
+    const sundayOfWeek = getSundayOfWeek(date);
+    logger.info('📅 Mise à jour assistance - Date du culte:', { originalDate: date, sundayOfWeek: sundayOfWeek.toISOString() });
+
     // Vérifier que l'assistance existe
     const existingAssistance = await prisma.assistance.findUnique({
       where: { id },
@@ -330,32 +332,17 @@ const updateAssistance = async (req, res) => {
       return res.status(403).json({ message: 'Non autorisé à modifier cette assistance' });
     }
 
-    // Calculer le dimanche de la semaine correspondante
-    const culteDate = new Date(date);
-    const dayOfWeek = culteDate.getDay(); // 0 = dimanche, 1 = lundi, etc.
-    const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek; // Si c'est déjà dimanche, on reste sur dimanche
-    const sundayDate = new Date(culteDate);
-    sundayDate.setDate(culteDate.getDate() + daysToSunday);
-    sundayDate.setHours(0, 0, 0, 0); // Mettre à minuit pour éviter les problèmes d'heure
-
-    logger.info('📅 Calcul dimanche de la semaine (update):', {
-      culte_date: culteDate.toISOString(),
-      day_of_week: dayOfWeek,
-      days_to_sunday: daysToSunday,
-      sunday_date: sundayDate.toISOString()
-    });
-
     // Vérifier s'il n'y a pas déjà une assistance pour cette semaine et ce type de culte (en excluant l'actuelle)
     const duplicateAssistance = await checkDuplicateAssistance(
       existingAssistance.network_id, 
-      sundayDate, 
+      date, 
       type_culte, 
       id
     );
     if (duplicateAssistance) {
       logger.warn('⚠️ Tentative de mise à jour vers une assistance en doublon:', {
         network_id: existingAssistance.network_id,
-        sunday_date: sundayDate.toISOString(),
+        date,
         type_culte,
         existing_id: duplicateAssistance.id,
         updating_id: id
@@ -363,7 +350,7 @@ const updateAssistance = async (req, res) => {
       
       return res.status(409).json({
         success: false,
-        message: `Il existe déjà une assistance pour la semaine du ${sundayDate.toLocaleDateString('fr-FR')} avec le type de culte "${type_culte}". Impossible de créer un doublon.`
+        message: `Il existe déjà une assistance pour la semaine du ${sundayOfWeek.toLocaleDateString('fr-FR')} avec le type de culte "${type_culte}". Impossible de créer un doublon.`
       });
     }
 
@@ -373,7 +360,7 @@ const updateAssistance = async (req, res) => {
       const updatedAssistance = await tx.assistance.update({
         where: { id },
         data: {
-          date: sundayDate,
+          date: sundayOfWeek, // Utiliser le dimanche de la semaine
           type_culte,
           total_presents,
           responsables_reseau: responsables_reseau || 0,
