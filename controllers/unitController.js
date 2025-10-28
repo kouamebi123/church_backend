@@ -524,15 +524,42 @@ exports.removeMember = async (req, res) => {
     const { prisma } = req;
     const { id, memberId } = req.params;
 
-    // Vérifier que l'unité existe
+    // Vérifier si le membre existe dans l'unité
+    const existingMember = await prisma.unitMember.findFirst({
+      where: {
+        unit_id: id,
+        user_id: memberId
+      }
+    });
+
+    if (!existingMember) {
+      return res.status(404).json({
+        success: false,
+        message: 'Membre introuvable dans cette unité'
+      });
+    }
+
+    // Vérifier si l'utilisateur est responsable de cette unité
     const unit = await prisma.unit.findUnique({
-      where: { id }
+      where: { id },
+      select: {
+        responsable1_id: true,
+        responsable2_id: true
+      }
     });
 
     if (!unit) {
       return res.status(404).json({
         success: false,
         message: 'Unité introuvable'
+      });
+    }
+
+    // Empêcher la suppression d'un responsable de sa propre unité
+    if (unit.responsable1_id === memberId || unit.responsable2_id === memberId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Impossible de supprimer un responsable de sa propre unité. Pour supprimer un responsable, vous devez d\'abord changer le responsable de l\'unité ou supprimer l\'unité entière.'
       });
     }
 
