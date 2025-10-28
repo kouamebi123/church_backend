@@ -35,7 +35,7 @@ const testimonyRoutes = require('./testimonyRoutes');
 const activityRoutes = require('./activity');
 const sessionRoutes = require('./sessions');
 const unitRoutes = require('./units');
-const calendarRoutes = require('./calendar');
+// const calendarRoutes = require('./calendar'); // Désactivé temporairement
 
 // Endpoint de sécurité
 const securityLogger = require('../utils/securityLogger');
@@ -63,7 +63,7 @@ router.use('/testimonies', testimonyRoutes);
 router.use('/activities', activityRoutes);
 router.use('/sessions', sessionRoutes);
 router.use('/units', unitRoutes);
-router.use('/calendar', calendarRoutes);
+// router.use('/calendar', calendarRoutes); // Désactivé temporairement
 
 // Endpoint de sécurité
 router.get('/security/stats', (req, res) => {
