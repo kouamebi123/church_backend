@@ -1677,8 +1677,12 @@ exports.getUserNetwork = async (req, res) => {
       });
     }
 
-    // Chercher le réseau où cet utilisateur est responsable
-    const network = await prisma.network.findFirst({
+    // Chercher le réseau où cet utilisateur est impliqué (responsable, membre d'un GR, ou compagnon d'œuvre)
+    let network = null;
+    let relationType = null;
+
+    // Cas 1: Responsable du réseau (responsable1 ou responsable2)
+    network = await prisma.network.findFirst({
       where: {
         OR: [
           { responsable1_id: id },
@@ -1702,6 +1706,72 @@ exports.getUserNetwork = async (req, res) => {
       }
     });
 
+    if (network) {
+      relationType = 'responsable';
+    } else {
+      // Cas 2: Membre d'un GR (groupe) du réseau
+      const groupMember = await prisma.groupMember.findFirst({
+        where: { user_id: id },
+        include: {
+          group: {
+            include: {
+              network: {
+                select: {
+                  id: true,
+                  nom: true,
+                  church_id: true,
+                  active: true,
+                  responsable1_id: true,
+                  responsable2_id: true,
+                  church: {
+                    select: {
+                      id: true,
+                      nom: true,
+                      ville: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (groupMember?.group?.network && groupMember.group.network.active) {
+        network = groupMember.group.network;
+        relationType = 'membre_gr';
+      } else {
+        // Cas 3: Compagnon d'œuvre du réseau
+        const companion = await prisma.networkCompanion.findFirst({
+          where: { user_id: id },
+          include: {
+            network: {
+              select: {
+                id: true,
+                nom: true,
+                church_id: true,
+                active: true,
+                responsable1_id: true,
+                responsable2_id: true,
+                church: {
+                  select: {
+                    id: true,
+                    nom: true,
+                    ville: true
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        if (companion?.network && companion.network.active) {
+          network = companion.network;
+          relationType = 'compagnon_oeuvre';
+        }
+      }
+    }
+
     if (!network) {
       return res.status(404).json({
         success: false,
@@ -1719,7 +1789,8 @@ exports.getUserNetwork = async (req, res) => {
       userId: id,
       networkId: network.id,
       networkName: network.nom,
-      churchId: network.church_id
+      churchId: network.church_id,
+      relationType: relationType
     });
 
     res.status(200).json({
@@ -1731,7 +1802,8 @@ exports.getUserNetwork = async (req, res) => {
         churchName: network.church.nom,
         churchCity: network.church.ville,
         isResponsable1: network.responsable1_id === id,
-        isResponsable2: network.responsable2_id === id
+        isResponsable2: network.responsable2_id === id,
+        relationType: relationType // 'responsable', 'membre_gr', ou 'compagnon_oeuvre'
       }
     });
 
