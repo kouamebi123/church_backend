@@ -1816,3 +1816,181 @@ exports.getUserNetwork = async (req, res) => {
     });
   }
 };
+
+// Récupérer la session d'un utilisateur
+exports.getUserSession = async (req, res) => {
+  try {
+    const { prisma } = req;
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID utilisateur requis'
+      });
+    }
+
+    // Vérifier que l'utilisateur existe
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        username: true,
+        pseudo: true,
+        role: true,
+        current_role: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    // Chercher la session où cet utilisateur est impliqué (responsable, membre d'une unité, ou responsable d'une unité)
+    let session = null;
+    let relationType = null;
+
+    // Cas 1: Responsable de la session (responsable1 ou responsable2)
+    session = await prisma.session.findFirst({
+      where: {
+        OR: [
+          { responsable1_id: id },
+          { responsable2_id: id }
+        ],
+        active: true
+      },
+      select: {
+        id: true,
+        nom: true,
+        church_id: true,
+        responsable1_id: true,
+        responsable2_id: true,
+        church: {
+          select: {
+            id: true,
+            nom: true,
+            ville: true
+          }
+        }
+      }
+    });
+
+    if (session) {
+      relationType = 'responsable';
+    } else {
+      // Cas 2: Membre d'une unité de la session
+      const unitMember = await prisma.unitMember.findFirst({
+        where: { user_id: id },
+        include: {
+          unit: {
+            include: {
+              session: {
+                select: {
+                  id: true,
+                  nom: true,
+                  church_id: true,
+                  active: true,
+                  responsable1_id: true,
+                  responsable2_id: true,
+                  church: {
+                    select: {
+                      id: true,
+                      nom: true,
+                      ville: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (unitMember?.unit?.session && unitMember.unit.session.active) {
+        session = unitMember.unit.session;
+        relationType = 'membre_unite';
+      } else {
+        // Cas 3: Responsable d'une unité de la session
+        const unitResponsable = await prisma.unit.findFirst({
+          where: {
+            OR: [
+              { responsable1_id: id },
+              { responsable2_id: id }
+            ],
+            active: true
+          },
+          include: {
+            session: {
+              select: {
+                id: true,
+                nom: true,
+                church_id: true,
+                active: true,
+                responsable1_id: true,
+                responsable2_id: true,
+                church: {
+                  select: {
+                    id: true,
+                    nom: true,
+                    ville: true
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        if (unitResponsable?.session && unitResponsable.session.active) {
+          session = unitResponsable.session;
+          relationType = 'responsable_unite';
+        }
+      }
+    }
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Aucune session trouvée pour cet utilisateur',
+        data: {
+          sessionId: null,
+          sessionName: null,
+          churchId: null,
+          churchName: null
+        }
+      });
+    }
+
+    logger.info('Session trouvée pour utilisateur:', {
+      userId: id,
+      sessionId: session.id,
+      sessionName: session.nom,
+      churchId: session.church_id,
+      relationType: relationType
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        sessionId: session.id,
+        sessionName: session.nom,
+        churchId: session.church_id,
+        churchName: session.church.nom,
+        churchCity: session.church.ville,
+        isResponsable1: session.responsable1_id === id,
+        isResponsable2: session.responsable2_id === id,
+        relationType: relationType // 'responsable', 'membre_unite', ou 'responsable_unite'
+      }
+    });
+
+  } catch (error) {
+    logger.error('Erreur lors de la récupération de la session utilisateur:', error);
+    const { status, message } = handleError(error, 'la récupération de la session utilisateur');
+    res.status(status).json({
+      success: false,
+      message
+    });
+  }
+};

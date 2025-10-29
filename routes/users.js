@@ -64,6 +64,7 @@ router.post('/:id/image', authorize('ADMIN', 'MANAGER', 'COLLECTEUR_RESEAUX'), a
 
 // Accessible à tous les utilisateurs connectés
 router.get('/:id/network', userController.getUserNetwork);
+router.get('/:id/session', userController.getUserSession);
 
 // Accessible aux admins, collecteurs de réseau ET managers
 router.get('/available', authorize('ADMIN', 'COLLECTEUR_RESEAUX', 'MANAGER'), userController.getAvailableUsers);
