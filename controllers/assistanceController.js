@@ -228,9 +228,12 @@ const getAssistanceStats = async (req, res) => {
     const details = [];
 
     for (const assistance of assistances) {
-      const assistance_total = assistance.groupes_assistance.reduce(
-        (sum, ga) => sum + ga.nombre_presents, 0
-      );
+      // Utiliser total_presents directement qui inclut déjà tous les éléments :
+      // - Membres des groupes (groupes_assistance)
+      // - Responsables de réseau (responsables_reseau)
+      // - Compagnons d'œuvre (compagnons_oeuvre)
+      // - Invités (invites)
+      const assistance_total = assistance.total_presents || 0;
       total_presents += assistance_total;
 
       // Calculer l'effectif réel total (somme des effectifs actuels des groupes)
