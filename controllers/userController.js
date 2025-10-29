@@ -276,6 +276,96 @@ exports.getIsoles = async (req, res) => {
 };
 
 // Obtenir les membres non isolés
+exports.getNonIsoles = async (req, res) => {
+  try {
+    const { prisma } = req;
+
+    let usersInGroups = [];
+    const churchFilter = {};
+
+    // Ajouter le filtre par église si spécifié
+    if (req.query.churchId) {
+      churchFilter.eglise_locale_id = req.query.churchId;
+
+      // Si on filtre par église, on doit d'abord récupérer les réseaux de cette église
+      const networksInChurch = await prisma.network.findMany({
+        where: { church_id: req.query.churchId },
+        select: { id: true }
+      });
+      const networkIds = networksInChurch.map(n => n.id);
+      const groupMembers = await prisma.groupMember.findMany({
+        where: { group: { network_id: { in: networkIds } } },
+        select: { user_id: true }
+      });
+      usersInGroups = groupMembers.map(gm => gm.user_id);
+    } else {
+      const groupMembers = await prisma.groupMember.findMany({
+        select: { user_id: true }
+      });
+      usersInGroups = groupMembers.map(gm => gm.user_id);
+    }
+
+    // Si l'utilisateur est un manager, filtrer automatiquement par son église
+    if (req.user && req.user.role === 'MANAGER' && req.user.eglise_locale_id) {
+      // Extraire l'ID de l'église (peut être un objet ou une chaîne)
+      const churchId = typeof req.user.eglise_locale_id === 'object'
+        ? req.user.eglise_locale_id.id || req.user.eglise_locale_id._id
+        : req.user.eglise_locale_id;
+
+      if (churchId) {
+        churchFilter.eglise_locale_id = churchId;
+
+        // Récupérer les réseaux de l'église du manager
+        const networksInChurch = await prisma.network.findMany({
+          where: { church_id: churchId },
+          select: { id: true }
+        });
+        const networkIds = networksInChurch.map(n => n.id);
+        const groupMembers = await prisma.groupMember.findMany({
+          where: { group: { network_id: { in: networkIds } } },
+          select: { user_id: true }
+        });
+        usersInGroups = groupMembers.map(gm => gm.user_id);
+      }
+    }
+
+    const specialQualifications = ['RESPONSABLE_RESEAU', 'GOUVERNANCE', 'ECODIM'];
+    const users = await prisma.user.findMany({
+      where: {
+        OR: [
+          { id: { in: usersInGroups } },
+          { qualification: { in: specialQualifications } }
+        ],
+        ...churchFilter
+      },
+      include: {
+        eglise_locale: {
+          select: {
+            id: true,
+            nom: true
+          }
+        },
+        departement: {
+          select: {
+            id: true,
+            nom: true
+          }
+        }
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      count: users.length,
+      data: users
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
 
 // Créer un nouvel utilisateur
 exports.createUser = async (req, res) => {

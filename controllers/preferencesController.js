@@ -151,7 +151,9 @@ const updateEmailPreferences = async (req, res) => {
   }
 };
 
-exports.getPreferences = getPreferences;
-exports.updatePreferences = updatePreferences;
-exports.updateEmailPreferences = updateEmailPreferences;
+module.exports = {
+  getPreferences,
+  updatePreferences,
+  updateEmailPreferences
+};
 
