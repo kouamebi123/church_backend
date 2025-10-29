@@ -338,7 +338,7 @@ const getAssistanceById = async (req, res) => {
 const updateAssistance = async (req, res) => {
   try {
     const { id } = req.params;
-    const { date, type_culte, total_presents, groupes_assistance, responsables_reseau, compagnons_oeuvre } = req.body;
+    const { date, type_culte, total_presents, invites, groupes_assistance, responsables_reseau, compagnons_oeuvre } = req.body;
 
     // Calculer le dimanche de la semaine pour cette date
     const sundayOfWeek = getSundayOfWeek(date);
@@ -390,6 +390,7 @@ const updateAssistance = async (req, res) => {
           date: sundayOfWeek, // Utiliser le dimanche de la semaine
           type_culte,
           total_presents,
+          invites: invites || 0,
           responsables_reseau: responsables_reseau || 0,
           compagnons_oeuvre: compagnons_oeuvre || 0
         }
