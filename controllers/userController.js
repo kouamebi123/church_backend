@@ -947,7 +947,7 @@ exports.deleteUser = async (req, res) => {
 exports.getAvailableUsers = async (req, res) => {
   try {
     const { prisma } = req;
-    const { churchId } = req.query;
+    const { churchId, forSession } = req.query;
 
     const where = {};
 
@@ -1031,8 +1031,9 @@ exports.getAvailableUsers = async (req, res) => {
         return false;
       }
 
-      // Exclure les utilisateurs de la gouvernance
-      if (user.qualification === 'GOUVERNANCE') {
+      // Exclure les utilisateurs de la gouvernance SAUF si c'est pour une session
+      // (comme pour les églises, exception pour les sessions)
+      if (user.qualification === 'GOUVERNANCE' && forSession !== 'true') {
         return false;
       }
 
