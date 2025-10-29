@@ -78,8 +78,6 @@ const checkEmailConfig = async (req, res) => {
   }
 };
 
-module.exports = {
-  sendTestEmail,
-  checkEmailConfig
-};
+exports.sendTestEmail = sendTestEmail;
+exports.checkEmailConfig = checkEmailConfig;
 

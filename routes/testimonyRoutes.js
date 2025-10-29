@@ -9,7 +9,7 @@ router.get('/networks/:churchId', testimonyController.getNetworksByChurch);
 router.get('/categories', testimonyController.getTestimonyCategories);
 router.get('/approved', testimonyController.getApprovedTestimonies);
 
-// Route pour créer un témoignage (publique - accessible sans authentification)
+// Route pour créer un témoignage (publique) - AVANT l'application du middleware protect
 router.post('/', 
   (req, res, next) => {
     testimonyController.uploadTestimonyFiles(req, res, (err) => {

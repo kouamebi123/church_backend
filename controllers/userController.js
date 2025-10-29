@@ -276,96 +276,6 @@ exports.getIsoles = async (req, res) => {
 };
 
 // Obtenir les membres non isolés
-exports.getNonIsoles = async (req, res) => {
-  try {
-    const { prisma } = req;
-
-    let usersInGroups = [];
-    const churchFilter = {};
-
-    // Ajouter le filtre par église si spécifié
-    if (req.query.churchId) {
-      churchFilter.eglise_locale_id = req.query.churchId;
-
-      // Si on filtre par église, on doit d'abord récupérer les réseaux de cette église
-      const networksInChurch = await prisma.network.findMany({
-        where: { church_id: req.query.churchId },
-        select: { id: true }
-      });
-      const networkIds = networksInChurch.map(n => n.id);
-      const groupMembers = await prisma.groupMember.findMany({
-        where: { group: { network_id: { in: networkIds } } },
-        select: { user_id: true }
-      });
-      usersInGroups = groupMembers.map(gm => gm.user_id);
-    } else {
-      const groupMembers = await prisma.groupMember.findMany({
-        select: { user_id: true }
-      });
-      usersInGroups = groupMembers.map(gm => gm.user_id);
-    }
-
-    // Si l'utilisateur est un manager, filtrer automatiquement par son église
-    if (req.user && req.user.role === 'MANAGER' && req.user.eglise_locale_id) {
-      // Extraire l'ID de l'église (peut être un objet ou une chaîne)
-      const churchId = typeof req.user.eglise_locale_id === 'object'
-        ? req.user.eglise_locale_id.id || req.user.eglise_locale_id._id
-        : req.user.eglise_locale_id;
-
-      if (churchId) {
-        churchFilter.eglise_locale_id = churchId;
-
-        // Récupérer les réseaux de l'église du manager
-        const networksInChurch = await prisma.network.findMany({
-          where: { church_id: churchId },
-          select: { id: true }
-        });
-        const networkIds = networksInChurch.map(n => n.id);
-        const groupMembers = await prisma.groupMember.findMany({
-          where: { group: { network_id: { in: networkIds } } },
-          select: { user_id: true }
-        });
-        usersInGroups = groupMembers.map(gm => gm.user_id);
-      }
-    }
-
-    const specialQualifications = ['RESPONSABLE_RESEAU', 'GOUVERNANCE', 'ECODIM'];
-    const users = await prisma.user.findMany({
-      where: {
-        OR: [
-          { id: { in: usersInGroups } },
-          { qualification: { in: specialQualifications } }
-        ],
-        ...churchFilter
-      },
-      include: {
-        eglise_locale: {
-          select: {
-            id: true,
-            nom: true
-          }
-        },
-        departement: {
-          select: {
-            id: true,
-            nom: true
-          }
-        }
-      }
-    });
-
-    res.status(200).json({
-      success: true,
-      count: users.length,
-      data: users
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
 
 // Créer un nouvel utilisateur
 exports.createUser = async (req, res) => {
@@ -1640,6 +1550,106 @@ exports.uploadUserImage = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors de l\'upload de l\'image'
+    });
+  }
+};
+
+// Récupérer le réseau d'un utilisateur
+exports.getUserNetwork = async (req, res) => {
+  try {
+    const { prisma } = req;
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID utilisateur requis'
+      });
+    }
+
+    // Vérifier que l'utilisateur existe
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        username: true,
+        pseudo: true,
+        role: true,
+        current_role: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    // Chercher le réseau où cet utilisateur est responsable
+    const network = await prisma.network.findFirst({
+      where: {
+        OR: [
+          { responsable1_id: id },
+          { responsable2_id: id }
+        ],
+        active: true
+      },
+      select: {
+        id: true,
+        nom: true,
+        church_id: true,
+        responsable1_id: true,
+        responsable2_id: true,
+        church: {
+          select: {
+            id: true,
+            nom: true,
+            ville: true
+          }
+        }
+      }
+    });
+
+    if (!network) {
+      return res.status(404).json({
+        success: false,
+        message: 'Aucun réseau trouvé pour cet utilisateur',
+        data: {
+          networkId: null,
+          networkName: null,
+          churchId: null,
+          churchName: null
+        }
+      });
+    }
+
+    logger.info('Réseau trouvé pour utilisateur:', {
+      userId: id,
+      networkId: network.id,
+      networkName: network.nom,
+      churchId: network.church_id
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        networkId: network.id,
+        networkName: network.nom,
+        churchId: network.church_id,
+        churchName: network.church.nom,
+        churchCity: network.church.ville,
+        isResponsable1: network.responsable1_id === id,
+        isResponsable2: network.responsable2_id === id
+      }
+    });
+
+  } catch (error) {
+    logger.error('Erreur lors de la récupération du réseau utilisateur:', error);
+    const { status, message } = handleError(error, 'la récupération du réseau utilisateur');
+    res.status(status).json({
+      success: false,
+      message
     });
   }
 };
