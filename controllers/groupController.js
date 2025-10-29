@@ -967,38 +967,55 @@ exports.deleteGroup = async (req, res) => {
       });
     }
 
-    logger.info(`Groupe trouvé: ${existingGroup.nom}, suppression des membres...`);
+    logger.info(`Groupe trouvé: ${existingGroup.nom}, suppression en transaction...`);
 
-    // Supprimer d'abord les membres du groupe
-    const deletedMembers = await prisma.groupMember.deleteMany({
-      where: { group_id: id }
+    // Supprimer le groupe et toutes ses relations dans une transaction
+    await prisma.$transaction(async (tx) => {
+      logger.info('Début de la transaction de suppression');
+
+      // Supprimer d'abord les membres du groupe
+      const deletedMembers = await tx.groupMember.deleteMany({
+        where: { group_id: id }
+      });
+      logger.info(`${deletedMembers.count} membres supprimés du groupe`);
+
+      // Supprimer l'historique des membres du groupe
+      const deletedHistory = await tx.groupMemberHistory.deleteMany({
+        where: { group_id: id }
+      });
+      logger.info(`${deletedHistory.count} entrées d'historique supprimées`);
+
+      // Supprimer les entrées de chaîne d'impact liées au groupe
+      const deletedChaineImpact = await tx.chaineImpact.deleteMany({
+        where: { group_id: id }
+      });
+      logger.info(`${deletedChaineImpact.count} entrées de chaîne d'impact supprimées`);
+
+      // Supprimer les groupes d'assistance liés au groupe
+      const deletedGroupeAssistance = await tx.groupeAssistance.deleteMany({
+        where: { group_id: id }
+      });
+      logger.info(`${deletedGroupeAssistance.count} groupes d'assistance supprimés`);
+
+      // Supprimer les groupes de prévision liés au groupe
+      const deletedGroupePrevision = await tx.groupePrevision.deleteMany({
+        where: { group_id: id }
+      });
+      logger.info(`${deletedGroupePrevision.count} groupes de prévision supprimés`);
+
+      // Supprimer le groupe
+      logger.info('Suppression du groupe...');
+      await tx.group.delete({
+        where: { id }
+      });
+      logger.info(`Groupe ${id} supprimé avec succès`);
     });
-    logger.info(`${deletedMembers.count} membres supprimés du groupe`);
 
-    // Supprimer l'historique des membres du groupe
-    const deletedHistory = await prisma.groupMemberHistory.deleteMany({
-      where: { group_id: id }
-    });
-    logger.info(`${deletedHistory.count} entrées d'historique supprimées`);
-
-    // Supprimer les entrées de chaîne d'impact liées au groupe
-    const deletedChaineImpact = await prisma.chaineImpact.deleteMany({
-      where: { group_id: id }
-    });
-    logger.info(`${deletedChaineImpact.count} entrées de chaîne d'impact supprimées`);
-
-    // Nettoyer les qualifications des responsables avant de supprimer le groupe
+    // Nettoyer les qualifications des responsables après la suppression (en dehors de la transaction)
     logger.info('Nettoyage des qualifications des responsables...');
     const qualificationService = new QualificationService(prisma);
     await qualificationService.cleanupGroupQualification(id);
     logger.info('Qualifications nettoyées avec succès');
-
-    // Supprimer le groupe
-    logger.info('Suppression du groupe...');
-    await prisma.group.delete({
-      where: { id }
-    });
-    logger.info(`Groupe ${id} supprimé avec succès`);
 
     res.json({
       success: true,
@@ -1006,13 +1023,24 @@ exports.deleteGroup = async (req, res) => {
     });
   } catch (error) {
     logger.error('Group - deleteGroup - Erreur complète', error);
+    logger.error('Group - deleteGroup - Détails de l\'erreur:', {
+      code: error.code,
+      message: error.message,
+      meta: error.meta,
+      stack: error.stack
+    });
 
     // Utilisation du gestionnaire d'erreurs centralisé
     const { status, message } = handleError(error, 'la suppression du groupe');
 
     res.status(status).json({
       success: false,
-      message
+      message,
+      error: process.env.NODE_ENV === 'development' ? {
+        code: error.code,
+        details: error.message,
+        meta: error.meta
+      } : undefined
     });
   }
 };
