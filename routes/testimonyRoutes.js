@@ -9,16 +9,7 @@ router.get('/networks/:churchId', testimonyController.getNetworksByChurch);
 router.get('/categories', testimonyController.getTestimonyCategories);
 router.get('/approved', testimonyController.getApprovedTestimonies);
 
-// Appliquer l'authentification à toutes les routes admin
-router.use(protect);
-
-// Routes pour l'admin (nécessitent une authentification) - AVANT les routes avec paramètres
-router.get('/admin/all', testimonyController.getAllTestimonies);
-
-// Route avec paramètre à la fin pour éviter les conflits
-router.get('/:id', testimonyController.getTestimonyById);
-
-// Route pour créer un témoignage (publique)
+// Route pour créer un témoignage (publique - accessible sans authentification)
 router.post('/', 
   (req, res, next) => {
     testimonyController.uploadTestimonyFiles(req, res, (err) => {
@@ -50,6 +41,15 @@ router.post('/',
   },
   testimonyController.createTestimony
 );
+
+// Appliquer l'authentification à toutes les routes admin
+router.use(protect);
+
+// Routes pour l'admin (nécessitent une authentification) - AVANT les routes avec paramètres
+router.get('/admin/all', testimonyController.getAllTestimonies);
+
+// Route avec paramètre à la fin pour éviter les conflits
+router.get('/:id', testimonyController.getTestimonyById);
 
 // Routes pour l'admin (nécessitent une authentification)
 router.delete('/:id', testimonyController.deleteTestimony);
