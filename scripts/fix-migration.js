@@ -382,6 +382,31 @@ async function fixFailedMigration() {
     } catch (error) {
       console.log('⚠️  CALENDAR_EVENT existe déjà dans EntityType');
     }
+
+    // Migration pour SituationProfessionnelle
+    console.log('🚀 Migration SituationProfessionnelle...');
+    
+    try {
+      // Créer l'enum SituationProfessionnelle
+      await prisma.$executeRaw`
+        CREATE TYPE "SituationProfessionnelle" AS ENUM 
+        ('EMPLOYE', 'INDEPENDANT', 'ETUDIANT', 'CHOMEUR', 'RETRAITE', 'AU_FOYER', 'AUTRE')
+      `;
+      console.log('✅ Enum SituationProfessionnelle créé');
+    } catch (error) {
+      console.log('⚠️  Enum SituationProfessionnelle existe déjà');
+    }
+
+    try {
+      // Ajouter la colonne situation_professionnelle à la table users
+      await prisma.$executeRaw`
+        ALTER TABLE "users" 
+        ADD COLUMN IF NOT EXISTS "situation_professionnelle" "SituationProfessionnelle"
+      `;
+      console.log('✅ Colonne situation_professionnelle ajoutée à users');
+    } catch (error) {
+      console.log('⚠️  Colonne situation_professionnelle existe déjà');
+    }
     
   } catch (error) {
     console.error('❌ Erreur:', error.message);

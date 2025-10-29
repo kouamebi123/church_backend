@@ -17,6 +17,7 @@ model User {
   genre                        Genre
   tranche_age                  String
   profession                   String
+  situation_professionnelle    SituationProfessionnelle?
   ville_residence              String
   origine                      String
   situation_matrimoniale       String
@@ -546,6 +547,16 @@ enum Qualification {
 enum ChurchType {
   EGLISE
   MISSION
+}
+
+enum SituationProfessionnelle {
+  EMPLOYE
+  INDEPENDANT
+  ETUDIANT
+  CHOMEUR
+  RETRAITE
+  AU_FOYER
+  AUTRE
 }
 
 model UserRoleAssignment {
