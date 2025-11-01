@@ -1274,6 +1274,98 @@ exports.getUserStats = async (req, res) => {
   }
 };
 
+// Obtenir l'évolution des membres sur 12 mois
+exports.getUsersEvolution = async (req, res) => {
+  try {
+    const { prisma } = req;
+    const { churchId } = req.query;
+
+    logger.info('User - getUsersEvolution - Début de la fonction');
+    logger.info('User - getUsersEvolution - churchId:', churchId);
+
+    const where = {};
+
+    // Ajouter le filtre par église si spécifié
+    if (churchId) {
+      where.eglise_locale_id = churchId;
+    }
+
+    // Filtrage automatique pour les managers
+    if (req.user && req.user.role === 'MANAGER' && req.user.eglise_locale_id && !churchId) {
+      const managerChurchId = typeof req.user.eglise_locale_id === 'object'
+        ? req.user.eglise_locale_id.id || req.user.eglise_locale_id._id
+        : req.user.eglise_locale_id;
+      if (managerChurchId) {
+        where.eglise_locale_id = managerChurchId;
+      }
+    }
+
+    // Récupérer tous les utilisateurs avec leur date de création
+    const users = await prisma.user.findMany({
+      where,
+      select: {
+        createdAt: true
+      }
+    });
+
+    // Préparer les 12 derniers mois (YYYY-MM), y compris le mois en cours
+    const now = new Date();
+    const months = [];
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - 10 + i, 1);
+      const month = d.toISOString().slice(0, 7);
+      months.push(month);
+    }
+
+    // Calculer l'évolution : nombre total de membres à la fin de chaque mois
+    const evolution = [];
+
+    for (const month of months) {
+      // Date de fin du mois (inclus)
+      const [year, m] = month.split('-');
+      const endOfMonth = new Date(Number(year), Number(m), 0, 23, 59, 59, 999);
+
+      // Compter les utilisateurs créés jusqu'à la fin de ce mois
+      const membersAtEndOfMonth = users.filter(user => {
+        const userDate = new Date(user.createdAt);
+        return userDate <= endOfMonth;
+      }).length;
+
+      // Nombre de nouveaux membres ce mois-ci
+      const startOfMonth = new Date(Number(year), Number(m) - 1, 1);
+      const newMembersThisMonth = users.filter(user => {
+        const userDate = new Date(user.createdAt);
+        return userDate >= startOfMonth && userDate <= endOfMonth;
+      }).length;
+
+      evolution.push({
+        month: month,
+        total: membersAtEndOfMonth,
+        nouveaux: newMembersThisMonth
+      });
+    }
+
+    logger.info('User - getUsersEvolution - Évolution calculée:', evolution.length, 'mois');
+
+    res.status(200).json({
+      success: true,
+      count: evolution.length,
+      data: evolution
+    });
+
+  } catch (error) {
+    logger.error('User - getUsersEvolution - Erreur complète', error);
+
+    // Utilisation du gestionnaire d'erreurs centralisé
+    const { status, message } = handleError(error, 'la récupération de l\'évolution des membres');
+
+    res.status(status).json({
+      success: false,
+      message
+    });
+  }
+};
+
 // Mettre à jour son propre profil (pour les utilisateurs connectés)
 exports.updateOwnProfile = async (req, res) => {
   try {
