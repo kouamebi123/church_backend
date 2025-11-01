@@ -18,6 +18,7 @@ const {
   getNetworkGroups,
   getNetworkMembers,
   getNetworksQualificationStats,
+  getNetworksDepartmentInvolvement,
   addCompanion,
   removeCompanion,
   getNetworkCompanions
@@ -35,6 +36,7 @@ router.route('/')
 
 router.get('/stats', authorize('ADMIN', 'MANAGER'), getNetworkStats);
 router.get('/qualification-stats', authorize('ADMIN', 'MANAGER'), getNetworksQualificationStats);
+router.get('/department-involvement', authorize('ADMIN', 'MANAGER'), getNetworksDepartmentInvolvement);
 
 router.get('/:id/stats', getNetworkStatsById);
 router.get('/:id/grs', getNetworkGroups);

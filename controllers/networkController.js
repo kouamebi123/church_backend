@@ -1324,6 +1324,142 @@ exports.getNetworksQualificationStats = async (req, res) => {
   }
 };
 
+// Obtenir le taux d'implication des réseaux dans les départements
+exports.getNetworksDepartmentInvolvement = async (req, res) => {
+  try {
+    const { prisma } = req;
+    const { churchId } = req.query;
+
+    logger.info('Network - getNetworksDepartmentInvolvement - Début de la fonction');
+    logger.info('Network - getNetworksDepartmentInvolvement - churchId:', churchId);
+
+    if (!churchId) {
+      return res.status(400).json({
+        success: false,
+        message: 'L\'ID de l\'église est requis'
+      });
+    }
+
+    // Récupérer tous les réseaux de l'église avec leurs groupes, membres, responsables et compagnons
+    const networks = await prisma.network.findMany({
+      where: {
+        church_id: churchId
+      },
+      include: {
+        groups: {
+          include: {
+            members: {
+              include: {
+                user: {
+                  select: {
+                    id: true
+                  }
+                }
+              }
+            }
+          }
+        },
+        responsable1: {
+          select: {
+            id: true
+          }
+        },
+        responsable2: {
+          select: {
+            id: true
+          }
+        },
+        companions: {
+          include: {
+            user: {
+              select: {
+                id: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Récupérer tous les utilisateurs qui servent dans des départements
+    const usersInDepartments = await prisma.userDepartment.findMany({
+      select: {
+        user_id: true
+      }
+    });
+
+    const usersInDepartmentsSet = new Set(
+      usersInDepartments.map(ud => ud.user_id)
+    );
+
+    // Calculer le taux d'implication pour chaque réseau
+    const stats = networks.map(network => {
+      // 1. Collecter tous les membres des groupes du réseau
+      const groupMemberIds = new Set();
+      network.groups.forEach(group => {
+        group.members.forEach(member => {
+          groupMemberIds.add(member.user.id);
+        });
+      });
+
+      // 2. Ajouter les responsables du réseau
+      if (network.responsable1?.id) {
+        groupMemberIds.add(network.responsable1.id);
+      }
+      if (network.responsable2?.id) {
+        groupMemberIds.add(network.responsable2.id);
+      }
+
+      // 3. Ajouter les compagnons d'œuvre
+      network.companions.forEach(companion => {
+        if (companion.user?.id) {
+          groupMemberIds.add(companion.user.id);
+        }
+      });
+
+      // 4. Calculer le nombre total de personnes dans le réseau
+      const totalNetworkMembers = groupMemberIds.size;
+
+      // 5. Compter combien servent dans des départements
+      const membersInDepartments = Array.from(groupMemberIds).filter(userId =>
+        usersInDepartmentsSet.has(userId)
+      ).length;
+
+      // 6. Calculer le taux d'implication (en pourcentage)
+      const involvementRate = totalNetworkMembers > 0
+        ? Math.round((membersInDepartments / totalNetworkMembers) * 100 * 100) / 100 // Arrondir à 2 décimales
+        : 0;
+
+      return {
+        networkId: network.id,
+        networkName: network.nom,
+        totalMembers: totalNetworkMembers,
+        membersInDepartments: membersInDepartments,
+        involvementRate: involvementRate
+      };
+    });
+
+    logger.info('Network - getNetworksDepartmentInvolvement - Statistiques calculées:', stats.length, 'réseaux');
+
+    res.status(200).json({
+      success: true,
+      count: stats.length,
+      data: stats
+    });
+
+  } catch (error) {
+    logger.error('Network - getNetworksDepartmentInvolvement - Erreur complète', error);
+
+    // Utilisation du gestionnaire d'erreurs centralisé
+    const { status, message } = handleError(error, 'la récupération du taux d\'implication des réseaux dans les départements');
+
+    res.status(status).json({
+      success: false,
+      message
+    });
+  }
+};
+
 // Ajouter un compagnon d'œuvre à un réseau
 exports.addCompanion = async (req, res) => {
   try {
