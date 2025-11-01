@@ -172,17 +172,10 @@ exports.createNetwork = async (req, res) => {
   const requestId = req.headers['x-request-id'] || `req_${Date.now()}`;
   
   try {
-    logger.info('createNetwork - Début de création', {
-      requestId,
-      user: req.user ? { id: req.user.id, username: req.user.username, role: req.user.role } : null,
-      timestamp: new Date().toISOString()
-    });
+    // Logs supprimés pour réduire le volume de logs
     
     const { prisma } = req;
     const { nom, responsable1, responsable2, church, active } = req.body;
-
-    logger.info('createNetwork - Données reçues', req.body);
-    logger.info('createNetwork - Utilisateur connecté', req.user);
 
     if (!nom || !responsable1) {
       return res.status(400).json({
@@ -247,13 +240,7 @@ exports.createNetwork = async (req, res) => {
       }
     }
 
-    logger.info('createNetwork - Données à insérer', {
-      nom,
-      church_id: church,
-      responsable1_id: responsable1,
-      responsable2_id: responsable2 || null,
-      active: active !== undefined ? active : true
-    });
+    // Log supprimé pour réduire le volume de logs
 
     // Créer le réseau dans une transaction
     const network = await prisma.$transaction(async (tx) => {
@@ -312,12 +299,7 @@ exports.createNetwork = async (req, res) => {
           }
         });
 
-        logger.info('createNetwork - Responsable1 ajouté à la chaîne d\'impact', {
-          user_id: responsable1,
-          niveau: 1,
-          eglise_id: church,
-          network_id: newNetwork.id
-        });
+        // Log supprimé pour réduire le volume de logs
 
         // Si responsable2 existe, l'ajouter aussi
         if (responsable2) {
@@ -335,12 +317,7 @@ exports.createNetwork = async (req, res) => {
             }
           });
 
-          logger.info('createNetwork - Responsable2 ajouté à la chaîne d\'impact', {
-            user_id: responsable2,
-            niveau: 1,
-            eglise_id: church,
-            network_id: newNetwork.id
-          });
+          // Log supprimé pour réduire le volume de logs
         }
       }
 
@@ -349,11 +326,7 @@ exports.createNetwork = async (req, res) => {
 
     const duration = Date.now() - startTime;
     
-    logger.info('createNetwork - Réseau créé avec succès', {
-      network,
-      duration: `${duration}ms`,
-      requestId
-    });
+    // Log supprimé pour réduire le volume de logs
     
     // Log des performances
     logger.performance('createNetwork', duration, {
@@ -399,9 +372,7 @@ exports.updateNetwork = async (req, res) => {
     const { id } = req.params;
     const { nom, responsable1, responsable2, church, active } = req.body;
 
-    logger.info('updateNetwork - ID du réseau', { id });
-    logger.info('updateNetwork - Données reçues', req.body);
-    logger.info('updateNetwork - Utilisateur connecté', req.user);
+    // Logs supprimés pour réduire le volume de logs
 
     // Vérifier si le réseau existe
     const existingNetwork = await prisma.network.findUnique({
@@ -486,7 +457,7 @@ exports.updateNetwork = async (req, res) => {
       ...(active !== undefined && { active })
     };
 
-    logger.info('updateNetwork - Données de mise à jour', updateData);
+    // Log supprimé pour réduire le volume de logs
 
     // Mettre à jour les qualifications des responsables si ils ont changé
     if (responsable1 || responsable2 !== undefined) {
@@ -605,7 +576,7 @@ exports.updateNetwork = async (req, res) => {
       return network;
     });
 
-    logger.info('updateNetwork - Réseau mis à jour avec succès', updatedNetwork);
+    // Log supprimé pour réduire le volume de logs
 
     // Mettre à jour la qualification des responsables si modifiés
     const responsables = [];
@@ -1330,9 +1301,6 @@ exports.getNetworksDepartmentInvolvement = async (req, res) => {
     const { prisma } = req;
     const { churchId } = req.query;
 
-    logger.info('Network - getNetworksDepartmentInvolvement - Début de la fonction');
-    logger.info('Network - getNetworksDepartmentInvolvement - churchId:', churchId);
-
     if (!churchId) {
       return res.status(400).json({
         success: false,
@@ -1438,8 +1406,6 @@ exports.getNetworksDepartmentInvolvement = async (req, res) => {
         involvementRate: involvementRate
       };
     });
-
-    logger.info('Network - getNetworksDepartmentInvolvement - Statistiques calculées:', stats.length, 'réseaux');
 
     res.status(200).json({
       success: true,

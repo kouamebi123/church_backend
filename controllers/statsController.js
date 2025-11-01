@@ -12,7 +12,7 @@ exports.getGlobalStats = async (req, res) => {
       churchId = churchId.id || churchId._id;
     }
 
-    logger.info('Stats - getGlobalStats - churchId', { churchId });
+    // Log supprimé pour réduire le volume de logs
 
     // Filtre pour les utilisateurs : eglise_locale_id (comme dans Mongoose)
     const churchFilter = churchId ? { eglise_locale_id: churchId } : {};
@@ -221,27 +221,7 @@ exports.getGlobalStats = async (req, res) => {
     // Total général : tous les utilisateurs de l'église (comme dans Mongoose)
     const total_all = await prisma.user.count({ where: churchFilter });
 
-    logger.info('Stats - getGlobalStats - Résultats', {
-      total_gouvernance,
-      total_reseaux,
-      total_resp_reseaux,
-      total_gr,
-      total_resp_gr,
-      total_sessions,
-      total_resp_sessions,
-      total_unites,
-      total_resp_unites,
-      total_membres_session,
-      total_leaders,
-      total_leaders_all,
-      total_reguliers,
-      total_integration,
-      total_irreguliers,
-      total_ecodim,
-      total_companions,
-      total_personnes_isolees,
-      total_all
-    });
+    // Log supprimé pour réduire le volume de logs
 
     res.json({
       total_gouvernance,
@@ -280,9 +260,7 @@ exports.getGlobalStats = async (req, res) => {
 // Obtenir l'évolution des réseaux
 exports.getNetworksEvolution = async (req, res) => {
   try {
-    logger.info('Stats - getNetworksEvolution - Début de la fonction');
-    logger.info('Stats - getNetworksEvolution - req.query', req.query);
-    logger.info('Stats - getNetworksEvolution - req.user', req.user);
+    // Logs supprimés pour réduire le volume de logs
 
     const { prisma } = req;
 
@@ -404,9 +382,7 @@ exports.getNetworksEvolution = async (req, res) => {
 // Comparer les réseaux par année
 exports.compareNetworksByYear = async (req, res) => {
   try {
-    logger.info('Stats - compareNetworksByYear - Début de la fonction');
-    logger.info('Stats - compareNetworksByYear - req.query', req.query);
-    logger.info('Stats - compareNetworksByYear - req.user', req.user);
+    // Logs supprimés pour réduire le volume de logs
 
     const { prisma } = req;
     const { year1, year2 } = req.query;

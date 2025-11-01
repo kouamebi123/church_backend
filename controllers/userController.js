@@ -373,8 +373,7 @@ exports.createUser = async (req, res) => {
     const { prisma } = req;
     const userData = req.body;
 
-    logger.info('User - createUser - userData', userData);
-    logger.info('User - createUser - req.user', req.user);
+    // Logs supprimés pour réduire le volume de logs
 
     // Validation des données
     if (!userData.username || !userData.pseudo) {
@@ -388,7 +387,7 @@ exports.createUser = async (req, res) => {
     if (!userData.password) {
       // Générer un mot de passe temporaire robuste (10 caractères alphanumériques)
       userData.password = Array.from({length: 10}, () => Math.random().toString(36)[2]).join('');
-      logger.info('User - createUser - Mot de passe temporaire généré', { password: userData.password });
+      // Log supprimé pour réduire le volume de logs
     }
 
     // Vérification des restrictions pour les managers
@@ -458,12 +457,7 @@ exports.createUser = async (req, res) => {
       }
     }
 
-    // Log des données finales avant création
-    logger.info('User - createUser - Données finales', {
-      ...userData,
-      password: '[HASHED]',
-      eglise_locale_id: egliseLocaleId
-    });
+    // Log supprimé pour réduire le volume de logs
 
     // Préparer les données de création
     const userCreateData = {
@@ -593,18 +587,12 @@ exports.updateUser = async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
 
-    logger.info('User - updateUser - ID', { id });
-    logger.info('User - updateUser - updateData', updateData);
-    logger.info('User - updateUser - req.user', req.user);
-    logger.info('User - updateUser - updateData.eglise_locale_id', { eglise_locale_id: updateData.eglise_locale_id });
-    logger.info('User - updateUser - updateData.departement', { departement: updateData.departement });
+    // Logs supprimés pour réduire le volume de logs
 
     // Vérifier que l'utilisateur existe
     const existingUser = await prisma.user.findUnique({
       where: { id }
     });
-
-    logger.info('User - updateUser - existingUser', existingUser);
 
     if (!existingUser) {
       return res.status(404).json({
@@ -1280,9 +1268,6 @@ exports.getUsersEvolution = async (req, res) => {
     const { prisma } = req;
     const { churchId } = req.query;
 
-    logger.info('User - getUsersEvolution - Début de la fonction');
-    logger.info('User - getUsersEvolution - churchId:', churchId);
-
     const where = {};
 
     // Ajouter le filtre par église si spécifié
@@ -1344,8 +1329,6 @@ exports.getUsersEvolution = async (req, res) => {
         nouveaux: newMembersThisMonth
       });
     }
-
-    logger.info('User - getUsersEvolution - Évolution calculée:', evolution.length, 'mois');
 
     res.status(200).json({
       success: true,
