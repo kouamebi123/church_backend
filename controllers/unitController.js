@@ -254,11 +254,30 @@ exports.createUnit = async (req, res) => {
 
     // Mettre à jour la qualification des responsables
     if (responsablesToAdd.length > 0) {
-      await prisma.user.updateMany({
-        where: { id: { in: responsablesToAdd } },
-        data: { qualification: 'RESPONSABLE_UNITE' }
+      const gouvernanceResponsables = await prisma.user.findMany({
+        where: {
+          id: { in: responsablesToAdd },
+          qualification: 'GOUVERNANCE'
+        },
+        select: { id: true }
       });
-      logger.info('Unit createUnit - Qualifications mises à jour pour les responsables', { responsables: responsablesToAdd });
+
+      const gouvernanceIds = new Set(gouvernanceResponsables.map(({ id }) => id));
+      const responsablesEligibles = responsablesToAdd.filter(id => !gouvernanceIds.has(id));
+
+      if (responsablesEligibles.length > 0) {
+        await prisma.user.updateMany({
+          where: { id: { in: responsablesEligibles } },
+          data: { qualification: 'RESPONSABLE_UNITE' }
+        });
+        logger.info('Unit createUnit - Qualifications mises à jour pour les responsables', { responsables: responsablesEligibles });
+      }
+
+      if (gouvernanceIds.size > 0) {
+        logger.info('Unit createUnit - Responsables gouvernance conservés sans changement de qualification', {
+          responsables: Array.from(gouvernanceIds)
+        });
+      }
     }
 
     res.status(201).json({
@@ -365,11 +384,30 @@ exports.updateUnit = async (req, res) => {
     if (updatedUnit.responsable2_id) responsablesToUpdate.push(updatedUnit.responsable2_id);
 
     if (responsablesToUpdate.length > 0) {
-      await prisma.user.updateMany({
-        where: { id: { in: responsablesToUpdate } },
-        data: { qualification: 'RESPONSABLE_UNITE' }
+      const gouvernanceResponsables = await prisma.user.findMany({
+        where: {
+          id: { in: responsablesToUpdate },
+          qualification: 'GOUVERNANCE'
+        },
+        select: { id: true }
       });
-      logger.info('Unit updateUnit - Qualifications mises à jour pour les responsables', { responsables: responsablesToUpdate });
+
+      const gouvernanceIds = new Set(gouvernanceResponsables.map(({ id }) => id));
+      const responsablesEligibles = responsablesToUpdate.filter(id => !gouvernanceIds.has(id));
+
+      if (responsablesEligibles.length > 0) {
+        await prisma.user.updateMany({
+          where: { id: { in: responsablesEligibles } },
+          data: { qualification: 'RESPONSABLE_UNITE' }
+        });
+        logger.info('Unit updateUnit - Qualifications mises à jour pour les responsables', { responsables: responsablesEligibles });
+      }
+
+      if (gouvernanceIds.size > 0) {
+        logger.info('Unit updateUnit - Responsables gouvernance conservés sans changement de qualification', {
+          responsables: Array.from(gouvernanceIds)
+        });
+      }
     }
 
     res.status(200).json({

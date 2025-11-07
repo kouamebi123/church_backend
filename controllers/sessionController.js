@@ -246,19 +246,6 @@ exports.createSession = async (req, res) => {
       }
     });
 
-    // Mettre à jour la qualification des responsables
-    const responsables = [];
-    if (session.responsable1_id) responsables.push(session.responsable1_id);
-    if (session.responsable2_id) responsables.push(session.responsable2_id);
-
-    if (responsables.length > 0) {
-      await prisma.user.updateMany({
-        where: { id: { in: responsables } },
-        data: { qualification: 'RESPONSABLE_SESSION' }
-      });
-      logger.info('Session createSession - Qualifications mises à jour pour les responsables', { responsables });
-    }
-
     // Invalider le cache (ne pas faire échouer la requête si cela échoue)
     try {
       cache.flushByPattern('sessions');
@@ -306,15 +293,6 @@ exports.updateSession = async (req, res) => {
     const { id } = req.params;
     const { nom, responsable1_id, responsable2_id, active } = req.body;
 
-    // Récupérer l'ancienne session pour comparer les responsables
-    const oldSession = await prisma.session.findUnique({
-      where: { id },
-      select: {
-        responsable1_id: true,
-        responsable2_id: true
-      }
-    });
-
     const updatedSession = await prisma.session.update({
       where: { id },
       data: {
@@ -346,34 +324,6 @@ exports.updateSession = async (req, res) => {
         }
       }
     });
-
-    // Gérer les qualifications des responsables
-    const anciensResponsables = [];
-    if (oldSession.responsable1_id) anciensResponsables.push(oldSession.responsable1_id);
-    if (oldSession.responsable2_id) anciensResponsables.push(oldSession.responsable2_id);
-
-    const nouveauxResponsables = [];
-    if (updatedSession.responsable1_id) nouveauxResponsables.push(updatedSession.responsable1_id);
-    if (updatedSession.responsable2_id) nouveauxResponsables.push(updatedSession.responsable2_id);
-
-    // Remettre LEADER aux anciens responsables qui ne le sont plus
-    const responsablesARetirer = anciensResponsables.filter(id => !nouveauxResponsables.includes(id));
-    if (responsablesARetirer.length > 0) {
-      await prisma.user.updateMany({
-        where: { id: { in: responsablesARetirer } },
-        data: { qualification: 'LEADER' }
-      });
-      logger.info('Session updateSession - Anciens responsables remis à LEADER', { responsablesARetirer });
-    }
-
-    // Assigner RESPONSABLE_SESSION aux nouveaux responsables
-    if (nouveauxResponsables.length > 0) {
-      await prisma.user.updateMany({
-        where: { id: { in: nouveauxResponsables } },
-        data: { qualification: 'RESPONSABLE_SESSION' }
-      });
-      logger.info('Session updateSession - Nouveaux responsables assignés RESPONSABLE_SESSION', { nouveauxResponsables });
-    }
 
     // Invalider le cache (ne pas faire échouer la requête si cela échoue)
     try {
