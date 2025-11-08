@@ -329,7 +329,7 @@ async function fixFailedMigration() {
     }
 
     try {
-      // Créer la table calendar_events
+      // Créer ou mettre à jour la table calendar_events
       await prisma.$executeRaw`
         CREATE TABLE IF NOT EXISTS "calendar_events" (
           "id" TEXT NOT NULL,
@@ -342,6 +342,8 @@ async function fixFailedMigration() {
           "is_public" BOOLEAN NOT NULL DEFAULT true,
           "church_id" TEXT NOT NULL,
           "created_by_id" TEXT NOT NULL,
+          "share_link" TEXT,
+          "share_qr_url" TEXT,
           "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updated_at" TIMESTAMP(3) NOT NULL,
           CONSTRAINT "calendar_events_pkey" PRIMARY KEY ("id")
@@ -350,6 +352,17 @@ async function fixFailedMigration() {
       console.log('✅ Table calendar_events créée');
     } catch (error) {
       console.log('⚠️  Table calendar_events existe déjà');
+    }
+
+    try {
+      await prisma.$executeRaw`
+        ALTER TABLE "calendar_events"
+        ADD COLUMN IF NOT EXISTS "share_link" TEXT,
+        ADD COLUMN IF NOT EXISTS "share_qr_url" TEXT;
+      `;
+      console.log('✅ Colonnes share_link et share_qr_url vérifiées sur calendar_events');
+    } catch (error) {
+      console.log('⚠️  Impossible d’ajouter les colonnes share_link/share_qr_url:', error.message);
     }
 
     try {
