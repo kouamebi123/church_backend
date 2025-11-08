@@ -320,9 +320,7 @@ exports.createEvent = async (req, res) => {
       church_id: churchId,
       churchId: churchIdAlt,
       share_link: shareLink,
-      shareLink: shareLinkCamel,
-      share_qr_url: shareQrUrl,
-      shareQrUrl: shareQrUrlCamel
+      shareLink: shareLinkCamel
     } = req.body;
 
     if (!title || !startDateInput) {
@@ -366,7 +364,6 @@ exports.createEvent = async (req, res) => {
     }
 
     const normalizedShareLink = normalizeOptionalString(shareLink ?? shareLinkCamel);
-    const normalizedShareQrUrl = normalizeOptionalString(shareQrUrl ?? shareQrUrlCamel);
 
     const event = await prisma.calendarEvent.create({
       data: {
@@ -379,7 +376,6 @@ exports.createEvent = async (req, res) => {
         is_public: normalizeBoolean(isPublic, true),
         church_id: effectiveChurchId,
         share_link: normalizedShareLink ?? null,
-        share_qr_url: normalizedShareQrUrl ?? null,
         created_by_id: req.user.id
       }
     });
@@ -420,9 +416,7 @@ exports.updateEvent = async (req, res) => {
       church_id: churchId,
       churchId: churchIdAlt,
       share_link: shareLink,
-      shareLink: shareLinkCamel,
-      share_qr_url: shareQrUrl,
-      shareQrUrl: shareQrUrlCamel
+      shareLink: shareLinkCamel
     } = req.body;
 
     const existingEvent = await prisma.calendarEvent.findUnique({ where: { id } });
@@ -468,9 +462,7 @@ exports.updateEvent = async (req, res) => {
     }
 
     const shareLinkRaw = shareLink ?? shareLinkCamel;
-    const shareQrRaw = shareQrUrl ?? shareQrUrlCamel;
     const normalizedShareLink = normalizeOptionalString(shareLinkRaw);
-    const normalizedShareQrUrl = normalizeOptionalString(shareQrRaw);
 
     const updatedEvent = await prisma.calendarEvent.update({
       where: { id },
@@ -483,8 +475,7 @@ exports.updateEvent = async (req, res) => {
         ...(eventType !== undefined && { event_type: eventType }),
         ...(isPublic !== undefined && { is_public: normalizeBoolean(isPublic, existingEvent.is_public) }),
         ...(effectiveChurchId && { church_id: effectiveChurchId }),
-        ...(shareLinkRaw !== undefined && { share_link: normalizedShareLink ?? null }),
-        ...(shareQrRaw !== undefined && { share_qr_url: normalizedShareQrUrl ?? null })
+        ...(shareLinkRaw !== undefined && { share_link: normalizedShareLink ?? null })
       }
     });
 
