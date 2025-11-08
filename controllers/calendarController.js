@@ -59,6 +59,25 @@ const normalizeBoolean = (value, defaultValue = true) => {
   return Boolean(value);
 };
 
+const normalizeOptionalString = (value) => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  const strValue = typeof value === 'string' ? value : String(value);
+  const trimmed = strValue.trim();
+
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  return trimmed;
+};
+
 /**
  * Récupère les événements publics.
  */
@@ -299,7 +318,11 @@ exports.createEvent = async (req, res) => {
       event_type: eventType = 'GENERAL',
       is_public: isPublic = true,
       church_id: churchId,
-      churchId: churchIdAlt
+      churchId: churchIdAlt,
+      share_link: shareLink,
+      shareLink: shareLinkCamel,
+      share_qr_url: shareQrUrl,
+      shareQrUrl: shareQrUrlCamel
     } = req.body;
 
     if (!title || !startDateInput) {
@@ -342,6 +365,9 @@ exports.createEvent = async (req, res) => {
       });
     }
 
+    const normalizedShareLink = normalizeOptionalString(shareLink ?? shareLinkCamel);
+    const normalizedShareQrUrl = normalizeOptionalString(shareQrUrl ?? shareQrUrlCamel);
+
     const event = await prisma.calendarEvent.create({
       data: {
         title,
@@ -352,6 +378,8 @@ exports.createEvent = async (req, res) => {
         event_type: eventType,
         is_public: normalizeBoolean(isPublic, true),
         church_id: effectiveChurchId,
+        share_link: normalizedShareLink ?? null,
+        share_qr_url: normalizedShareQrUrl ?? null,
         created_by_id: req.user.id
       }
     });
@@ -390,7 +418,11 @@ exports.updateEvent = async (req, res) => {
       event_type: eventType,
       is_public: isPublic,
       church_id: churchId,
-      churchId: churchIdAlt
+      churchId: churchIdAlt,
+      share_link: shareLink,
+      shareLink: shareLinkCamel,
+      share_qr_url: shareQrUrl,
+      shareQrUrl: shareQrUrlCamel
     } = req.body;
 
     const existingEvent = await prisma.calendarEvent.findUnique({ where: { id } });
@@ -435,6 +467,11 @@ exports.updateEvent = async (req, res) => {
       });
     }
 
+    const shareLinkRaw = shareLink ?? shareLinkCamel;
+    const shareQrRaw = shareQrUrl ?? shareQrUrlCamel;
+    const normalizedShareLink = normalizeOptionalString(shareLinkRaw);
+    const normalizedShareQrUrl = normalizeOptionalString(shareQrRaw);
+
     const updatedEvent = await prisma.calendarEvent.update({
       where: { id },
       data: {
@@ -445,7 +482,9 @@ exports.updateEvent = async (req, res) => {
         ...(location !== undefined && { location }),
         ...(eventType !== undefined && { event_type: eventType }),
         ...(isPublic !== undefined && { is_public: normalizeBoolean(isPublic, existingEvent.is_public) }),
-        ...(effectiveChurchId && { church_id: effectiveChurchId })
+        ...(effectiveChurchId && { church_id: effectiveChurchId }),
+        ...(shareLinkRaw !== undefined && { share_link: normalizedShareLink ?? null }),
+        ...(shareQrRaw !== undefined && { share_qr_url: normalizedShareQrUrl ?? null })
       }
     });
 
