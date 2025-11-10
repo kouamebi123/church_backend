@@ -11,17 +11,7 @@ async function fixFailedMigration() {
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
     
-    try {
-      // Supprimer toutes les migrations échouées ou en attente
-      console.log('🧹 Nettoyage des migrations échouées...');
-      const deleteResult = await prisma.$executeRaw`
-        DELETE FROM "_prisma_migrations" 
-        WHERE (started_at IS NOT NULL AND finished_at IS NULL)
-      `;
-      console.log(`✅ ${deleteResult} migrations supprimées`);
-    } catch (error) {
-      console.log('⚠️  Pas de migration en attente à nettoyer');
-    }
+    // À partir d'ici, on ne supprime plus les migrations partiellement appliquées
     
     // Appliquer manuellement la migration COMPAGNON_OEUVRE
     console.log('🚀 Application de la migration COMPAGNON_OEUVRE...');
