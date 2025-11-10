@@ -1,5 +1,6 @@
 const { handleError } = require('../utils/errorHandler');
 const logger = require('../utils/logger');
+const { buildICSContent } = require('../utils/icsFormatter');
 
 /**
  * Construit un objet Date couvrant tout le mois demandé.
@@ -76,6 +77,21 @@ const normalizeOptionalString = (value) => {
   }
 
   return trimmed;
+};
+
+const normalizeAlertOffsetMinutes = (value) => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const numericValue = Number(value);
+  if (Number.isNaN(numericValue)) {
+    return null;
+  }
+
+  const integerValue = Math.trunc(numericValue);
+  const clamped = Math.min(Math.max(integerValue, 0), 10080); // Limite à 7 jours
+  return clamped;
 };
 
 /**
@@ -320,7 +336,9 @@ exports.createEvent = async (req, res) => {
       church_id: churchId,
       churchId: churchIdAlt,
       share_link: shareLink,
-      shareLink: shareLinkCamel
+      shareLink: shareLinkCamel,
+      alert_offset_minutes: alertOffsetMinutes,
+      alertOffsetMinutes: alertOffsetMinutesCamel
     } = req.body;
 
     if (!title || !startDateInput) {
@@ -364,6 +382,7 @@ exports.createEvent = async (req, res) => {
     }
 
     const normalizedShareLink = normalizeOptionalString(shareLink ?? shareLinkCamel);
+    const normalizedAlertOffset = normalizeAlertOffsetMinutes(alertOffsetMinutes ?? alertOffsetMinutesCamel);
 
     const event = await prisma.calendarEvent.create({
       data: {
@@ -376,6 +395,7 @@ exports.createEvent = async (req, res) => {
         is_public: normalizeBoolean(isPublic, true),
         church_id: effectiveChurchId,
         share_link: normalizedShareLink ?? null,
+        alert_offset_minutes: normalizedAlertOffset,
         created_by_id: req.user.id
       }
     });
@@ -416,7 +436,9 @@ exports.updateEvent = async (req, res) => {
       church_id: churchId,
       churchId: churchIdAlt,
       share_link: shareLink,
-      shareLink: shareLinkCamel
+      shareLink: shareLinkCamel,
+      alert_offset_minutes: alertOffsetMinutes,
+      alertOffsetMinutes: alertOffsetMinutesCamel
     } = req.body;
 
     const existingEvent = await prisma.calendarEvent.findUnique({ where: { id } });
@@ -463,6 +485,8 @@ exports.updateEvent = async (req, res) => {
 
     const shareLinkRaw = shareLink ?? shareLinkCamel;
     const normalizedShareLink = normalizeOptionalString(shareLinkRaw);
+    const alertOffsetRaw = alertOffsetMinutes ?? alertOffsetMinutesCamel;
+    const normalizedAlertOffset = normalizeAlertOffsetMinutes(alertOffsetRaw);
 
     const updatedEvent = await prisma.calendarEvent.update({
       where: { id },
@@ -475,7 +499,8 @@ exports.updateEvent = async (req, res) => {
         ...(eventType !== undefined && { event_type: eventType }),
         ...(isPublic !== undefined && { is_public: normalizeBoolean(isPublic, existingEvent.is_public) }),
         ...(effectiveChurchId && { church_id: effectiveChurchId }),
-        ...(shareLinkRaw !== undefined && { share_link: normalizedShareLink ?? null })
+        ...(shareLinkRaw !== undefined && { share_link: normalizedShareLink ?? null }),
+        ...(alertOffsetRaw !== undefined && { alert_offset_minutes: normalizedAlertOffset })
       }
     });
 
@@ -533,6 +558,34 @@ exports.deleteEvent = async (req, res) => {
   } catch (error) {
     logger.error('Calendar - deleteEvent - Erreur complète', error);
     const { status, message } = handleError(error, "la suppression de l'événement");
+    res.status(status).json({ success: false, message });
+  }
+};
+
+/**
+ * Exporte les événements publics au format ICS.
+ */
+exports.exportPublicICS = async (req, res) => {
+  try {
+    const { prisma } = req;
+
+    const events = await prisma.calendarEvent.findMany({
+      where: {
+        is_public: true
+      },
+      orderBy: {
+        start_date: 'asc'
+      }
+    });
+
+    const icsContent = buildICSContent(events);
+
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="agenda-plateforme.ics"');
+    res.status(200).send(icsContent);
+  } catch (error) {
+    logger.error('Calendar - exportPublicICS - Erreur complète', error);
+    const { status, message } = handleError(error, "l'export ICS des événements publics");
     res.status(status).json({ success: false, message });
   }
 };

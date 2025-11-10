@@ -4,6 +4,7 @@ const { protect, authorize } = require('../middlewares/auth');
 const calendarController = require('../controllers/calendarController');
 
 // Routes publiques
+router.get('/public.ics', calendarController.exportPublicICS);
 router.get('/public', calendarController.getPublicEvents);
 router.get('/public/month', calendarController.getPublicEventsByMonth);
 router.get('/public/:id', calendarController.getPublicEventById);

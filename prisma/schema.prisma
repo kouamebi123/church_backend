@@ -610,6 +610,7 @@ model CalendarEvent {
   is_public   Boolean     @default(true)
   share_link  String?
   share_qr_url String?
+  alert_offset_minutes Int?
   church_id   String
   church      Church      @relation(fields: [church_id], references: [id], onDelete: Cascade)
   created_by_id String
