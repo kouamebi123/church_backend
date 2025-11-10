@@ -275,9 +275,6 @@ async function fixFailedMigration() {
       }
     }
     
-    await prisma.$disconnect();
-    console.log('✅ Migrations appliquées avec succès');
-    
     // Ajouter les colonnes pour prévisionnel et assistance
     console.log('🚀 Ajout des colonnes responsables_reseau et compagnons_oeuvre...');
     
@@ -420,6 +417,13 @@ async function fixFailedMigration() {
     } catch (error) {
       console.log('⚠️  Colonne situation_professionnelle existe déjà');
     }
+
+    await prisma.$disconnect();
+    console.log('✅ Connexion Prisma nettoyée');
+
+    console.log('🚀 Application des migrations Prisma officielles...');
+    execSync('npx prisma migrate deploy', { stdio: 'inherit' });
+    console.log('✅ Migrations Prisma synchronisées');
     
   } catch (error) {
     console.error('❌ Erreur:', error.message);
