@@ -2,6 +2,27 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+const MIGRATION_TESTIMONIES_ACTIVITY = '20250115000001_add_testimonies_and_activity_logs';
+const MIGRATION_TESTIMONIES_FILES = '20250115000001_add_testimonies_and_files';
+
+const runPrismaResolve = (migrationName) => {
+  const command = `npx prisma migrate resolve --applied ${migrationName}`;
+  try {
+    execSync(command, { stdio: 'inherit' });
+    console.log(`⚠️  Migration ${migrationName} marquée comme déjà appliquée`);
+  } catch (resolveError) {
+    const output = `${resolveError?.stdout?.toString() || ''}${resolveError?.stderr?.toString() || ''}`;
+    if (
+      output.includes('already recorded as applied') ||
+      output.includes('P3008')
+    ) {
+      console.log(`ℹ️  Migration ${migrationName} est déjà enregistrée comme appliquée`);
+      return;
+    }
+    throw resolveError;
+  }
+};
+
 async function fixFailedMigration() {
   try {
     console.log('🔧 Génération du client Prisma...');
@@ -10,6 +31,20 @@ async function fixFailedMigration() {
     console.log('🔧 Connexion à la base de données...');
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
+
+    let incompleteMigrations = [];
+    try {
+      incompleteMigrations = await prisma.$queryRaw`
+        SELECT migration_name
+        FROM "_prisma_migrations"
+        WHERE finished_at IS NULL
+      `;
+      if (incompleteMigrations.length > 0) {
+        console.log('⚠️  Migrations incomplètes détectées:', incompleteMigrations.map((row) => row.migration_name));
+      }
+    } catch (error) {
+      console.log('⚠️  Impossible de lister les migrations incomplètes:', error.message);
+    }
     
     // À partir d'ici, on ne supprime plus les migrations partiellement appliquées
     
@@ -397,6 +432,9 @@ async function fixFailedMigration() {
       console.log('⚠️  Enum SituationProfessionnelle existe déjà');
     }
 
+    const incompleteMigrationNames = incompleteMigrations.map((row) => row.migration_name);
+    const migrationsToResolve = new Set();
+
     let markTestimonyMigrationAsApplied = false;
     try {
       // Ajouter la colonne situation_professionnelle à la table users
@@ -422,23 +460,29 @@ async function fixFailedMigration() {
       markTestimonyMigrationAsApplied = Boolean(testimonyEnumExists?.[0]?.exists);
       if (markTestimonyMigrationAsApplied) {
         console.log('⚠️  Enum TestimonyCategory déjà présent dans la base');
+        migrationsToResolve.add(MIGRATION_TESTIMONIES_ACTIVITY);
       }
     } catch (error) {
       console.log('⚠️  Impossible de vérifier la présence de TestimonyCategory:', error.message);
     }
 
+    if (incompleteMigrationNames.includes(MIGRATION_TESTIMONIES_ACTIVITY)) {
+      migrationsToResolve.add(MIGRATION_TESTIMONIES_ACTIVITY);
+    }
+    if (incompleteMigrationNames.includes(MIGRATION_TESTIMONIES_FILES)) {
+      migrationsToResolve.add(MIGRATION_TESTIMONIES_FILES);
+    }
+
     await prisma.$disconnect();
     console.log('✅ Connexion Prisma nettoyée');
 
-    console.log('🚀 Application des migrations Prisma officielles...');
-    if (markTestimonyMigrationAsApplied) {
-      try {
-        execSync('npx prisma migrate resolve --applied 20250115000001_add_testimonies_and_activity_logs', { stdio: 'inherit' });
-        console.log('⚠️  Migration testimonies marquée comme déjà appliquée');
-      } catch (resolveError) {
-        console.log('⚠️  Impossible de marquer la migration testimonies comme appliquée:', resolveError.message);
-      }
+    if (migrationsToResolve.size > 0) {
+      migrationsToResolve.forEach((migrationName) => {
+        runPrismaResolve(migrationName);
+      });
     }
+
+    console.log('🚀 Application des migrations Prisma officielles...');
     try {
       execSync('npx prisma migrate deploy', { stdio: 'inherit' });
       console.log('✅ Migrations Prisma synchronisées');
@@ -448,12 +492,19 @@ async function fixFailedMigration() {
       const combined = `${stdout}\n${stderr}`;
       if (combined.includes('type "TestimonyCategory" already exists')) {
         console.log('⚠️  Migration testimonies déjà appliquée. Marquage manuel comme appliquée...');
-        execSync('npx prisma migrate resolve --applied 20250115000001_add_testimonies_and_activity_logs', { stdio: 'inherit' });
+        runPrismaResolve(MIGRATION_TESTIMONIES_ACTIVITY);
         execSync('npx prisma migrate deploy', { stdio: 'inherit' });
-        console.log('✅ Migrations Prisma synchronisées (après résolution manuelle)');
-      } else {
-        throw migrateError;
+        console.log('✅ Migrations Prisma synchronisées (après résolution de TestimonyCategory)');
+        return;
       }
+      if (combined.includes('P3009') && combined.includes(MIGRATION_TESTIMONIES_FILES)) {
+        console.log(`⚠️  Migration ${MIGRATION_TESTIMONIES_FILES} marquée comme échouée. Marquage manuel comme appliquée...`);
+        runPrismaResolve(MIGRATION_TESTIMONIES_FILES);
+        execSync('npx prisma migrate deploy', { stdio: 'inherit' });
+        console.log('✅ Migrations Prisma synchronisées (après résolution de testimonies files)');
+        return;
+      }
+      throw migrateError;
     }
     
   } catch (error) {
