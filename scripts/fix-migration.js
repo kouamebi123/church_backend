@@ -422,8 +422,22 @@ async function fixFailedMigration() {
     console.log('✅ Connexion Prisma nettoyée');
 
     console.log('🚀 Application des migrations Prisma officielles...');
-    execSync('npx prisma migrate deploy', { stdio: 'inherit' });
-    console.log('✅ Migrations Prisma synchronisées');
+    try {
+      execSync('npx prisma migrate deploy', { stdio: 'inherit' });
+      console.log('✅ Migrations Prisma synchronisées');
+    } catch (migrateError) {
+      const stderr = migrateError?.stderr?.toString() || '';
+      const stdout = migrateError?.stdout?.toString() || '';
+      const combined = `${stdout}\n${stderr}`;
+      if (combined.includes('type "TestimonyCategory" already exists')) {
+        console.log('⚠️  Migration testimonies déjà appliquée. Marquage manuel comme appliquée...');
+        execSync('npx prisma migrate resolve --applied 20250115000001_add_testimonies_and_activity_logs', { stdio: 'inherit' });
+        execSync('npx prisma migrate deploy', { stdio: 'inherit' });
+        console.log('✅ Migrations Prisma synchronisées (après résolution manuelle)');
+      } else {
+        throw migrateError;
+      }
+    }
     
   } catch (error) {
     console.error('❌ Erreur:', error.message);
