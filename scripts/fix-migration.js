@@ -407,6 +407,7 @@ async function fixFailedMigration() {
       console.log('⚠️  Enum SituationProfessionnelle existe déjà');
     }
 
+    let markTestimonyMigrationAsApplied = false;
     try {
       // Ajouter la colonne situation_professionnelle à la table users
       await prisma.$executeRaw`
@@ -418,10 +419,36 @@ async function fixFailedMigration() {
       console.log('⚠️  Colonne situation_professionnelle existe déjà');
     }
 
+    try {
+      const testimonyEnumExists = await prisma.$queryRaw`
+        SELECT EXISTS (
+          SELECT 1
+          FROM pg_type t
+          INNER JOIN pg_namespace n ON n.oid = t.typnamespace
+          WHERE t.typname = 'TestimonyCategory'
+          AND n.nspname = 'public'
+        )
+      `;
+      markTestimonyMigrationAsApplied = Boolean(testimonyEnumExists?.[0]?.exists);
+      if (markTestimonyMigrationAsApplied) {
+        console.log('⚠️  Enum TestimonyCategory déjà présent dans la base');
+      }
+    } catch (error) {
+      console.log('⚠️  Impossible de vérifier la présence de TestimonyCategory:', error.message);
+    }
+
     await prisma.$disconnect();
     console.log('✅ Connexion Prisma nettoyée');
 
     console.log('🚀 Application des migrations Prisma officielles...');
+    if (markTestimonyMigrationAsApplied) {
+      try {
+        execSync('npx prisma migrate resolve --applied 20250115000001_add_testimonies_and_activity_logs', { stdio: 'inherit' });
+        console.log('⚠️  Migration testimonies marquée comme déjà appliquée');
+      } catch (resolveError) {
+        console.log('⚠️  Impossible de marquer la migration testimonies comme appliquée:', resolveError.message);
+      }
+    }
     try {
       execSync('npx prisma migrate deploy', { stdio: 'inherit' });
       console.log('✅ Migrations Prisma synchronisées');
