@@ -370,6 +370,134 @@ Si vous ne souhaitez plus recevoir ces notifications, contactez votre administra
     `;
   }
 
+  static generateContactNotificationHTML(contactData) {
+    const appName = process.env.APP_NAME || 'Système de Gestion d\'Église';
+    const appUrl = process.env.FRONTEND_URL || 'https://multitudeszno.up.railway.app';
+    
+    return `
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Nouveau message de contact</title>
+        <style>
+            body {
+                font-family: 'Open Sans', 'Helvetica', 'Arial', sans-serif;
+                line-height: 1.6;
+                color: #212529;
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+                background-color: #F8F9FA;
+            }
+            .container {
+                background-color: #FFFFFF;
+                border-radius: 12px;
+                padding: 32px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                border: 1px solid #E9ECEF;
+            }
+            .header {
+                text-align: center;
+                border-bottom: 3px solid #662d91;
+                padding-bottom: 20px;
+                margin-bottom: 30px;
+            }
+            .header h1 {
+                color: #662d91;
+                margin: 0;
+                font-size: 24px;
+                font-weight: 700;
+            }
+            .info-box {
+                background-color: #F8F9FA;
+                border-left: 4px solid #662d91;
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 4px;
+            }
+            .info-label {
+                font-weight: 600;
+                color: #662d91;
+                margin-bottom: 5px;
+            }
+            .info-value {
+                color: #212529;
+            }
+            .message-box {
+                background-color: #FFFFFF;
+                border: 1px solid #E9ECEF;
+                border-radius: 8px;
+                padding: 20px;
+                margin: 20px 0;
+            }
+            .footer {
+                text-align: center;
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #E9ECEF;
+                color: #6C757D;
+                font-size: 12px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>📧 Nouveau message de contact</h1>
+            </div>
+            
+            <div class="info-box">
+                <div class="info-label">Nom:</div>
+                <div class="info-value">${contactData.name}</div>
+            </div>
+            
+            <div class="info-box">
+                <div class="info-label">Email:</div>
+                <div class="info-value">${contactData.email}</div>
+            </div>
+            
+            <div class="info-box">
+                <div class="info-label">Sujet:</div>
+                <div class="info-value">${contactData.subject}</div>
+            </div>
+            
+            <div class="message-box">
+                <div class="info-label">Message:</div>
+                <div class="info-value" style="white-space: pre-wrap; margin-top: 10px;">${contactData.message}</div>
+            </div>
+            
+            <div class="footer">
+                <p>Reçu le ${new Date(contactData.created_at).toLocaleString('fr-FR')}</p>
+                <p>Cet email a été envoyé automatiquement par ${appName}.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+  }
+
+  static generateContactNotificationText(contactData) {
+    const appName = process.env.APP_NAME || 'Système de Gestion d\'Église';
+    
+    return `
+📧 Nouveau message de contact - ${appName}
+
+Nom: ${contactData.name}
+Email: ${contactData.email}
+Sujet: ${contactData.subject}
+
+Message:
+${contactData.message}
+
+---
+Reçu le ${new Date(contactData.created_at).toLocaleString('fr-FR')}
+
+Cet email a été envoyé automatiquement par ${appName}.
+    `;
+  }
+
 }
 
 module.exports = ResendEmailService;
