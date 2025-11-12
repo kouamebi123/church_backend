@@ -4,6 +4,8 @@ const path = require('path');
 
 const MIGRATION_TESTIMONIES_ACTIVITY = '20250115000001_add_testimonies_and_activity_logs';
 const MIGRATION_TESTIMONIES_FILES = '20250115000001_add_testimonies_and_files';
+const MIGRATION_CONTACT_MODEL = '20251112151048_add_contact_model';
+const MIGRATION_APP_SETTINGS = '20251112152000_add_app_settings';
 
 const runPrismaResolve = (migrationName) => {
   const command = `npx prisma migrate resolve --applied ${migrationName}`;
@@ -432,6 +434,72 @@ async function fixFailedMigration() {
       console.log('⚠️  Enum SituationProfessionnelle existe déjà');
     }
 
+    // Vérification table contacts
+    console.log('🚀 Vérification de la table contacts...');
+    const contactsTableCheck = await prisma.$queryRaw`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'contacts'
+      )
+    `;
+
+    let createdContactsTable = false;
+    if (!contactsTableCheck[0].exists) {
+      await prisma.$executeRaw`
+        CREATE TABLE "contacts" (
+          "id" TEXT NOT NULL,
+          "name" TEXT NOT NULL,
+          "email" TEXT NOT NULL,
+          "subject" TEXT NOT NULL,
+          "message" TEXT NOT NULL,
+          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "read" BOOLEAN NOT NULL DEFAULT false,
+          "read_at" TIMESTAMP(3),
+          CONSTRAINT "contacts_pkey" PRIMARY KEY ("id")
+        )
+      `;
+      console.log('✅ Table contacts créée');
+      createdContactsTable = true;
+    } else {
+      console.log('✅ Table contacts existe déjà');
+    }
+
+    // Vérification table app_settings
+    console.log('🚀 Vérification de la table app_settings...');
+    const appSettingsTableCheck = await prisma.$queryRaw`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'app_settings'
+      )
+    `;
+
+    let createdAppSettingsTable = false;
+    if (!appSettingsTableCheck[0].exists) {
+      await prisma.$executeRaw`
+        CREATE TABLE "app_settings" (
+          "id" TEXT NOT NULL,
+          "contact_email" TEXT,
+          "contact_phone" TEXT,
+          "contact_location" TEXT,
+          "updated_at" TIMESTAMP(3) NOT NULL,
+          "updated_by_id" TEXT,
+          CONSTRAINT "app_settings_pkey" PRIMARY KEY ("id")
+        )
+      `;
+      await prisma.$executeRaw`
+        ALTER TABLE "app_settings" 
+        ADD CONSTRAINT "app_settings_updated_by_id_fkey" 
+        FOREIGN KEY ("updated_by_id") REFERENCES "users"("id") 
+        ON DELETE SET NULL ON UPDATE CASCADE
+      `;
+      console.log('✅ Table app_settings créée');
+      createdAppSettingsTable = true;
+    } else {
+      console.log('✅ Table app_settings existe déjà');
+    }
+
     const incompleteMigrationNames = incompleteMigrations.map((row) => row.migration_name);
     const migrationsToResolve = new Set();
 
@@ -471,6 +539,12 @@ async function fixFailedMigration() {
     }
     if (incompleteMigrationNames.includes(MIGRATION_TESTIMONIES_FILES)) {
       migrationsToResolve.add(MIGRATION_TESTIMONIES_FILES);
+    }
+    if (createdContactsTable || incompleteMigrationNames.includes(MIGRATION_CONTACT_MODEL)) {
+      migrationsToResolve.add(MIGRATION_CONTACT_MODEL);
+    }
+    if (createdAppSettingsTable || incompleteMigrationNames.includes(MIGRATION_APP_SETTINGS)) {
+      migrationsToResolve.add(MIGRATION_APP_SETTINGS);
     }
 
     await prisma.$disconnect();

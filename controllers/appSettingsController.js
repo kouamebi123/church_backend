@@ -7,6 +7,7 @@ const prisma = new PrismaClient();
  * Contrôleur pour la gestion des paramètres de l'application
  */
 
+
 // Récupérer les paramètres de l'application (publique)
 const getAppSettings = async (req, res) => {
   try {

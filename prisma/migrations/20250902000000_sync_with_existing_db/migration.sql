@@ -1,3 +1,0 @@
--- Migration pour synchroniser avec la base de données existante
--- Cette migration est vide car la base de données est déjà à jour
--- Elle permet de synchroniser l'historique des migrations Prisma
