@@ -1,2 +1,0 @@
--- Cette migration ne nécessite pas de modifications SQL car la relation est déjà créée
--- La correction est uniquement dans le schéma Prisma pour la validation
