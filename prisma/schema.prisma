@@ -601,23 +601,24 @@ enum ActivityAction {
 }
 
 model CalendarEvent {
-  id          String      @id @default(cuid())
-  title       String
-  description String?
-  start_date  DateTime
-  end_date    DateTime?
-  location    String?
-  event_type  EventType   @default(GENERAL)
-  is_public   Boolean     @default(true)
-  share_link  String?
-  share_qr_url String?
+  id            String      @id @default(cuid())
+  title         String
+  description   String?
+  start_date    DateTime
+  end_date      DateTime?
+  location      String?
+  event_type    EventType   @default(GENERAL)
+  is_public     Boolean     @default(true)
+  is_zone_event Boolean     @default(false)
+  share_link    String?
+  share_qr_url  String?
   alert_offset_minutes Int?
-  church_id   String
-  church      Church      @relation(fields: [church_id], references: [id], onDelete: Cascade)
+  church_id     String
+  church        Church      @relation(fields: [church_id], references: [id], onDelete: Cascade)
   created_by_id String
-  created_by  User        @relation("CalendarEventCreator", fields: [created_by_id], references: [id])
-  created_at  DateTime    @default(now())
-  updated_at  DateTime    @updatedAt
+  created_by    User        @relation("CalendarEventCreator", fields: [created_by_id], references: [id])
+  created_at    DateTime    @default(now())
+  updated_at    DateTime    @updatedAt
 
   @@map("calendar_events")
 }

@@ -103,6 +103,7 @@ exports.getPublicEvents = async (req, res) => {
     const {
       church_id: churchId,
       churchId: churchIdAlt,
+      filter_church_id: filterChurchId,
       month,
       year,
       view
@@ -112,9 +113,28 @@ exports.getPublicEvents = async (req, res) => {
       is_public: true
     };
 
-    const effectiveChurchId = churchId || churchIdAlt || null;
+    // Utiliser le filtre explicite ou celui de l'URL
+    const effectiveChurchId = filterChurchId || churchId || churchIdAlt || null;
+    
     if (effectiveChurchId) {
-      where.church_id = effectiveChurchId;
+      // Récupérer l'église pour vérifier si c'est la zone
+      const church = await prisma.church.findUnique({
+        where: { id: effectiveChurchId },
+        select: { nom: true }
+      });
+
+      const isZoneFilter = church?.nom?.toUpperCase() === 'ZNO' || effectiveChurchId === 'ZNO';
+
+      if (isZoneFilter) {
+        // Si on filtre par ZNO, afficher uniquement les événements de zone
+        where.is_zone_event = true;
+      } else {
+        // Sinon, afficher les événements de l'église OU les événements de zone
+        where.OR = [
+          { church_id: effectiveChurchId },
+          { is_zone_event: true }
+        ];
+      }
     }
 
     const resolvedYear = year || new Date().getFullYear();
@@ -139,6 +159,14 @@ exports.getPublicEvents = async (req, res) => {
 
     const events = await prisma.calendarEvent.findMany({
       where,
+      include: {
+        church: {
+          select: {
+            id: true,
+            nom: true
+          }
+        }
+      },
       orderBy: {
         start_date: 'asc'
       }
@@ -161,7 +189,13 @@ exports.getPublicEvents = async (req, res) => {
 exports.getPublicEventsByMonth = async (req, res) => {
   try {
     const { prisma } = req;
-    const { church_id: churchId, churchId: churchIdAlt, month, year } = req.query;
+    const { 
+      church_id: churchId, 
+      churchId: churchIdAlt, 
+      filter_church_id: filterChurchId,
+      month, 
+      year 
+    } = req.query;
 
     const monthRange = buildMonthRange(month, year);
     if (!monthRange) {
@@ -179,13 +213,40 @@ exports.getPublicEventsByMonth = async (req, res) => {
       }
     };
 
-    const effectiveChurchId = churchId || churchIdAlt || null;
+    // Utiliser le filtre explicite ou celui de l'URL
+    const effectiveChurchId = filterChurchId || churchId || churchIdAlt || null;
+    
     if (effectiveChurchId) {
-      where.church_id = effectiveChurchId;
+      // Récupérer l'église pour vérifier si c'est la zone
+      const church = await prisma.church.findUnique({
+        where: { id: effectiveChurchId },
+        select: { nom: true }
+      });
+
+      const isZoneFilter = church?.nom?.toUpperCase() === 'ZNO' || effectiveChurchId === 'ZNO';
+
+      if (isZoneFilter) {
+        // Si on filtre par ZNO, afficher uniquement les événements de zone
+        where.is_zone_event = true;
+      } else {
+        // Sinon, afficher les événements de l'église OU les événements de zone
+        where.OR = [
+          { church_id: effectiveChurchId },
+          { is_zone_event: true }
+        ];
+      }
     }
 
     const events = await prisma.calendarEvent.findMany({
       where,
+      include: {
+        church: {
+          select: {
+            id: true,
+            nom: true
+          }
+        }
+      },
       orderBy: {
         start_date: 'asc'
       }
@@ -233,12 +294,15 @@ exports.getEvents = async (req, res) => {
     const {
       church_id: churchId,
       churchId: churchIdAlt,
+      filter_church_id: filterChurchId,
       month,
       year,
       view,
       isPublic
     } = req.query;
-    const effectiveChurchId = churchId || churchIdAlt || req.user?.eglise_locale || null;
+    
+    // Utiliser le filtre explicite ou l'église de l'utilisateur par défaut
+    const effectiveChurchId = filterChurchId || churchId || churchIdAlt || req.user?.eglise_locale || null;
 
     if (!effectiveChurchId) {
       return res.status(400).json({
@@ -247,9 +311,27 @@ exports.getEvents = async (req, res) => {
       });
     }
 
-    const where = {
-      church_id: effectiveChurchId
-    };
+    // Récupérer l'église pour vérifier si c'est la zone
+    const church = await prisma.church.findUnique({
+      where: { id: effectiveChurchId },
+      select: { nom: true }
+    });
+
+    const isZoneFilter = church?.nom?.toUpperCase() === 'ZNO' || effectiveChurchId === 'ZNO';
+
+    // Construire la condition where
+    const where = {};
+
+    if (isZoneFilter) {
+      // Si on filtre par ZNO, afficher uniquement les événements de zone
+      where.is_zone_event = true;
+    } else {
+      // Sinon, afficher les événements de l'église OU les événements de zone
+      where.OR = [
+        { church_id: effectiveChurchId },
+        { is_zone_event: true }
+      ];
+    }
 
     if (typeof isPublic !== 'undefined') {
       where.is_public = normalizeBoolean(isPublic, true);
@@ -333,6 +415,7 @@ exports.createEvent = async (req, res) => {
       location,
       event_type: eventType = 'GENERAL',
       is_public: isPublic = true,
+      is_zone_event: isZoneEvent = false,
       church_id: churchId,
       churchId: churchIdAlt,
       share_link: shareLink,
@@ -393,6 +476,7 @@ exports.createEvent = async (req, res) => {
         location: location || null,
         event_type: eventType,
         is_public: normalizeBoolean(isPublic, true),
+        is_zone_event: normalizeBoolean(isZoneEvent, false),
         church_id: effectiveChurchId,
         share_link: normalizedShareLink ?? null,
         alert_offset_minutes: normalizedAlertOffset,
@@ -433,6 +517,7 @@ exports.updateEvent = async (req, res) => {
       location,
       event_type: eventType,
       is_public: isPublic,
+      is_zone_event: isZoneEvent,
       church_id: churchId,
       churchId: churchIdAlt,
       share_link: shareLink,
@@ -498,6 +583,7 @@ exports.updateEvent = async (req, res) => {
         ...(location !== undefined && { location }),
         ...(eventType !== undefined && { event_type: eventType }),
         ...(isPublic !== undefined && { is_public: normalizeBoolean(isPublic, existingEvent.is_public) }),
+        ...(isZoneEvent !== undefined && { is_zone_event: normalizeBoolean(isZoneEvent, existingEvent.is_zone_event || false) }),
         ...(effectiveChurchId && { church_id: effectiveChurchId }),
         ...(shareLinkRaw !== undefined && { share_link: normalizedShareLink ?? null }),
         ...(alertOffsetRaw !== undefined && { alert_offset_minutes: normalizedAlertOffset })
