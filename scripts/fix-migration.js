@@ -390,6 +390,25 @@ async function fixFailedMigration() {
     }
 
     try {
+      await prisma.$executeRaw`
+        ALTER TABLE "calendar_events"
+        ADD COLUMN IF NOT EXISTS "is_zone_event" BOOLEAN DEFAULT false;
+      `;
+      await prisma.$executeRaw`
+        UPDATE "calendar_events"
+        SET "is_zone_event" = false
+        WHERE "is_zone_event" IS NULL;
+      `;
+      await prisma.$executeRaw`
+        ALTER TABLE "calendar_events"
+        ALTER COLUMN "is_zone_event" SET NOT NULL;
+      `;
+      console.log('✅ Colonne is_zone_event vérifiée sur calendar_events');
+    } catch (error) {
+      console.log('⚠️  Impossible d’ajouter la colonne is_zone_event:', error.message);
+    }
+
+    try {
       // Ajouter les contraintes de clé étrangère
       await prisma.$executeRaw`
         ALTER TABLE "calendar_events" 
