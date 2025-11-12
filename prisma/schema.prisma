@@ -650,4 +650,18 @@ enum EntityType {
   SESSION
   UNIT
   CALENDAR_EVENT
+  CONTACT
+}
+
+model Contact {
+  id         String   @id @default(cuid())
+  name       String
+  email      String
+  subject    String
+  message    String
+  created_at DateTime @default(now())
+  read       Boolean  @default(false)
+  read_at    DateTime?
+
+  @@map("contacts")
 }

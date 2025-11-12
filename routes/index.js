@@ -36,6 +36,7 @@ const activityRoutes = require('./activity');
 const sessionRoutes = require('./sessions');
 const unitRoutes = require('./units');
 const calendarRoutes = require('./calendar');
+const contactRoutes = require('./contact');
 
 // Endpoint de sécurité
 const securityLogger = require('../utils/securityLogger');
@@ -64,6 +65,7 @@ router.use('/activities', activityRoutes);
 router.use('/sessions', sessionRoutes);
 router.use('/units', unitRoutes);
 router.use('/calendar', calendarRoutes);
+router.use('/contact', contactRoutes);
 
 // Endpoint de sécurité
 router.get('/security/stats', (req, res) => {

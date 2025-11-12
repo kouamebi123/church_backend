@@ -396,6 +396,64 @@ Si vous ne souhaitez plus recevoir ces notifications, contactez votre administra
       throw error;
     }
   }
+
+  /**
+   * Envoie une notification de message de contact aux administrateurs
+   */
+  async sendContactNotification(adminEmail, contactData) {
+    try {
+      // Essayer d'abord Resend (recommandé pour Railway)
+      if (this.resendService && this.resendService.resend) {
+        try {
+          const result = await this.resendService.resend.emails.send({
+            from: 'Church Management <onboarding@resend.dev>',
+            to: [adminEmail],
+            subject: `Nouveau message de contact: ${contactData.subject}`,
+            html: ResendEmailService.generateContactNotificationHTML(contactData),
+            text: ResendEmailService.generateContactNotificationText(contactData)
+          });
+
+          logger.info('EmailService - Notification de contact envoyée via Resend:', {
+            to: adminEmail,
+            contact_id: contactData.contact_id,
+            messageId: result.data?.id
+          });
+
+          return result;
+        } catch (resendError) {
+          logger.warn('EmailService - Erreur Resend, fallback sur SMTP:', resendError);
+          // Continuer avec SMTP en cas d'erreur Resend
+        }
+      }
+
+      // Fallback sur SMTP si Resend n'est pas disponible ou a échoué
+      if (!this.transporter) {
+        logger.warn('EmailService - Aucun transporteur disponible pour l\'envoi de notification de contact');
+        return { messageId: 'no-transporter', accepted: [adminEmail] };
+      }
+
+      const appName = process.env.APP_NAME || 'Système de Gestion d\'Église';
+      const contactMessage = {
+        from: `"${appName}" <${process.env.SMTP_USER || process.env.EMAIL_USER}>`,
+        to: adminEmail,
+        subject: `Nouveau message de contact: ${contactData.subject}`,
+        html: ResendEmailService.generateContactNotificationHTML(contactData),
+        text: ResendEmailService.generateContactNotificationText(contactData)
+      };
+
+      const result = await this.transporter.sendMail(contactMessage);
+      logger.info('EmailService - Notification de contact envoyée via SMTP:', {
+        to: adminEmail,
+        contact_id: contactData.contact_id,
+        messageId: result.messageId
+      });
+
+      return result;
+    } catch (error) {
+      logger.error('EmailService - Erreur lors de l\'envoi de la notification de contact:', error);
+      throw error;
+    }
+  }
 }
 
 // Export d'une instance singleton
