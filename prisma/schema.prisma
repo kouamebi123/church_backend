@@ -66,6 +66,7 @@ model User {
   unit_members                 UnitMember[]          @relation("UnitMemberUser")
   unit_superieur_hierarchique  Unit[]                @relation("UnitSuperieurHierarchique")
   calendar_events_created      CalendarEvent[]       @relation("CalendarEventCreator")
+  app_settings_updated         AppSettings[]         @relation("AppSettingsUpdater")
 
   @@map("users")
 }
@@ -664,4 +665,16 @@ model Contact {
   read_at    DateTime?
 
   @@map("contacts")
+}
+
+model AppSettings {
+  id                String   @id @default(cuid())
+  contact_email     String?
+  contact_phone     String?
+  contact_location  String?
+  updated_at        DateTime @updatedAt
+  updated_by_id     String?
+  updated_by        User?    @relation("AppSettingsUpdater", fields: [updated_by_id], references: [id])
+
+  @@map("app_settings")
 }
