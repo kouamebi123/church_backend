@@ -71,6 +71,7 @@ async function main() {
   console.log('🎉 Seeding initial terminé avec succès !');
 }
 
+
 main()
   .catch((e) => {
     console.error('❌ Erreur lors du seeding:', e);
