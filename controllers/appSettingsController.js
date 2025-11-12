@@ -17,23 +17,12 @@ const getAppSettings = async (req, res) => {
       }
     });
 
-    // Si aucun paramètre n'existe, créer des paramètres par défaut
-    if (!settings) {
-      settings = await prisma.appSettings.create({
-        data: {
-          contact_email: null,
-          contact_phone: null,
-          contact_location: null
-        }
-      });
-    }
-
     res.json({
       success: true,
       data: {
-        contact_email: settings.contact_email || '',
-        contact_phone: settings.contact_phone || '',
-        contact_location: settings.contact_location || ''
+        contact_email: settings?.contact_email || '',
+        contact_phone: settings?.contact_phone || '',
+        contact_location: settings?.contact_location || ''
       }
     });
 
