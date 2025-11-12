@@ -1262,6 +1262,7 @@ exports.getUserStats = async (req, res) => {
   }
 };
 
+
 // Obtenir l'évolution des membres sur 12 mois
 exports.getUsersEvolution = async (req, res) => {
   try {
