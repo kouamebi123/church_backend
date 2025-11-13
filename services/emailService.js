@@ -408,17 +408,31 @@ Si vous ne souhaitez plus recevoir ces notifications, contactez votre administra
         from: contactData.email,
         subject: contactData.subject,
         hasResend: !!this.resendService?.resend,
-        hasTransporter: !!this.transporter
+        hasTransporter: !!this.transporter,
+        resendInitialized: this.resendService ? 'Oui' : 'Non'
       });
+      
+      // Vérifier que Resend est bien initialisé
+      if (this.resendService && !this.resendService.resend) {
+        logger.warn('EmailService - Resend service existe mais resend client n\'est pas initialisé');
+      }
 
       // Essayer d'abord Resend (recommandé pour Railway)
       if (this.resendService && this.resendService.resend) {
         try {
-          // Utiliser l'expéditeur du formulaire comme expéditeur de l'email
-          const fromEmail = `${contactData.name} <${contactData.email}>`;
+          // Resend nécessite un email vérifié dans "from", donc on utilise un email vérifié
+          // et on met l'email de l'expéditeur dans "Reply-To" pour que les réponses aillent directement à l'expéditeur
+          const verifiedFromEmail = process.env.RESEND_FROM_EMAIL || 'Multitudes ZNO <onboarding@resend.dev>';
+          
+          logger.info('EmailService - Tentative d\'envoi via Resend avec Reply-To:', {
+            from: verifiedFromEmail,
+            replyTo: contactData.email,
+            to: adminEmail
+          });
           
           const result = await this.resendService.resend.emails.send({
-            from: fromEmail,
+            from: verifiedFromEmail,
+            reply_to: contactData.email,
             to: [adminEmail],
             subject: `Nouveau message de contact: ${contactData.subject}`,
             html: ResendEmailService.generateContactNotificationHTML(contactData),
@@ -428,17 +442,34 @@ Si vous ne souhaitez plus recevoir ces notifications, contactez votre administra
           logger.info('EmailService - Notification de contact envoyée via Resend:', {
             to: adminEmail,
             contact_id: contactData.contact_id || 'N/A',
-            from: contactData.email,
+            from: verifiedFromEmail,
+            replyTo: contactData.email,
             messageId: result.data?.id
           });
 
           return result;
         } catch (resendError) {
+          const errorDetails = {
+            message: resendError.message,
+            name: resendError.name,
+            response: resendError.response?.data || null,
+            errors: resendError.errors || null,
+            statusCode: resendError.statusCode || null
+          };
+          
           logger.error('EmailService - Erreur Resend lors de l\'envoi de notification de contact:', {
-            error: resendError.message,
+            ...errorDetails,
             stack: resendError.stack,
-            to: adminEmail
+            to: adminEmail,
+            from: contactData.email,
+            verifiedFrom: verifiedFromEmail
           });
+          
+          // Si l'erreur est liée à l'email "from" non vérifié, on peut essayer avec un autre format
+          if (resendError.message && resendError.message.includes('from')) {
+            logger.warn('EmailService - Erreur probablement liée à l\'email "from", tentative avec SMTP...');
+          }
+          
           // Continuer avec SMTP en cas d'erreur Resend
         }
       } else {
@@ -455,11 +486,26 @@ Si vous ne souhaitez plus recevoir ces notifications, contactez votre administra
         throw new Error('Aucun service email disponible (ni Resend ni SMTP)');
       }
 
-      // Utiliser l'expéditeur du formulaire comme expéditeur de l'email
-      const fromEmail = `${contactData.name} <${contactData.email}>`;
+      // Pour SMTP, utiliser un email vérifié dans "from" et mettre l'email de l'expéditeur dans "Reply-To"
+      const appName = process.env.APP_NAME || 'Système de Gestion d\'Église';
+      const smtpFromEmail = process.env.SMTP_USER || process.env.EMAIL_USER;
+      
+      if (!smtpFromEmail) {
+        logger.error('EmailService - Aucun email SMTP configuré pour l\'envoi');
+        throw new Error('Configuration SMTP incomplète');
+      }
+      
+      const fromEmail = `${contactData.name} <${smtpFromEmail}>`;
+      
+      logger.info('EmailService - Tentative d\'envoi via SMTP avec Reply-To:', {
+        from: fromEmail,
+        replyTo: contactData.email,
+        to: adminEmail
+      });
       
       const contactMessage = {
         from: fromEmail,
+        replyTo: contactData.email,
         to: adminEmail,
         subject: `Nouveau message de contact: ${contactData.subject}`,
         html: ResendEmailService.generateContactNotificationHTML(contactData),
