@@ -402,6 +402,15 @@ Si vous ne souhaitez plus recevoir ces notifications, contactez votre administra
    */
   async sendContactNotification(adminEmail, contactData) {
     try {
+      logger.info('EmailService - Tentative d\'envoi de notification de contact:', {
+        to: adminEmail,
+        contact_id: contactData.contact_id || 'N/A',
+        from: contactData.email,
+        subject: contactData.subject,
+        hasResend: !!this.resendService?.resend,
+        hasTransporter: !!this.transporter
+      });
+
       // Essayer d'abord Resend (recommandé pour Railway)
       if (this.resendService && this.resendService.resend) {
         try {
@@ -415,21 +424,32 @@ Si vous ne souhaitez plus recevoir ces notifications, contactez votre administra
 
           logger.info('EmailService - Notification de contact envoyée via Resend:', {
             to: adminEmail,
-            contact_id: contactData.contact_id,
+            contact_id: contactData.contact_id || 'N/A',
+            from: contactData.email,
             messageId: result.data?.id
           });
 
           return result;
         } catch (resendError) {
-          logger.warn('EmailService - Erreur Resend, fallback sur SMTP:', resendError);
+          logger.error('EmailService - Erreur Resend lors de l\'envoi de notification de contact:', {
+            error: resendError.message,
+            stack: resendError.stack,
+            to: adminEmail
+          });
           // Continuer avec SMTP en cas d'erreur Resend
         }
+      } else {
+        logger.warn('EmailService - Resend non disponible pour l\'envoi de notification de contact');
       }
 
       // Fallback sur SMTP si Resend n'est pas disponible ou a échoué
       if (!this.transporter) {
-        logger.warn('EmailService - Aucun transporteur disponible pour l\'envoi de notification de contact');
-        return { messageId: 'no-transporter', accepted: [adminEmail] };
+        logger.error('EmailService - Aucun transporteur disponible (ni Resend ni SMTP) pour l\'envoi de notification de contact:', {
+          to: adminEmail,
+          contact_id: contactData.contact_id || 'N/A',
+          from: contactData.email
+        });
+        throw new Error('Aucun service email disponible (ni Resend ni SMTP)');
       }
 
       const appName = process.env.APP_NAME || 'Système de Gestion d\'Église';
@@ -444,13 +464,20 @@ Si vous ne souhaitez plus recevoir ces notifications, contactez votre administra
       const result = await this.transporter.sendMail(contactMessage);
       logger.info('EmailService - Notification de contact envoyée via SMTP:', {
         to: adminEmail,
-        contact_id: contactData.contact_id,
+        contact_id: contactData.contact_id || 'N/A',
+        from: contactData.email,
         messageId: result.messageId
       });
 
       return result;
     } catch (error) {
-      logger.error('EmailService - Erreur lors de l\'envoi de la notification de contact:', error);
+      logger.error('EmailService - Erreur lors de l\'envoi de la notification de contact:', {
+        error: error.message,
+        stack: error.stack,
+        to: adminEmail,
+        contact_id: contactData.contact_id || 'N/A',
+        from: contactData.email
+      });
       throw error;
     }
   }

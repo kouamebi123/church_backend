@@ -30,76 +30,82 @@ const createContact = async (req, res) => {
       });
     }
 
-    // Créer le message de contact
-    const contact = await prisma.contact.create({
-      data: {
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        subject: subject.trim(),
-        message: message.trim()
+    // Récupérer l'email de contact depuis les paramètres de l'application
+    const settings = await prisma.appSettings.findFirst({
+      orderBy: {
+        updated_at: 'desc'
+      },
+      select: {
+        contact_email: true
       }
     });
 
-    logger.info(`✅ Message de contact créé: ${contact.id}`, {
-      contact_id: contact.id,
-      email: contact.email,
-      subject: contact.subject
+    const contactEmail = settings?.contact_email;
+
+    if (!contactEmail) {
+      logger.error('❌ Email de contact non configuré dans les paramètres de l\'application');
+      return res.status(500).json({
+        success: false,
+        message: 'Email de contact non configuré. Veuillez contacter l\'administrateur.'
+      });
+    }
+
+    // Validation de l'email de contact
+    if (!emailRegex.test(contactEmail)) {
+      logger.error('❌ Email de contact invalide dans les paramètres:', contactEmail);
+      return res.status(500).json({
+        success: false,
+        message: 'Configuration email invalide. Veuillez contacter l\'administrateur.'
+      });
+    }
+
+    const contactData = {
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      subject: subject.trim(),
+      message: message.trim(),
+      created_at: new Date()
+    };
+
+    logger.info(`📧 Tentative d'envoi de message de contact à ${contactEmail}`, {
+      from: contactData.email,
+      subject: contactData.subject
     });
 
-    // Envoyer une notification email aux administrateurs (en arrière-plan)
-    setImmediate(async () => {
-      try {
-        // Récupérer les administrateurs avec notifications email activées
-        const admins = await prisma.user.findMany({
-          where: {
-            role: { in: ['SUPER_ADMIN', 'ADMIN'] },
-            email_notifications: true,
-            email: { not: null }
-          },
-          select: {
-            id: true,
-            email: true,
-            pseudo: true
-          }
-        });
+    // Envoyer directement l'email à l'adresse configurée
+    try {
+      await emailService.sendContactNotification(
+        contactEmail,
+        contactData
+      );
 
-        // Envoyer un email à chaque administrateur
-        for (const admin of admins) {
-          try {
-            await emailService.sendContactNotification(
-              admin.email,
-              {
-                name,
-                email,
-                subject,
-                message,
-                contact_id: contact.id,
-                created_at: contact.created_at
-              }
-            );
-            logger.info(`📧 Notification de contact envoyée à ${admin.email}`);
-          } catch (emailError) {
-            logger.error(`❌ Erreur envoi email à ${admin.email}:`, emailError);
-            // Ne pas faire échouer la création du contact pour une erreur d'email
-          }
-        }
-      } catch (error) {
-        logger.error('❌ Erreur lors de l\'envoi des notifications email:', error);
-        // Ne pas faire échouer la création du contact pour une erreur d'email
-      }
-    });
+      logger.info(`✅ Message de contact envoyé avec succès à ${contactEmail}`, {
+        from: contactData.email,
+        subject: contactData.subject
+      });
 
-    res.status(201).json({
-      success: true,
-      message: 'Message envoyé avec succès',
-      data: {
-        id: contact.id,
-        created_at: contact.created_at
-      }
-    });
+      res.status(200).json({
+        success: true,
+        message: 'Message envoyé avec succès'
+      });
+
+    } catch (emailError) {
+      logger.error(`❌ Erreur lors de l'envoi de l'email à ${contactEmail}:`, {
+        error: emailError.message,
+        stack: emailError.stack,
+        from: contactData.email,
+        subject: contactData.subject
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Erreur lors de l\'envoi du message. Veuillez réessayer plus tard.',
+        error: process.env.NODE_ENV === 'development' ? emailError.message : 'Erreur interne du serveur'
+      });
+    }
 
   } catch (error) {
-    logger.error('❌ Erreur lors de la création du message de contact:', error);
+    logger.error('❌ Erreur lors de l\'envoi du message de contact:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de l\'envoi du message',
