@@ -414,8 +414,11 @@ Si vous ne souhaitez plus recevoir ces notifications, contactez votre administra
       // Essayer d'abord Resend (recommandé pour Railway)
       if (this.resendService && this.resendService.resend) {
         try {
+          // Utiliser l'expéditeur du formulaire comme expéditeur de l'email
+          const fromEmail = `${contactData.name} <${contactData.email}>`;
+          
           const result = await this.resendService.resend.emails.send({
-            from: 'Church Management <onboarding@resend.dev>',
+            from: fromEmail,
             to: [adminEmail],
             subject: `Nouveau message de contact: ${contactData.subject}`,
             html: ResendEmailService.generateContactNotificationHTML(contactData),
@@ -452,9 +455,11 @@ Si vous ne souhaitez plus recevoir ces notifications, contactez votre administra
         throw new Error('Aucun service email disponible (ni Resend ni SMTP)');
       }
 
-      const appName = process.env.APP_NAME || 'Système de Gestion d\'Église';
+      // Utiliser l'expéditeur du formulaire comme expéditeur de l'email
+      const fromEmail = `${contactData.name} <${contactData.email}>`;
+      
       const contactMessage = {
-        from: `"${appName}" <${process.env.SMTP_USER || process.env.EMAIL_USER}>`,
+        from: fromEmail,
         to: adminEmail,
         subject: `Nouveau message de contact: ${contactData.subject}`,
         html: ResendEmailService.generateContactNotificationHTML(contactData),
