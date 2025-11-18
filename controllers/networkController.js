@@ -355,6 +355,63 @@ exports.createNetwork = async (req, res) => {
   } catch (error) {
     logger.error('Network - createNetwork - Erreur complète', error);
 
+    // Gestion spécifique de l'erreur P2002 (contrainte unique violée) pour les responsables
+    if (error.code === 'P2002' && error.meta?.target) {
+      const duplicateField = error.meta.target[0];
+      
+      // Si c'est une contrainte sur responsable1_id ou responsable2_id
+      if (duplicateField === 'responsable1_id' || duplicateField === 'responsable2_id') {
+        try {
+          const responsableId = duplicateField === 'responsable1_id' ? req.body.responsable1 : req.body.responsable2;
+          
+          // Trouver le réseau existant avec ce responsable
+          const existingNetwork = await prisma.network.findFirst({
+            where: {
+              OR: [
+                { responsable1_id: responsableId },
+                { responsable2_id: responsableId }
+              ]
+            },
+            include: {
+              church: {
+                select: {
+                  nom: true
+                }
+              },
+              responsable1: {
+                select: {
+                  username: true,
+                  pseudo: true
+                }
+              },
+              responsable2: {
+                select: {
+                  username: true,
+                  pseudo: true
+                }
+              }
+            }
+          });
+
+          if (existingNetwork) {
+            const responsableName = existingNetwork.responsable1_id === responsableId
+              ? (existingNetwork.responsable1?.username || existingNetwork.responsable1?.pseudo || 'Responsable')
+              : (existingNetwork.responsable2?.username || existingNetwork.responsable2?.pseudo || 'Responsable');
+            
+            const roleText = existingNetwork.responsable1_id === responsableId ? 'responsable principal' : 'responsable secondaire';
+            
+            return res.status(409).json({
+              success: false,
+              message: `Impossible de créer le réseau. ${responsableName} est déjà ${roleText} du réseau "${existingNetwork.nom}" (${existingNetwork.church?.nom || 'Église inconnue'}). Une personne ne peut être responsable que d'un seul réseau à la fois.`
+            });
+          }
+        } catch (lookupError) {
+          logger.error('Erreur lors de la recherche du réseau existant:', lookupError);
+          // Continuer avec le gestionnaire d'erreurs standard
+        }
+      }
+    }
+
     // Utilisation du gestionnaire d'erreurs centralisé
     const { status, message } = handleError(error, 'la création du réseau');
 
