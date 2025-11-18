@@ -21,8 +21,14 @@ const {
   getNetworksDepartmentInvolvement,
   addCompanion,
   removeCompanion,
-  getNetworkCompanions
+  getNetworkCompanions,
+  getPublicNetworks,
+  getPublicNetworkGroups
 } = require('../controllers/networkController');
+
+// Routes publiques pour l'inscription (avant le middleware protect)
+router.get('/public', getPublicNetworks);
+router.get('/public/:id/groups', getPublicNetworkGroups);
 
 router.use(protect);
 

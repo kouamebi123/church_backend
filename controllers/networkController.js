@@ -1633,6 +1633,99 @@ exports.removeCompanion = async (req, res) => {
 };
 
 // Récupérer tous les compagnons d'œuvre d'un réseau
+// Fonctions publiques pour l'inscription (sans authentification requise)
+// Récupérer les réseaux d'une église pour l'inscription publique
+exports.getPublicNetworks = async (req, res) => {
+  try {
+    const { prisma } = req;
+    const { churchId } = req.query;
+
+    if (!churchId) {
+      return res.status(400).json({
+        success: false,
+        message: 'L\'ID de l\'église est requis'
+      });
+    }
+
+    const networks = await prisma.network.findMany({
+      where: {
+        church_id: churchId
+      },
+      select: {
+        id: true,
+        nom: true,
+        church: {
+          select: {
+            id: true,
+            nom: true
+          }
+        }
+      },
+      orderBy: {
+        nom: 'asc'
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      count: networks.length,
+      data: networks
+    });
+  } catch (error) {
+    logger.error('Network - getPublicNetworks - Erreur', error);
+    const { status, message } = handleError(error, 'la récupération des réseaux');
+    res.status(status).json({
+      success: false,
+      message
+    });
+  }
+};
+
+// Récupérer les groupes d'un réseau pour l'inscription publique
+exports.getPublicNetworkGroups = async (req, res) => {
+  try {
+    const { prisma } = req;
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: 'L\'ID du réseau est requis'
+      });
+    }
+
+    const groups = await prisma.group.findMany({
+      where: { network_id: id },
+      select: {
+        id: true,
+        nom: true,
+        network: {
+          select: {
+            id: true,
+            nom: true
+          }
+        }
+      },
+      orderBy: {
+        nom: 'asc'
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      count: groups.length,
+      data: groups
+    });
+  } catch (error) {
+    logger.error('Network - getPublicNetworkGroups - Erreur', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des groupes du réseau',
+      error: error.message
+    });
+  }
+};
+
 exports.getNetworkCompanions = async (req, res) => {
   try {
     const { prisma } = req;
