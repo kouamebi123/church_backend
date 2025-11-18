@@ -15,6 +15,109 @@ const extractChurchId = (egliseLocale) => {
   return null;
 };
 
+// Fonction pour récupérer les informations de réseau/GR d'un utilisateur
+const getUserNetworkGroupInfo = async (prisma, userId) => {
+  try {
+    // Vérifier si l'utilisateur est membre d'un groupe (GR)
+    const groupMember = await prisma.groupMember.findFirst({
+      where: { user_id: userId },
+      include: {
+        group: {
+          include: {
+            network: {
+              select: {
+                id: true,
+                nom: true
+              }
+            },
+            responsable1: {
+              select: {
+                username: true
+              }
+            },
+            responsable2: {
+              select: {
+                username: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (groupMember) {
+      const group = groupMember.group;
+      const network = group.network;
+      const responsable1Name = group.responsable1?.username?.split(' ')[0] || '';
+      const responsable2Name = group.responsable2?.username?.split(' ')[0] || '';
+      
+      let groupName = '';
+      if (responsable1Name && responsable2Name) {
+        groupName = `GR ${responsable1Name} & ${responsable2Name}`;
+      } else if (responsable1Name) {
+        groupName = `GR ${responsable1Name}`;
+      } else {
+        groupName = 'Groupe de réveil';
+      }
+
+      return {
+        type: 'groupe',
+        groupName: groupName,
+        networkName: network?.nom || 'Réseau inconnu',
+        networkId: network?.id
+      };
+    }
+
+    // Vérifier si l'utilisateur est responsable d'un réseau
+    const networkAsResponsable = await prisma.network.findFirst({
+      where: {
+        OR: [
+          { responsable1_id: userId },
+          { responsable2_id: userId }
+        ]
+      },
+      select: {
+        id: true,
+        nom: true
+      }
+    });
+
+    if (networkAsResponsable) {
+      return {
+        type: 'responsable_reseau',
+        networkName: networkAsResponsable.nom,
+        networkId: networkAsResponsable.id
+      };
+    }
+
+    // Vérifier si l'utilisateur est compagnon d'œuvre d'un réseau
+    const networkCompanion = await prisma.networkCompanion.findFirst({
+      where: { user_id: userId },
+      include: {
+        network: {
+          select: {
+            id: true,
+            nom: true
+          }
+        }
+      }
+    });
+
+    if (networkCompanion) {
+      return {
+        type: 'compagnon_oeuvre',
+        networkName: networkCompanion.network?.nom || 'Réseau inconnu',
+        networkId: networkCompanion.network?.id
+      };
+    }
+
+    return null;
+  } catch (error) {
+    logger.error('Erreur lors de la récupération des informations réseau/GR:', error);
+    return null;
+  }
+};
+
 // Récupérer tous les utilisateurs avec filtrage automatique pour les managers
 exports.getUsers = async (req, res) => {
   try {
@@ -457,6 +560,76 @@ exports.createUser = async (req, res) => {
       }
     }
 
+    // Vérification des doublons avant la création
+    const orConditions = [];
+    if (userData.email) {
+      orConditions.push({ email: userData.email });
+    }
+    if (userData.pseudo) {
+      orConditions.push({ pseudo: userData.pseudo });
+    }
+
+    if (orConditions.length > 0) {
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          OR: orConditions
+        },
+        select: {
+          id: true,
+          username: true,
+          pseudo: true,
+          email: true
+        }
+      });
+
+      if (existingUser) {
+        // Déterminer quel champ est en doublon
+        let duplicateFields = [];
+        const isEmailDuplicate = userData.email && existingUser.email && existingUser.email === userData.email;
+        const isPseudoDuplicate = userData.pseudo && existingUser.pseudo && existingUser.pseudo === userData.pseudo;
+        
+        if (isEmailDuplicate) {
+          duplicateFields.push('email');
+        }
+        if (isPseudoDuplicate) {
+          duplicateFields.push('pseudo');
+        }
+
+        const duplicateFieldText = duplicateFields.length > 1 
+          ? duplicateFields.join(' et ') 
+          : duplicateFields[0] || 'champ';
+
+        let errorMessage = `Un utilisateur avec ce ${duplicateFieldText} existe déjà`;
+        
+        // Récupérer les informations de réseau/GR seulement si l'email est en doublon
+        if (isEmailDuplicate) {
+          const networkGroupInfo = await getUserNetworkGroupInfo(prisma, existingUser.id);
+          
+          if (networkGroupInfo) {
+            if (networkGroupInfo.type === 'groupe') {
+              errorMessage += ` (${existingUser.username || existingUser.pseudo} - ${networkGroupInfo.groupName} du réseau "${networkGroupInfo.networkName}")`;
+            } else if (networkGroupInfo.type === 'responsable_reseau') {
+              errorMessage += ` (${existingUser.username || existingUser.pseudo} - Responsable du réseau "${networkGroupInfo.networkName}")`;
+            } else if (networkGroupInfo.type === 'compagnon_oeuvre') {
+              errorMessage += ` (${existingUser.username || existingUser.pseudo} - Compagnon d'œuvre du réseau "${networkGroupInfo.networkName}")`;
+            } else {
+              errorMessage += ` (${existingUser.username || existingUser.pseudo})`;
+            }
+          } else {
+            errorMessage += ` (${existingUser.username || existingUser.pseudo})`;
+          }
+        } else {
+          // Pour le pseudo, message simple sans détails réseau/GR
+          errorMessage += ` (${existingUser.username || existingUser.pseudo})`;
+        }
+
+        return res.status(409).json({
+          success: false,
+          message: errorMessage
+        });
+      }
+    }
+
     // Log supprimé pour réduire le volume de logs
 
     // Préparer les données de création
@@ -569,6 +742,62 @@ exports.createUser = async (req, res) => {
     });
   } catch (error) {
     logger.error('User - createUser - Erreur complète:', error);
+
+    // Gestion spécifique de l'erreur P2002 (contrainte unique violée)
+    if (error.code === 'P2002' && error.meta?.target) {
+      const duplicateField = error.meta.target[0];
+      const duplicateValue = req.body[duplicateField];
+
+      if (duplicateValue) {
+        try {
+          // Trouver l'utilisateur existant avec ce champ
+          const whereClause = { [duplicateField]: duplicateValue };
+          const existingUser = await prisma.user.findFirst({
+            where: whereClause,
+            select: {
+              id: true,
+              username: true,
+              pseudo: true,
+              email: true
+            }
+          });
+
+          if (existingUser) {
+            let errorMessage = `Un utilisateur avec ce ${duplicateField} existe déjà`;
+            
+            // Récupérer les informations de réseau/GR seulement si l'email est en doublon
+            if (duplicateField === 'email') {
+              const networkGroupInfo = await getUserNetworkGroupInfo(prisma, existingUser.id);
+              
+              if (networkGroupInfo) {
+                if (networkGroupInfo.type === 'groupe') {
+                  errorMessage += ` (${existingUser.username || existingUser.pseudo} - ${networkGroupInfo.groupName} du réseau "${networkGroupInfo.networkName}")`;
+                } else if (networkGroupInfo.type === 'responsable_reseau') {
+                  errorMessage += ` (${existingUser.username || existingUser.pseudo} - Responsable du réseau "${networkGroupInfo.networkName}")`;
+                } else if (networkGroupInfo.type === 'compagnon_oeuvre') {
+                  errorMessage += ` (${existingUser.username || existingUser.pseudo} - Compagnon d'œuvre du réseau "${networkGroupInfo.networkName}")`;
+                } else {
+                  errorMessage += ` (${existingUser.username || existingUser.pseudo})`;
+                }
+              } else {
+                errorMessage += ` (${existingUser.username || existingUser.pseudo})`;
+              }
+            } else {
+              // Pour le pseudo, message simple sans détails réseau/GR
+              errorMessage += ` (${existingUser.username || existingUser.pseudo})`;
+            }
+
+            return res.status(409).json({
+              success: false,
+              message: errorMessage
+            });
+          }
+        } catch (lookupError) {
+          logger.error('Erreur lors de la recherche de l\'utilisateur existant:', lookupError);
+          // Continuer avec le gestionnaire d'erreurs standard
+        }
+      }
+    }
 
     // Utilisation du gestionnaire d'erreurs centralisé
     const { status, message } = handleError(error, 'la création de l\'utilisateur');
