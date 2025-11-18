@@ -8,6 +8,7 @@ WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'church_db')\gexec
 -- Se connecter à la base de données
 \c church_db;
 
+
 -- Créer l'utilisateur si il n'existe pas
 DO
 $do$
