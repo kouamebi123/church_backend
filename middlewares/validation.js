@@ -47,7 +47,18 @@ exports.validateRegister = [
     .isIn(['HOMME', 'FEMME', 'ENFANT'])
     .withMessage('Genre invalide'),
   body('tranche_age').notEmpty().withMessage('Tranche d\'âge requise'),
-  body('profession').notEmpty().withMessage('Profession requise'),
+  body('situation_professionnelle').optional(),
+  body('profession')
+    .optional()
+    .custom((value, { req }) => {
+      // Si situation_professionnelle est EMPLOYE ou INDEPENDANT, profession est requise
+      if (req.body.situation_professionnelle && ['EMPLOYE', 'INDEPENDANT'].includes(req.body.situation_professionnelle)) {
+        if (!value || value.trim() === '') {
+          throw new Error('Profession requise pour cette situation professionnelle');
+        }
+      }
+      return true;
+    }),
   body('ville_residence').notEmpty().withMessage('Ville de résidence requise'),
   body('origine').notEmpty().withMessage('Origine requise'),
   body('situation_matrimoniale').notEmpty().withMessage('Situation matrimoniale requise'),
