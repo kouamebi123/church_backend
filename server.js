@@ -12,6 +12,7 @@ const logger = require('./utils/logger');
 // Force redeploy for calendar system
 const securityLogger = require('./utils/securityLogger');
 const socketService = require('./services/socketService');
+
 // Services optionnels - gérer l'absence de Redis
 let redisService, metricsService;
 try {
