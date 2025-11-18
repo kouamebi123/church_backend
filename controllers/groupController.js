@@ -2,6 +2,7 @@ const QualificationService = require('../services/qualificationService');
 const { handleError } = require('../utils/errorHandler');
 const logger = require('../utils/logger');
 const { getNiveauFromQualification } = require('../utils/chaineImpactUtils');
+const { rebuildChaineImpact } = require('../utils/chaineImpactService');
 
 // Fonction pour formater les noms selon la logique demandée
 const formatResponsableName = (username) => {
@@ -772,6 +773,14 @@ exports.createGroup = async (req, res) => {
       }
     });
 
+    // Reconstruire la chaîne d'impact pour l'église concernée
+    try {
+      await rebuildChaineImpact(prisma, network.church.id);
+    } catch (error) {
+      logger.error('Erreur lors de la reconstruction de la chaîne d\'impact après création du groupe:', error);
+      // Ne pas faire échouer la création du groupe
+    }
+
     res.status(201).json({
       success: true,
       data: populatedGroup
@@ -929,6 +938,20 @@ exports.updateGroup = async (req, res) => {
       }
     }
 
+    // Reconstruire la chaîne d'impact pour l'église concernée
+    try {
+      const networkForUpdate = await prisma.network.findUnique({
+        where: { id: updatedGroup.network_id },
+        select: { church_id: true }
+      });
+      if (networkForUpdate?.church_id) {
+        await rebuildChaineImpact(prisma, networkForUpdate.church_id);
+      }
+    } catch (error) {
+      logger.error('Erreur lors de la reconstruction de la chaîne d\'impact après mise à jour du groupe:', error);
+      // Ne pas faire échouer la mise à jour du groupe
+    }
+
     res.json({
       success: true,
       data: updatedGroup
@@ -968,6 +991,17 @@ exports.deleteGroup = async (req, res) => {
     }
 
     logger.info(`Groupe trouvé: ${existingGroup.nom}, suppression en transaction...`);
+
+    // Récupérer les IDs des responsables AVANT la suppression pour pouvoir nettoyer leurs qualifications après
+    const responsable1Id = existingGroup.responsable1_id;
+    const responsable2Id = existingGroup.responsable2_id;
+    
+    // Récupérer l'ID de l'église AVANT la suppression pour reconstruire la chaîne d'impact
+    const network = await prisma.network.findUnique({
+      where: { id: existingGroup.network_id },
+      select: { church_id: true }
+    });
+    const churchId = network?.church_id;
 
     // Supprimer le groupe et toutes ses relations dans une transaction
     await prisma.$transaction(async (tx) => {
@@ -1014,8 +1048,28 @@ exports.deleteGroup = async (req, res) => {
     // Nettoyer les qualifications des responsables après la suppression (en dehors de la transaction)
     logger.info('Nettoyage des qualifications des responsables...');
     const qualificationService = new QualificationService(prisma);
-    await qualificationService.cleanupGroupQualification(id);
+    
+    // Nettoyer les qualifications en utilisant les IDs récupérés avant la suppression
+    if (responsable1Id) {
+      logger.info(`Rétrogradation du responsable1 ${responsable1Id}`);
+      await qualificationService.downgradeGroupResponsable(responsable1Id);
+    }
+    if (responsable2Id) {
+      logger.info(`Rétrogradation du responsable2 ${responsable2Id}`);
+      await qualificationService.downgradeGroupResponsable(responsable2Id);
+    }
+    
     logger.info('Qualifications nettoyées avec succès');
+
+    // Reconstruire la chaîne d'impact pour l'église concernée
+    if (churchId) {
+      try {
+        await rebuildChaineImpact(prisma, churchId);
+      } catch (error) {
+        logger.error('Erreur lors de la reconstruction de la chaîne d\'impact après suppression du groupe:', error);
+        // Ne pas faire échouer la suppression du groupe
+      }
+    }
 
     res.json({
       success: true,

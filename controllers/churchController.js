@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const { handleError } = require('../utils/errorHandler');
 const logger = require('../utils/logger');
 const { getNiveauFromQualification } = require('../utils/chaineImpactUtils');
+const { rebuildChaineImpact } = require('../utils/chaineImpactService');
 
 // Récupérer toutes les églises avec filtrage automatique pour les managers
 exports.getChurches = async (req, res) => {
@@ -374,6 +375,14 @@ exports.updateChurch = async (req, res) => {
 
       return church;
     });
+
+    // Reconstruire la chaîne d'impact pour l'église concernée
+    try {
+      await rebuildChaineImpact(prisma, id);
+    } catch (error) {
+      logger.error('Erreur lors de la reconstruction de la chaîne d\'impact après mise à jour de l\'église:', error);
+      // Ne pas faire échouer la mise à jour de l'église
+    }
 
     res.json({
       success: true,
