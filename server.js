@@ -8,6 +8,7 @@ const http = require('http');
 const { PrismaClient } = require('@prisma/client');
 const { injectPrisma } = require('./config/dbPostgres');
 const logger = require('./utils/logger');
+
 // Force redeploy for calendar system
 const securityLogger = require('./utils/securityLogger');
 const socketService = require('./services/socketService');
