@@ -125,8 +125,13 @@ exports.register = async (req, res) => {
       });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    // Hasher le mot de passe seulement s'il est fourni
+    // Sinon, l'utilisateur sera créé sans mot de passe (sera attribué par un admin)
+    let hashedPassword = null;
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      hashedPassword = await bcrypt.hash(password, salt);
+    }
 
     logger.info('Register - Données utilisateur à créer', {
       username,
@@ -162,7 +167,7 @@ exports.register = async (req, res) => {
       data: {
         username,
         pseudo,
-        password: hashedPassword,
+        password: hashedPassword, // null si aucun mot de passe fourni
         email,
         telephone,
         genre,

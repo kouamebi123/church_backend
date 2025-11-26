@@ -27,7 +27,7 @@ const handleValidationErrors = (req, res, next) => {
 exports.validateRegister = [
   body('username').trim().isLength({ min: 2, max: 50 }).withMessage('Le nom d\'utilisateur doit contenir entre 2 et 50 caractères'),
   body('pseudo').trim().isLength({ min: 3, max: 30 }).withMessage('Le pseudo doit contenir entre 3 et 30 caractères'),
-  body('password').isLength({ min: 6 }).withMessage('Le mot de passe doit contenir au moins 6 caractères'),
+  body('password').optional().isLength({ min: 6 }).withMessage('Le mot de passe doit contenir au moins 6 caractères'),
   body('email').isEmail().withMessage('Email invalide'),
   body('telephone').optional().custom((value) => {
     if (!value || value.trim() === '') return true; // Si pas de téléphone, c'est OK
