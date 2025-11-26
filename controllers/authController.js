@@ -174,7 +174,7 @@ exports.register = async (req, res) => {
         situation_matrimoniale,
         niveau_education,
         eglise_locale_id,
-        departement_id: departement_id || null,
+        departement_id: (departement_id && departement_id.trim() !== '') ? departement_id : null,
         role: 'MEMBRE',
         qualification: qualification || 'EN_INTEGRATION',
         image: imagePath

@@ -4,12 +4,20 @@ const { body, validationResult, query } = require('express-validator');
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    const errorMessages = errors.array().map(err => ({
+      field: err.path || err.param,
+      message: err.msg
+    }));
+    
+    // Créer un message d'erreur principal pour compatibilité
+    const mainMessage = errorMessages.length === 1 
+      ? errorMessages[0].message 
+      : `Erreurs de validation : ${errorMessages.map(e => e.message).join(', ')}`;
+    
     return res.status(400).json({
       success: false,
-      errors: errors.array().map(err => ({
-        field: err.path,
-        message: err.msg
-      }))
+      message: mainMessage,
+      errors: errorMessages
     });
   }
   next();
@@ -22,11 +30,13 @@ exports.validateRegister = [
   body('password').isLength({ min: 6 }).withMessage('Le mot de passe doit contenir au moins 6 caractères'),
   body('email').isEmail().withMessage('Email invalide'),
   body('telephone').optional().custom((value) => {
-    if (!value) return true; // Si pas de téléphone, c'est OK
-    // Validation basique : doit commencer par 0 et avoir 10 chiffres
-    const phoneRegex = /^0[1-9](\d{8})$/;
-    if (!phoneRegex.test(value.replace(/\s/g, ''))) {
-      throw new Error('Numéro de téléphone français invalide (format: 0X XX XX XX XX)');
+    if (!value || value.trim() === '') return true; // Si pas de téléphone, c'est OK
+    // Nettoyer le numéro (enlever espaces, tirets, parenthèses)
+    const cleaned = value.replace(/[\s\-\(\)]/g, '');
+    // Validation : doit commencer par 0 et avoir 10 chiffres exactement
+    const phoneRegex = /^0[1-9]\d{8}$/;
+    if (!phoneRegex.test(cleaned)) {
+      throw new Error('Numéro de téléphone français invalide (format: 0X XX XX XX XX - 10 chiffres)');
     }
     return true;
   }),
@@ -64,7 +74,15 @@ exports.validateRegister = [
   body('situation_matrimoniale').notEmpty().withMessage('Situation matrimoniale requise'),
   body('niveau_education').notEmpty().withMessage('Niveau d\'éducation requis'),
   body('eglise_locale_id').notEmpty().withMessage('Église locale requise'),
-  body('group_id').optional().isString().withMessage('ID de groupe invalide'),
+  body('group_id').optional().custom((value) => {
+    // Si group_id est fourni, il doit être une chaîne non vide
+    if (value !== undefined && value !== null && value !== '') {
+      if (typeof value !== 'string' || value.trim() === '') {
+        throw new Error('ID de groupe invalide');
+      }
+    }
+    return true;
+  }),
   handleValidationErrors
 ];
 
@@ -88,11 +106,13 @@ exports.validateUpdateProfile = [
   body('username').optional().trim().isLength({ min: 2, max: 50 }).withMessage('Le nom d\'utilisateur doit contenir entre 2 et 50 caractères'),
   body('email').optional().isEmail().withMessage('Email invalide'),
   body('telephone').optional().custom((value) => {
-    if (!value) return true; // Si pas de téléphone, c'est OK
-    // Validation basique : doit commencer par 0 et avoir 10 chiffres
-    const phoneRegex = /^0[1-9](\d{8})$/;
-    if (!phoneRegex.test(value.replace(/\s/g, ''))) {
-      throw new Error('Numéro de téléphone français invalide (format: 0X XX XX XX XX)');
+    if (!value || value.trim() === '') return true; // Si pas de téléphone, c'est OK
+    // Nettoyer le numéro (enlever espaces, tirets, parenthèses)
+    const cleaned = value.replace(/[\s\-\(\)]/g, '');
+    // Validation : doit commencer par 0 et avoir 10 chiffres exactement
+    const phoneRegex = /^0[1-9]\d{8}$/;
+    if (!phoneRegex.test(cleaned)) {
+      throw new Error('Numéro de téléphone français invalide (format: 0X XX XX XX XX - 10 chiffres)');
     }
     return true;
   }),
