@@ -102,7 +102,8 @@ exports.register = async (req, res) => {
       eglise_locale_id,
       departement_id,
       qualification,
-      group_id
+      group_id,
+      adresse
     } = req.body;
 
     // Validation des champs obligatoires
@@ -125,13 +126,22 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Hasher le mot de passe seulement s'il est fourni
-    // Sinon, l'utilisateur sera créé sans mot de passe (sera attribué par un admin)
-    let hashedPassword = null;
-    if (password) {
-      const salt = await bcrypt.genSalt(10);
-      hashedPassword = await bcrypt.hash(password, salt);
+    // Générer un mot de passe par défaut si aucun n'est fourni
+    // Le mot de passe sera changé par un admin dans le dashboard
+    let passwordToHash = password;
+    if (!passwordToHash) {
+      // Générer un mot de passe aléatoire sécurisé
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+      passwordToHash = '';
+      for (let i = 0; i < 16; i++) {
+        passwordToHash += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      logger.info('Register - Mot de passe par défaut généré');
     }
+    
+    // Hasher le mot de passe
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(passwordToHash, salt);
 
     logger.info('Register - Données utilisateur à créer', {
       username,
@@ -167,12 +177,12 @@ exports.register = async (req, res) => {
       data: {
         username,
         pseudo,
-        password: hashedPassword, // null si aucun mot de passe fourni
+        password: hashedPassword,
         email,
         telephone,
         genre,
         tranche_age,
-        profession: profession || '',
+        profession: (profession && profession.trim() !== '') ? profession : '',
         situation_professionnelle: situation_professionnelle || null,
         ville_residence,
         origine,
@@ -182,20 +192,25 @@ exports.register = async (req, res) => {
         departement_id: (departement_id && departement_id.trim() !== '') ? departement_id : null,
         role: 'MEMBRE',
         qualification: qualification || 'EN_INTEGRATION',
-        image: imagePath
+        image: imagePath,
+        adresse: adresse || null
       },
-      select: {
-        id: true,
-        username: true,
-        role: true,
-        qualification: true,
-        eglise_locale_id: true,
-        image: true
+      include: {
+        eglise_locale: {
+          select: { id: true, nom: true }
+        },
+        departement: {
+          select: { id: true, nom: true }
+        },
+        role_assignments: {
+          where: { is_active: true },
+          select: { role: true }
+        }
       }
     });
 
-    // Ajouter l'utilisateur au groupe si group_id est fourni
-    if (group_id) {
+    // Ajouter l'utilisateur au groupe si group_id est fourni et valide
+    if (group_id && group_id.trim() !== '') {
       try {
         // Vérifier que le groupe existe et appartient à la même église
         const group = await prisma.group.findUnique({

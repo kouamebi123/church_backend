@@ -29,8 +29,10 @@ exports.validateRegister = [
   body('pseudo').trim().isLength({ min: 3, max: 30 }).withMessage('Le pseudo doit contenir entre 3 et 30 caractères'),
   body('password').optional().isLength({ min: 6 }).withMessage('Le mot de passe doit contenir au moins 6 caractères'),
   body('email').isEmail().withMessage('Email invalide'),
-  body('telephone').optional().custom((value) => {
-    if (!value || value.trim() === '') return true; // Si pas de téléphone, c'est OK
+  body('telephone').notEmpty().withMessage('Téléphone requis').custom((value) => {
+    if (!value || value.trim() === '') {
+      throw new Error('Téléphone requis');
+    }
     // Nettoyer le numéro (enlever espaces, tirets, parenthèses)
     const cleaned = value.replace(/[\s\-\(\)]/g, '');
     // Validation : doit commencer par 0 et avoir 10 chiffres exactement
@@ -57,7 +59,7 @@ exports.validateRegister = [
     .isIn(['HOMME', 'FEMME', 'ENFANT'])
     .withMessage('Genre invalide'),
   body('tranche_age').notEmpty().withMessage('Tranche d\'âge requise'),
-  body('situation_professionnelle').optional(),
+  body('situation_professionnelle').notEmpty().withMessage('Situation professionnelle requise'),
   body('profession')
     .optional()
     .custom((value, { req }) => {
@@ -73,6 +75,7 @@ exports.validateRegister = [
   body('origine').notEmpty().withMessage('Origine requise'),
   body('situation_matrimoniale').notEmpty().withMessage('Situation matrimoniale requise'),
   body('niveau_education').notEmpty().withMessage('Niveau d\'éducation requis'),
+  body('adresse').notEmpty().withMessage('Adresse requise'),
   body('eglise_locale_id').notEmpty().withMessage('Église locale requise'),
   body('group_id').optional().custom((value) => {
     // Si group_id est fourni, il doit être une chaîne non vide
