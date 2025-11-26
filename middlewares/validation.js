@@ -64,6 +64,7 @@ exports.validateRegister = [
   body('situation_matrimoniale').notEmpty().withMessage('Situation matrimoniale requise'),
   body('niveau_education').notEmpty().withMessage('Niveau d\'éducation requis'),
   body('eglise_locale_id').notEmpty().withMessage('Église locale requise'),
+  body('group_id').optional().isString().withMessage('ID de groupe invalide'),
   handleValidationErrors
 ];
 

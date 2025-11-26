@@ -101,7 +101,8 @@ exports.register = async (req, res) => {
       niveau_education,
       eglise_locale_id,
       departement_id,
-      qualification
+      qualification,
+      group_id
     } = req.body;
 
     // Validation des champs obligatoires
@@ -187,6 +188,79 @@ exports.register = async (req, res) => {
         image: true
       }
     });
+
+    // Ajouter l'utilisateur au groupe si group_id est fourni
+    if (group_id) {
+      try {
+        // Vérifier que le groupe existe et appartient à la même église
+        const group = await prisma.group.findUnique({
+          where: { id: group_id },
+          include: {
+            network: {
+              select: {
+                church_id: true
+              }
+            }
+          }
+        });
+
+        if (!group) {
+          logger.warn('Register - Groupe non trouvé', { group_id });
+        } else if (group.network?.church_id !== eglise_locale_id) {
+          logger.warn('Register - Le groupe n\'appartient pas à la même église', { 
+            group_id, 
+            group_church_id: group.network?.church_id,
+            user_church_id: eglise_locale_id
+          });
+        } else {
+          // Vérifier si l'utilisateur n'est pas déjà membre du groupe
+          const existingMember = await prisma.groupMember.findUnique({
+            where: {
+              group_id_user_id: {
+                group_id: group_id,
+                user_id: newUser.id
+              }
+            }
+          });
+
+          if (!existingMember) {
+            // Ajouter le membre au groupe
+            await prisma.groupMember.create({
+              data: {
+                group_id: group_id,
+                user_id: newUser.id
+              }
+            });
+
+            // Enregistrer dans l'historique
+            await prisma.groupMemberHistory.create({
+              data: {
+                group_id: group_id,
+                user_id: newUser.id,
+                action: 'JOINED'
+              }
+            });
+
+            logger.info('Register - Utilisateur ajouté au groupe', { 
+              userId: newUser.id, 
+              groupId: group_id 
+            });
+          } else {
+            logger.info('Register - Utilisateur déjà membre du groupe', { 
+              userId: newUser.id, 
+              groupId: group_id 
+            });
+          }
+        }
+      } catch (groupError) {
+        // Ne pas bloquer l'inscription si l'ajout au groupe échoue
+        logger.error('Register - Erreur lors de l\'ajout au groupe', {
+          error: groupError,
+          userId: newUser.id,
+          groupId: group_id
+        });
+      }
+    }
 
     await sendTokenResponse(newUser, 201, res);
   } catch (error) {
