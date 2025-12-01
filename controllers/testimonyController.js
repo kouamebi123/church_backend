@@ -72,7 +72,6 @@ exports.getChurches = async (req, res) => {
 // Obtenir les réseaux d'une église
 exports.getNetworksByChurch = async (req, res) => {
   try {
-    console.log('🔍 getNetworksByChurch appelé avec churchId:', req.params.churchId);
     const { prisma } = req;
     const { churchId } = req.params;
 
@@ -110,10 +109,9 @@ exports.getNetworksByChurch = async (req, res) => {
   }
 };
 
-// Obtenir les sections (départements) d'une église
+// Obtenir les sections (sessions) d'une église
 exports.getSectionsByChurch = async (req, res) => {
   try {
-    console.log('🔍 getSectionsByChurch appelé avec churchId:', req.params.churchId);
     const { prisma } = req;
     const { churchId } = req.params;
 
@@ -124,9 +122,11 @@ exports.getSectionsByChurch = async (req, res) => {
       });
     }
 
-    const sections = await prisma.department.findMany({
+    // Récupérer les sessions (sections) de l'église
+    const sections = await prisma.session.findMany({
       where: {
-        church_id: churchId
+        church_id: churchId,
+        active: true
       },
       select: {
         id: true,
