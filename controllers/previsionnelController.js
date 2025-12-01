@@ -1,9 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
 const logger = require('../utils/logger');
 
 // Fonction utilitaire pour vérifier les doublons par semaine et type de culte
-const checkDuplicatePrevisionnel = async (network_id, date, type_culte, excludeId = null) => {
+const checkDuplicatePrevisionnel = async (prisma, network_id, date, type_culte, excludeId = null) => {
   try {
     // Calculer le début et la fin de la semaine (lundi à dimanche)
     const targetDate = new Date(date);
@@ -48,7 +46,7 @@ const createPrevisionnel = async (req, res) => {
     logger.info('🔍 Vérification réseau:', { network_id, created_by_id });
     
     // Vérifier que le réseau existe
-    const network = await prisma.network.findUnique({
+    const network = await req.prisma.network.findUnique({
       where: { id: network_id }
     });
 
@@ -71,7 +69,7 @@ const createPrevisionnel = async (req, res) => {
     }
 
     // Vérifier s'il n'y a pas déjà un previsionnel pour cette semaine et ce type de culte
-    const duplicatePrevisionnel = await checkDuplicatePrevisionnel(network_id, date, type_culte);
+    const duplicatePrevisionnel = await checkDuplicatePrevisionnel(req.prisma, network_id, date, type_culte);
     if (duplicatePrevisionnel) {
       logger.warn('⚠️ Tentative de création d\'un previsionnel en doublon:', {
         network_id,
@@ -87,7 +85,7 @@ const createPrevisionnel = async (req, res) => {
     }
 
     // Créer le prévisionnel avec ses groupes
-    const previsionnel = await prisma.$transaction(async (tx) => {
+    const previsionnel = await req.prisma.$transaction(async (tx) => {
       // 1. Créer le prévisionnel principal
       const newPrevisionnel = await tx.previsionnel.create({
         data: {
@@ -148,7 +146,7 @@ const getPrevisionnelsByNetwork = async (req, res) => {
     const { page = 1, limit = 10, type_culte, date_from, date_to } = req.query;
 
     // Vérifier que le réseau existe
-    const network = await prisma.network.findUnique({
+    const network = await req.prisma.network.findUnique({
       where: { id: networkId },
       include: { church: true }
     });
@@ -183,7 +181,7 @@ const getPrevisionnelsByNetwork = async (req, res) => {
 
     // Récupérer les prévisionnels avec pagination
     const [previsionnels, total] = await Promise.all([
-      prisma.previsionnel.findMany({
+      req.prisma.previsionnel.findMany({
         where,
         include: {
           groupes_previsions: {
@@ -204,7 +202,7 @@ const getPrevisionnelsByNetwork = async (req, res) => {
         skip: (page - 1) * limit,
         take: parseInt(limit)
       }),
-      prisma.previsionnel.count({ where })
+      req.prisma.previsionnel.count({ where })
     ]);
 
     res.json({
@@ -233,7 +231,7 @@ const getPrevisionnelById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const previsionnel = await prisma.previsionnel.findUnique({
+    const previsionnel = await req.prisma.previsionnel.findUnique({
       where: { id },
       include: {
         network: { select: { nom: true, church: { select: { nom: true } } } },
@@ -290,7 +288,7 @@ const updatePrevisionnel = async (req, res) => {
     const { date, type_culte, total_prevu, invites, groupes_previsions, responsables_reseau, compagnons_oeuvre } = req.body;
 
     // Vérifier que le prévisionnel existe
-    const existingPrevisionnel = await prisma.previsionnel.findUnique({
+    const existingPrevisionnel = await req.prisma.previsionnel.findUnique({
       where: { id },
       include: { network: true }
     });
@@ -312,6 +310,7 @@ const updatePrevisionnel = async (req, res) => {
 
     // Vérifier s'il n'y a pas déjà un previsionnel pour cette semaine et ce type de culte (en excluant l'actuel)
     const duplicatePrevisionnel = await checkDuplicatePrevisionnel(
+      req.prisma,
       existingPrevisionnel.network_id, 
       date, 
       type_culte, 
@@ -333,7 +332,7 @@ const updatePrevisionnel = async (req, res) => {
     }
 
     // Mettre à jour le prévisionnel
-    const updatedPrevisionnel = await prisma.$transaction(async (tx) => {
+    const updatedPrevisionnel = await req.prisma.$transaction(async (tx) => {
       // 1. Mettre à jour le prévisionnel principal
       const updated = await tx.previsionnel.update({
         where: { id },
@@ -396,7 +395,7 @@ const deletePrevisionnel = async (req, res) => {
     const { id } = req.params;
 
     // Vérifier que le prévisionnel existe
-    const previsionnel = await prisma.previsionnel.findUnique({
+    const previsionnel = await req.prisma.previsionnel.findUnique({
       where: { id },
       include: { network: true }
     });
@@ -417,7 +416,7 @@ const deletePrevisionnel = async (req, res) => {
     }
 
     // Supprimer le prévisionnel (les groupes_previsions seront supprimés automatiquement via CASCADE)
-    await prisma.previsionnel.delete({
+    await req.prisma.previsionnel.delete({
       where: { id }
     });
 
@@ -457,7 +456,7 @@ const getPrevisionnelStats = async (req, res) => {
     }
 
     // Récupérer les prévisionnels avec leurs statistiques
-    const previsionnels = await prisma.previsionnel.findMany({
+    const previsionnels = await req.prisma.previsionnel.findMany({
       where,
       include: {
         network: { select: { nom: true } },

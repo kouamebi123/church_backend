@@ -1,10 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const logger = require('../utils/logger');
-
-const prisma = new PrismaClient();
 
 // Configuration multer pour les fichiers de témoignages
 const testimonyStorage = multer.diskStorage({
@@ -109,6 +106,46 @@ exports.getNetworksByChurch = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la récupération des réseaux'
+    });
+  }
+};
+
+// Obtenir les sections (départements) d'une église
+exports.getSectionsByChurch = async (req, res) => {
+  try {
+    console.log('🔍 getSectionsByChurch appelé avec churchId:', req.params.churchId);
+    const { prisma } = req;
+    const { churchId } = req.params;
+
+    if (!churchId) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de l\'église requis'
+      });
+    }
+
+    const sections = await prisma.department.findMany({
+      where: {
+        church_id: churchId
+      },
+      select: {
+        id: true,
+        nom: true
+      },
+      orderBy: {
+        nom: 'asc'
+      }
+    });
+
+    res.json({
+      success: true,
+      data: sections
+    });
+  } catch (error) {
+    logger.error('Erreur lors de la récupération des sections:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des sections'
     });
   }
 };
@@ -218,7 +255,7 @@ exports.createTestimony = async (req, res) => {
     }
 
     // Créer le témoignage
-    const testimony = await prisma.testimony.create({
+    const testimony = await req.prisma.testimony.create({
       data: {
         firstName: isAnonymousBool ? 'Anonyme' : firstName,
         lastName: isAnonymousBool ? 'Anonyme' : lastName,
@@ -379,7 +416,7 @@ exports.getTestimonyById = async (req, res) => {
     const { prisma } = req;
     const { id } = req.params;
 
-    const testimony = await prisma.testimony.findUnique({
+    const testimony = await req.prisma.testimony.findUnique({
       where: { id },
       include: {
         church: {
@@ -514,7 +551,7 @@ exports.deleteTestimony = async (req, res) => {
     const { id } = req.params;
 
     // Vérifier si le témoignage existe
-    const testimony = await prisma.testimony.findUnique({
+    const testimony = await req.prisma.testimony.findUnique({
       where: { id },
       include: { illustrations: true }
     });
@@ -534,7 +571,7 @@ exports.deleteTestimony = async (req, res) => {
     }
 
     // Supprimer le témoignage
-    await prisma.testimony.delete({
+    await req.prisma.testimony.delete({
       where: { id }
     });
 
@@ -640,7 +677,7 @@ exports.getTestimoniesForCulte = async (req, res) => {
       where.hasTestified = hasTestified === 'true';
     }
 
-    const testimonies = await prisma.testimony.findMany({
+    const testimonies = await req.prisma.testimony.findMany({
       where,
       include: {
         church: {
@@ -686,7 +723,7 @@ exports.confirmTestimonyForCulte = async (req, res) => {
     const { confirmed } = req.body;
     const confirmedBy = req.user.id;
 
-    const testimony = await prisma.testimony.findUnique({
+    const testimony = await req.prisma.testimony.findUnique({
       where: { id }
     });
 
@@ -743,7 +780,7 @@ exports.markAsTestified = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const testimony = await prisma.testimony.findUnique({
+    const testimony = await req.prisma.testimony.findUnique({
       where: { id }
     });
 

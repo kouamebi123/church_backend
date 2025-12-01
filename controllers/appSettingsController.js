@@ -1,7 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
 const logger = require('../utils/logger');
-
-const prisma = new PrismaClient();
 
 /**
  * Contrôleur pour la gestion des paramètres de l'application
@@ -12,7 +9,7 @@ const prisma = new PrismaClient();
 const getAppSettings = async (req, res) => {
   try {
     // Récupérer ou créer les paramètres par défaut
-    let settings = await prisma.appSettings.findFirst({
+    let settings = await req.prisma.appSettings.findFirst({
       orderBy: {
         updated_at: 'desc'
       }
@@ -51,7 +48,7 @@ const updateAppSettings = async (req, res) => {
     const { contact_email, contact_phone, contact_location } = req.body;
 
     // Récupérer les paramètres existants ou créer s'ils n'existent pas
-    let settings = await prisma.appSettings.findFirst({
+    let settings = await req.prisma.appSettings.findFirst({
       orderBy: {
         updated_at: 'desc'
       }
@@ -73,13 +70,13 @@ const updateAppSettings = async (req, res) => {
 
     if (settings) {
       // Mettre à jour les paramètres existants
-      settings = await prisma.appSettings.update({
+      settings = await req.prisma.appSettings.update({
         where: { id: settings.id },
         data: updateData
       });
     } else {
       // Créer de nouveaux paramètres
-      settings = await prisma.appSettings.create({
+      settings = await req.prisma.appSettings.create({
         data: {
           contact_email: contact_email || null,
           contact_phone: contact_phone || null,

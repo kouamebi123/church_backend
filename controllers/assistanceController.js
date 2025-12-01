@@ -1,7 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
 const logger = require('../utils/logger');
-
-const prisma = new PrismaClient();
 
 // Fonction utilitaire pour calculer le dimanche de la semaine d'une date donnée
 // Utilise la logique ISO 8601 mais retourne le dimanche précédent (fin de semaine précédente)
@@ -44,7 +41,7 @@ const getSundayOfWeek = (date) => {
 };
 
 // Fonction utilitaire pour vérifier les doublons par semaine et type de culte
-const checkDuplicateAssistance = async (network_id, date, type_culte, excludeId = null) => {
+const checkDuplicateAssistance = async (prisma, network_id, date, type_culte, excludeId = null) => {
   try {
     // Calculer le dimanche de la semaine pour cette date
     const sundayOfWeek = getSundayOfWeek(date);
@@ -86,7 +83,7 @@ const createAssistance = async (req, res) => {
     logger.info('📅 Date du culte:', { originalDate: date, sundayOfWeek: sundayOfWeek.toISOString() });
 
     // Vérifier les permissions
-    const user = await prisma.user.findUnique({
+    const user = await req.prisma.user.findUnique({
       where: { id: created_by_id },
       include: { eglise_locale: true }
     });
@@ -101,7 +98,7 @@ const createAssistance = async (req, res) => {
     }
 
     // Vérifier que le réseau existe et appartient à cette église
-    const network = await prisma.network.findFirst({
+    const network = await req.prisma.network.findFirst({
       where: {
         id: network_id,
         church_id: church_id
@@ -113,7 +110,7 @@ const createAssistance = async (req, res) => {
     }
 
     // Vérifier s'il n'y a pas déjà une assistance pour cette semaine et ce type de culte
-    const duplicateAssistance = await checkDuplicateAssistance(network_id, date, type_culte);
+    const duplicateAssistance = await checkDuplicateAssistance(req.prisma, network_id, date, type_culte);
     if (duplicateAssistance) {
       logger.warn('⚠️ Tentative de création d\'une assistance en doublon:', {
         network_id,
@@ -130,7 +127,7 @@ const createAssistance = async (req, res) => {
     }
 
     // Créer l'assistance et les groupes d'assistance en transaction
-    const assistance = await prisma.$transaction(async (tx) => {
+    const assistance = await req.prisma.$transaction(async (tx) => {
       const newAssistance = await tx.assistance.create({
         data: {
           date: sundayOfWeek, // Utiliser le dimanche de la semaine
@@ -204,7 +201,7 @@ const getAssistanceStats = async (req, res) => {
     }
 
     // Récupérer les assistances avec les détails
-    const assistances = await prisma.assistance.findMany({
+    const assistances = await req.prisma.assistance.findMany({
       where,
       include: {
         network: {
@@ -307,7 +304,7 @@ const getAssistanceById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const assistance = await prisma.assistance.findUnique({
+    const assistance = await req.prisma.assistance.findUnique({
       where: { id },
       include: {
         network: true,
@@ -364,6 +361,7 @@ const updateAssistance = async (req, res) => {
 
     // Vérifier s'il n'y a pas déjà une assistance pour cette semaine et ce type de culte (en excluant l'actuelle)
     const duplicateAssistance = await checkDuplicateAssistance(
+      req.prisma,
       existingAssistance.network_id, 
       date, 
       type_culte, 
@@ -385,7 +383,7 @@ const updateAssistance = async (req, res) => {
     }
 
     // Mettre à jour en transaction
-    const assistance = await prisma.$transaction(async (tx) => {
+    const assistance = await req.prisma.$transaction(async (tx) => {
       // Mettre à jour l'assistance
       const updatedAssistance = await tx.assistance.update({
         where: { id },
@@ -460,7 +458,7 @@ const deleteAssistance = async (req, res) => {
     }
 
     // Supprimer l'assistance (les groupes seront supprimés automatiquement par CASCADE)
-    await prisma.assistance.delete({
+    await req.prisma.assistance.delete({
       where: { id }
     });
 

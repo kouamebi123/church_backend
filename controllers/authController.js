@@ -1,7 +1,5 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
 const { handleError } = require('../utils/errorHandler');
 const logger = require('../utils/logger');
 const csrfProtection = require('../middlewares/csrfProtection');
@@ -20,7 +18,7 @@ const signToken = (user) => {
   });
 };
 
-const sendTokenResponse = async (user, statusCode, res) => {
+const sendTokenResponse = async (prisma, user, statusCode, res) => {
   // Réinitialiser current_role à null à chaque connexion
   // L'utilisateur utilisera toujours son rôle principal par défaut
   const activeRole = user.role; // Toujours utiliser le rôle principal
@@ -115,7 +113,7 @@ exports.register = async (req, res) => {
     }
 
     // Vérifier que l'église existe
-    const church = await prisma.church.findUnique({
+    const church = await req.prisma.church.findUnique({
       where: { id: eglise_locale_id }
     });
 
@@ -173,7 +171,7 @@ exports.register = async (req, res) => {
       logger.info('Register - Image de profil uploadée', { imagePath });
     }
 
-    const newUser = await prisma.user.create({
+    const newUser = await req.prisma.user.create({
       data: {
         username,
         pseudo,
@@ -213,7 +211,7 @@ exports.register = async (req, res) => {
     if (group_id && group_id.trim() !== '') {
       try {
         // Vérifier que le groupe existe et appartient à la même église
-        const group = await prisma.group.findUnique({
+        const group = await req.prisma.group.findUnique({
           where: { id: group_id },
           include: {
             network: {
@@ -234,7 +232,7 @@ exports.register = async (req, res) => {
           });
         } else {
           // Vérifier si l'utilisateur n'est pas déjà membre du groupe
-          const existingMember = await prisma.groupMember.findUnique({
+          const existingMember = await req.prisma.groupMember.findUnique({
             where: {
               group_id_user_id: {
                 group_id: group_id,
@@ -245,7 +243,7 @@ exports.register = async (req, res) => {
 
           if (!existingMember) {
             // Ajouter le membre au groupe
-            await prisma.groupMember.create({
+            await req.prisma.groupMember.create({
               data: {
                 group_id: group_id,
                 user_id: newUser.id
@@ -253,7 +251,7 @@ exports.register = async (req, res) => {
             });
 
             // Enregistrer dans l'historique
-            await prisma.groupMemberHistory.create({
+            await req.prisma.groupMemberHistory.create({
               data: {
                 group_id: group_id,
                 user_id: newUser.id,
@@ -282,7 +280,7 @@ exports.register = async (req, res) => {
       }
     }
 
-    await sendTokenResponse(newUser, 201, res);
+    await sendTokenResponse(req.prisma, newUser, 201, res);
   } catch (error) {
     // Utilisation du gestionnaire d'erreurs centralisé
     const { status, message } = handleError(error, 'l\'inscription');
@@ -314,7 +312,7 @@ exports.login = async (req, res) => {
 
     logger.info('Login - Recherche utilisateur avec', { loginField });
 
-    const user = await prisma.user.findFirst({
+    const user = await req.prisma.user.findFirst({
       where: {
         OR: [
           { username: loginField },
@@ -385,12 +383,12 @@ exports.login = async (req, res) => {
     }
 
     // Réinitialiser current_role à null dans la base de données
-    await prisma.user.update({
+    await req.prisma.user.update({
       where: { id: user.id },
       data: { current_role: null }
     });
 
-    const safeUser = await prisma.user.findUnique({
+    const safeUser = await req.prisma.user.findUnique({
       where: { id: user.id },
       select: {
         id: true,
@@ -419,7 +417,7 @@ exports.login = async (req, res) => {
 
 exports.getMe = async (req, res) => {
   try {
-    const user = await prisma.user.findUnique({
+    const user = await req.prisma.user.findUnique({
       where: { id: req.user.id },
       include: {
         eglise_locale: {
@@ -475,7 +473,7 @@ exports.updateDetails = async (req, res) => {
       niveau_education: req.body.niveau_education
     };
 
-    const user = await prisma.user.update({
+    const user = await req.prisma.user.update({
       where: { id: req.user.id },
       data: fieldsToUpdate
     });
@@ -494,7 +492,7 @@ exports.updateDetails = async (req, res) => {
 
 exports.updatePassword = async (req, res) => {
   try {
-    const user = await prisma.user.findUnique({
+    const user = await req.prisma.user.findUnique({
       where: { id: req.user.id },
       select: { id: true, password: true }
     });
@@ -509,12 +507,12 @@ exports.updatePassword = async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash(req.body.newPassword, salt);
-    await prisma.user.update({
+    await req.prisma.user.update({
       where: { id: req.user.id },
       data: { password: hashed }
     });
 
-    const safeUser = await prisma.user.findUnique({
+    const safeUser = await req.prisma.user.findUnique({
       where: { id: req.user.id },
       select: {
         id: true,
@@ -525,7 +523,7 @@ exports.updatePassword = async (req, res) => {
       }
     });
 
-    await sendTokenResponse(safeUser, 200, res);
+    await sendTokenResponse(req.prisma, safeUser, 200, res);
   } catch (error) {
     res.status(400).json({
       success: false,
@@ -559,7 +557,7 @@ exports.forgotPassword = async (req, res) => {
     }
 
     // Rechercher l'utilisateur par email uniquement
-    const user = await prisma.user.findUnique({
+    const user = await req.prisma.user.findUnique({
       where: { email: email.toLowerCase() },
       select: {
         id: true,
@@ -661,7 +659,7 @@ exports.resetPasswordWithToken = async (req, res) => {
     }
 
     // Vérifier que l'utilisateur existe et que l'email correspond
-    const user = await prisma.user.findUnique({
+    const user = await req.prisma.user.findUnique({
       where: { 
         id: decoded.id,
         email: decoded.email // Vérification supplémentaire de sécurité
@@ -704,7 +702,7 @@ exports.resetPasswordWithToken = async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
     // Mettre à jour le mot de passe
-    await prisma.user.update({
+    await req.prisma.user.update({
       where: { id: user.id },
       data: { password: hashedPassword }
     });

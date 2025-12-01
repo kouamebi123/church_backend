@@ -1,8 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const { createUserRoleAssignment } = require('../utils/roleAssignment');
 require('dotenv').config();
-const prisma = new PrismaClient();
 
 /**
  * Créer un super admin d'urgence
@@ -11,7 +9,7 @@ const prisma = new PrismaClient();
 const createEmergencySuperAdmin = async (req, res) => {
   try {
     // Vérifier si un super admin existe déjà
-    const existingSuperAdmin = await prisma.user.findFirst({
+    const existingSuperAdmin = await req.prisma.user.findFirst({
       where: { role: 'SUPER_ADMIN' }
     });
 
@@ -30,7 +28,7 @@ const createEmergencySuperAdmin = async (req, res) => {
     const phone = req.body.phone || process.env.SUPER_ADMIN_PHONE || '+0775778652';
 
     // Vérifier que l'email n'existe pas déjà
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await req.prisma.user.findUnique({
       where: { email }
     });
 
@@ -42,7 +40,7 @@ const createEmergencySuperAdmin = async (req, res) => {
     }
 
     // Créer l'église temporaire d'abord
-    const tempChurch = await prisma.church.create({
+    const tempChurch = await req.prisma.church.create({
       data: {
         nom: process.env.TEMP_CHURCH_NAME || 'Église Temporaire',
         adresse: process.env.TEMP_CHURCH_ADDRESS || 'Adresse temporaire',
@@ -57,7 +55,7 @@ const createEmergencySuperAdmin = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Créer le super admin
-    const superAdmin = await prisma.user.create({
+    const superAdmin = await req.prisma.user.create({
       data: {
         username,
         email,

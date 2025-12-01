@@ -1,7 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
 const logger = require('../utils/logger');
-
-const prisma = new PrismaClient();
 
 /**
  * Contrôleur pour la gestion des préférences utilisateur
@@ -12,7 +9,7 @@ const getPreferences = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const user = await prisma.user.findUnique({
+    const user = await req.prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
@@ -76,7 +73,7 @@ const updatePreferences = async (req, res) => {
       });
     }
 
-    const updatedUser = await prisma.user.update({
+    const updatedUser = await req.prisma.user.update({
       where: { id: userId },
       data: updateData,
       select: {
@@ -122,7 +119,7 @@ const updateEmailPreferences = async (req, res) => {
       });
     }
 
-    const updatedUser = await prisma.user.update({
+    const updatedUser = await req.prisma.user.update({
       where: { id: userId },
       data: { email_notifications },
       select: {

@@ -1,8 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
 const logger = require('../utils/logger');
 const { getNiveauFromQualification } = require('../utils/chaineImpactUtils');
-
-const prisma = new PrismaClient();
 
 // Construire l'arbre hiérarchique récursivement
 const buildTree = (nodes, parentId = null) => {
@@ -35,7 +32,7 @@ const getChaineImpact = async (req, res) => {
     }
 
     // Récupérer tous les nœuds de la chaîne d'impact
-    const chaineImpactNodes = await prisma.chaineImpact.findMany({
+    const chaineImpactNodes = await req.prisma.chaineImpact.findMany({
       where: { eglise_id: church_id },
       include: {
         user: {
@@ -104,7 +101,7 @@ const updateChaineImpact = async (req, res) => {
     }
 
     // Récupérer tous les utilisateurs de l'église avec leurs relations
-    const users = await prisma.user.findMany({
+    const users = await req.prisma.user.findMany({
       where: { eglise_locale_id: church_id },
       include: {
         network_responsable1: true,
@@ -115,14 +112,14 @@ const updateChaineImpact = async (req, res) => {
     });
 
     // Supprimer l'ancienne chaine d'impact
-    await prisma.chaineImpact.deleteMany({
+    await req.prisma.chaineImpact.deleteMany({
       where: { eglise_id: church_id }
     });
 
     const chaineImpactRecords = [];
 
     // Récupérer le responsable de l'église
-    const responsableEglise = await prisma.church.findUnique({
+    const responsableEglise = await req.prisma.church.findUnique({
       where: { id: church_id },
       include: { responsable: true }
     });
@@ -222,7 +219,7 @@ const updateChaineImpact = async (req, res) => {
 
     // Insérer tous les enregistrements
     if (chaineImpactRecords.length > 0) {
-      await prisma.chaineImpact.createMany({
+      await req.prisma.chaineImpact.createMany({
         data: chaineImpactRecords
       });
     }
@@ -243,7 +240,7 @@ const getChaineImpactByUser = async (req, res) => {
   try {
     const { user_id } = req.params;
     
-    const chaineImpact = await prisma.chaineImpact.findMany({
+    const chaineImpact = await req.prisma.chaineImpact.findMany({
       where: { user_id },
       include: {
         user: true,
@@ -267,7 +264,7 @@ const deleteChaineImpact = async (req, res) => {
   try {
     const { church_id } = req.params;
     
-    await prisma.chaineImpact.deleteMany({
+    await req.prisma.chaineImpact.deleteMany({
       where: { eglise_id: church_id }
     });
 

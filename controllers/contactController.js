@@ -1,8 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
 const logger = require('../utils/logger');
 const emailService = require('../services/emailService');
-
-const prisma = new PrismaClient();
 
 /**
  * Contrôleur pour les messages de contact
@@ -31,7 +28,7 @@ const createContact = async (req, res) => {
     }
 
     // Récupérer l'email de contact depuis les paramètres de l'application
-    const settings = await prisma.appSettings.findFirst({
+    const settings = await req.prisma.appSettings.findFirst({
       orderBy: {
         updated_at: 'desc'
       },
@@ -133,7 +130,7 @@ const getContacts = async (req, res) => {
       where.read = read === 'true';
     }
 
-    const contacts = await prisma.contact.findMany({
+    const contacts = await req.prisma.contact.findMany({
       where,
       orderBy: {
         created_at: 'desc'
@@ -142,7 +139,7 @@ const getContacts = async (req, res) => {
       take: parseInt(limit)
     });
 
-    const total = await prisma.contact.count({ where });
+    const total = await req.prisma.contact.count({ where });
 
     res.json({
       success: true,
@@ -192,7 +189,7 @@ const markAsRead = async (req, res) => {
     }
 
     if (!contact.read) {
-      await prisma.contact.update({
+      await req.prisma.contact.update({
         where: { id },
         data: {
           read: true,
@@ -245,7 +242,7 @@ const deleteContact = async (req, res) => {
       });
     }
 
-    await prisma.contact.delete({
+    await req.prisma.contact.delete({
       where: { id }
     });
 

@@ -1,5 +1,3 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
 const { handleError } = require('../utils/errorHandler');
 const logger = require('../utils/logger');
 
@@ -12,7 +10,7 @@ exports.changeRole = async (req, res) => {
     logger.info('ChangeRole - Tentative de changement de rôle', { userId, newRole: role });
 
     // Vérifier que l'utilisateur a ce rôle dans ses rôles assignés
-    const userRoleAssignment = await prisma.userRoleAssignment.findFirst({
+    const userRoleAssignment = await req.prisma.userRoleAssignment.findFirst({
       where: {
         user_id: userId,
         role: role,
@@ -69,7 +67,7 @@ exports.getAvailableRoles = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const user = await prisma.user.findUnique({
+    const user = await req.prisma.user.findUnique({
       where: { id: userId },
       select: {
         current_role: true,
@@ -114,7 +112,7 @@ exports.assignRole = async (req, res) => {
     logger.info('AssignRole - Tentative d\'assignation de rôle', { adminId, userId, role });
 
     // Vérifier que l'utilisateur existe
-    const user = await prisma.user.findUnique({
+    const user = await req.prisma.user.findUnique({
       where: { id: userId }
     });
 
@@ -141,14 +139,14 @@ exports.assignRole = async (req, res) => {
         });
       } else {
         // Réactiver le rôle
-        await prisma.userRoleAssignment.update({
+        await req.prisma.userRoleAssignment.update({
           where: { id: existingAssignment.id },
           data: { is_active: true }
         });
       }
     } else {
       // Créer une nouvelle assignation
-      await prisma.userRoleAssignment.create({
+      await req.prisma.userRoleAssignment.create({
         data: {
           user_id: userId,
           role: role,
@@ -181,7 +179,7 @@ exports.removeRole = async (req, res) => {
     logger.info('RemoveRole - Tentative de suppression de rôle', { adminId, userId, role });
 
     // Vérifier que l'utilisateur existe
-    const user = await prisma.user.findUnique({
+    const user = await req.prisma.user.findUnique({
       where: { id: userId }
     });
 
@@ -210,7 +208,7 @@ exports.removeRole = async (req, res) => {
 
     // Si c'était le rôle actuel, changer vers le rôle par défaut
     if (user.current_role === role) {
-      await prisma.user.update({
+      await req.prisma.user.update({
         where: { id: userId },
         data: { current_role: user.role }
       });
@@ -309,7 +307,7 @@ exports.assignMultipleRoles = async (req, res) => {
       return roleHierarchy[current] > roleHierarchy[highest] ? current : highest;
     }, roles[0]);
 
-    await prisma.user.update({
+    await req.prisma.user.update({
       where: { id: userId },
       data: { 
         role: highestRole,
@@ -363,7 +361,7 @@ exports.getUserRoles = async (req, res) => {
       });
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await req.prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,

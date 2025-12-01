@@ -6,6 +6,7 @@ const { protect } = require('../middlewares/auth');
 // Routes publiques (accessibles sans authentification)
 router.get('/churches', testimonyController.getChurches);
 router.get('/networks/:churchId', testimonyController.getNetworksByChurch);
+router.get('/sections/:churchId', testimonyController.getSectionsByChurch);
 router.get('/categories', testimonyController.getTestimonyCategories);
 router.get('/approved', testimonyController.getApprovedTestimonies);
 

@@ -1,9 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
 const logger = require('../utils/logger');
 const socketService = require('../services/socketService');
 const emailService = require('../services/emailService');
-
-const prisma = new PrismaClient();
 
 // Vérifier si l'utilisateur est admin
 const isAdmin = (user) => {
@@ -28,7 +25,7 @@ const sendMessage = async (req, res) => {
     }
 
     // Vérifier que tous les destinataires existent et récupérer leurs infos pour l'email
-    const recipients = await prisma.user.findMany({
+    const recipients = await req.prisma.user.findMany({
       where: {
         id: { in: recipient_ids }
       },
@@ -52,7 +49,7 @@ const sendMessage = async (req, res) => {
     }
 
     // Créer le message et les destinataires en transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await req.prisma.$transaction(async (tx) => {
       // Créer le message
       const message = await tx.message.create({
         data: {
@@ -175,7 +172,7 @@ const getReceivedMessages = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const messages = await prisma.message.findMany({
+    const messages = await req.prisma.message.findMany({
       where: {
         recipients: {
           some: {
@@ -213,7 +210,7 @@ const getReceivedMessages = async (req, res) => {
       take: parseInt(limit)
     });
 
-    const total = await prisma.message.count({
+    const total = await req.prisma.message.count({
       where: {
         recipients: {
           some: {
@@ -254,7 +251,7 @@ const getSentMessages = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const messages = await prisma.message.findMany({
+    const messages = await req.prisma.message.findMany({
       where: {
         sender_id: user_id
       },
@@ -285,7 +282,7 @@ const getSentMessages = async (req, res) => {
       take: parseInt(limit)
     });
 
-    const total = await prisma.message.count({
+    const total = await req.prisma.message.count({
       where: {
         sender_id: user_id
       }
@@ -328,7 +325,7 @@ const markMultipleAsRead = async (req, res) => {
     }
 
     // Marquer tous les messages comme lus en une seule requête
-    const result = await prisma.messageRecipient.updateMany({
+    const result = await req.prisma.messageRecipient.updateMany({
       where: {
         message_id: {
           in: messageIds
@@ -377,7 +374,7 @@ const markAsRead = async (req, res) => {
     const user_id = req.user.id;
 
     // Chercher d'abord par ID de MessageRecipient, puis par ID de Message
-    let messageRecipient = await prisma.messageRecipient.findFirst({
+    let messageRecipient = await req.prisma.messageRecipient.findFirst({
       where: {
         id,
         recipient_id: user_id
@@ -386,7 +383,7 @@ const markAsRead = async (req, res) => {
 
     // Si pas trouvé par ID de MessageRecipient, chercher par ID de Message
     if (!messageRecipient) {
-      messageRecipient = await prisma.messageRecipient.findFirst({
+      messageRecipient = await req.prisma.messageRecipient.findFirst({
         where: {
           message_id: id,
           recipient_id: user_id
@@ -403,7 +400,7 @@ const markAsRead = async (req, res) => {
 
     // Marquer comme lu si ce n'est pas déjà fait
     if (!messageRecipient.is_read) {
-      await prisma.messageRecipient.update({
+      await req.prisma.messageRecipient.update({
         where: { id: messageRecipient.id },
         data: {
           is_read: true,
@@ -446,7 +443,7 @@ const acknowledgeMessage = async (req, res) => {
     const user_id = req.user.id;
 
     // Chercher le MessageRecipient
-    const messageRecipient = await prisma.messageRecipient.findFirst({
+    const messageRecipient = await req.prisma.messageRecipient.findFirst({
       where: {
         message_id: id,
         recipient_id: user_id
@@ -462,7 +459,7 @@ const acknowledgeMessage = async (req, res) => {
 
     // Accuser réception si ce n'est pas déjà fait
     if (!messageRecipient.acknowledged) {
-      await prisma.messageRecipient.update({
+      await req.prisma.messageRecipient.update({
         where: { id: messageRecipient.id },
         data: {
           acknowledged: true,
@@ -503,7 +500,7 @@ const getMessageStats = async (req, res) => {
   try {
     const user_id = req.user.id;
 
-    const stats = await prisma.$queryRaw`
+    const stats = await req.prisma.$queryRaw`
       SELECT 
         COUNT(CASE WHEN mr.is_read = false THEN 1 END) as unread_count,
         COUNT(CASE WHEN mr.acknowledged = false THEN 1 END) as unacknowledged_count,
@@ -547,7 +544,7 @@ const getUsersForMessaging = async (req, res) => {
       });
     }
 
-    const users = await prisma.user.findMany({
+    const users = await req.prisma.user.findMany({
       where: {
         id: { not: user_id }, // Exclure l'utilisateur actuel
         eglise_locale_id: churchId // Uniquement de l'église sélectionnée
@@ -594,7 +591,7 @@ const getConversations = async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Récupérer les conversations avec le dernier message et les statistiques
-    const conversations = await prisma.$queryRaw`
+    const conversations = await req.prisma.$queryRaw`
       WITH conversation_partners AS (
         -- Partenaires de conversation (messages reçus)
         SELECT DISTINCT m.sender_id as partner_id
@@ -705,7 +702,7 @@ const getConversations = async (req, res) => {
     `;
 
     // Compter le total des conversations
-    const totalConversations = await prisma.$queryRaw`
+    const totalConversations = await req.prisma.$queryRaw`
       WITH conversation_partners AS (
         SELECT DISTINCT m.sender_id as partner_id
         FROM messages m
@@ -799,7 +796,7 @@ const getConversationHistory = async (req, res) => {
     }
 
     // Récupérer tous les messages entre les deux utilisateurs
-    const messages = await prisma.message.findMany({
+    const messages = await req.prisma.message.findMany({
       where: {
         OR: [
           {
@@ -890,7 +887,7 @@ const getMessageReadStatus = async (req, res) => {
     const currentUserId = req.user.id;
 
     // Vérifier que le message appartient à l'utilisateur actuel
-    const message = await prisma.message.findFirst({
+    const message = await req.prisma.message.findFirst({
       where: {
         id: messageId,
         sender_id: currentUserId
