@@ -52,7 +52,7 @@ const checkDuplicateAssistance = async (prisma, network_id, date, type_culte, ex
     nextSunday.setHours(0, 0, 0, 0);
     
     // Vérifier s'il existe déjà une assistance pour cette semaine (dimanche) et ce type de culte
-    const existingAssistance = await req.prisma.assistance.findFirst({
+    const existingAssistance = await prisma.assistance.findFirst({
       where: {
         network_id,
         type_culte,
@@ -83,17 +83,11 @@ const createAssistance = async (req, res) => {
     logger.info('📅 Date du culte:', { originalDate: date, sundayOfWeek: sundayOfWeek.toISOString() });
 
     // Vérifier les permissions
-    const user = await req.prisma.user.findUnique({
-      where: { id: created_by_id },
-      include: { eglise_locale: true }
-    });
-
-    if (!user) {
-      return res.status(404).json({ message: 'Utilisateur non trouvé' });
-    }
-
-    // Vérifier que l'utilisateur a accès à cette église
-    if (user.eglise_locale_id !== church_id) {
+    const userChurchId = req.user.eglise_locale || req.user.eglise_locale_id;
+    if (req.user.role !== 'SUPER_ADMIN' && 
+        req.user.role !== 'ADMIN' && 
+        req.user.role !== 'MANAGER' && 
+        (req.user.role !== 'COLLECTEUR_RESEAUX' || userChurchId !== church_id)) {
       return res.status(403).json({ message: 'Accès non autorisé à cette église' });
     }
 
@@ -355,7 +349,14 @@ const updateAssistance = async (req, res) => {
     }
 
     // Vérifier les permissions
-    if (existingAssistance.created_by_id !== req.user.id) {
+    const userChurchId = req.user.eglise_locale || req.user.eglise_locale_id;
+    const isCreator = existingAssistance.created_by_id === req.user.id;
+    const isSuperAdmin = req.user.role === 'SUPER_ADMIN';
+    const isAdmin = req.user.role === 'ADMIN';
+    const isManager = req.user.role === 'MANAGER';
+    const isCollecteurReseaux = req.user.role === 'COLLECTEUR_RESEAUX' && userChurchId === existingAssistance.church_id;
+    
+    if (!isCreator && !isSuperAdmin && !isAdmin && !isManager && !isCollecteurReseaux) {
       return res.status(403).json({ message: 'Non autorisé à modifier cette assistance' });
     }
 
@@ -453,7 +454,14 @@ const deleteAssistance = async (req, res) => {
     }
 
     // Vérifier les permissions
-    if (existingAssistance.created_by_id !== req.user.id) {
+    const userChurchId = req.user.eglise_locale || req.user.eglise_locale_id;
+    const isCreator = existingAssistance.created_by_id === req.user.id;
+    const isSuperAdmin = req.user.role === 'SUPER_ADMIN';
+    const isAdmin = req.user.role === 'ADMIN';
+    const isManager = req.user.role === 'MANAGER';
+    const isCollecteurReseaux = req.user.role === 'COLLECTEUR_RESEAUX' && userChurchId === existingAssistance.church_id;
+    
+    if (!isCreator && !isSuperAdmin && !isAdmin && !isManager && !isCollecteurReseaux) {
       return res.status(403).json({ message: 'Non autorisé à supprimer cette assistance' });
     }
 
