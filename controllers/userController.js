@@ -121,8 +121,6 @@ const getUserNetworkGroupInfo = async (prisma, userId) => {
 // Récupérer tous les utilisateurs avec filtrage automatique pour les managers
 exports.getUsers = async (req, res) => {
   try {
-    const { prisma } = req;
-
     // Filtrer les paramètres de requête autorisés pour éviter l'injection
     const allowedFields = ['role', 'genre', 'qualification', 'eglise_locale_id', 'departement_id', 'ville_residence', 'origine'];
     const where = {};
@@ -150,7 +148,7 @@ exports.getUsers = async (req, res) => {
       }
     }
 
-    const users = await prisma.user.findMany({
+    const users = await req.prisma.user.findMany({
       where,
       include: {
         eglise_locale: {
@@ -197,9 +195,7 @@ exports.getUsers = async (req, res) => {
 // Récupérer tous les utilisateurs GOUVERNANCE (pour la gestion des églises)
 exports.getGovernanceUsers = async (req, res) => {
   try {
-    const { prisma } = req;
-
-    const users = await prisma.user.findMany({
+    const users = await req.prisma.user.findMany({
       where: {
         qualification: 'GOUVERNANCE'
       },
@@ -248,10 +244,9 @@ exports.getGovernanceUsers = async (req, res) => {
 // Récupérer un utilisateur par ID
 exports.getUser = async (req, res) => {
   try {
-    const { prisma } = req;
     const { id } = req.params;
 
-    const user = await prisma.user.findUnique({
+    const user = await req.prisma.user.findUnique({
       where: { id },
       include: {
         eglise_locale: {
@@ -291,9 +286,7 @@ exports.getUser = async (req, res) => {
 // Obtenir les membres isolés
 exports.getIsoles = async (req, res) => {
   try {
-    const { prisma } = req;
-
-    let usersInGroups = [];
+        let usersInGroups = [];
     const churchFilter = {};
 
     // Ajouter le filtre par église si spécifié
@@ -301,18 +294,18 @@ exports.getIsoles = async (req, res) => {
       churchFilter.eglise_locale_id = req.query.churchId;
 
       // Si on filtre par église, on doit d'abord récupérer les réseaux de cette église
-      const networksInChurch = await prisma.network.findMany({
+      const networksInChurch = await req.prisma.network.findMany({
         where: { church_id: req.query.churchId },
         select: { id: true }
       });
       const networkIds = networksInChurch.map(n => n.id);
-      const groupMembers = await prisma.groupMember.findMany({
+      const groupMembers = await req.prisma.groupMember.findMany({
         where: { group: { network_id: { in: networkIds } } },
         select: { user_id: true }
       });
       usersInGroups = groupMembers.map(gm => gm.user_id);
     } else {
-      const groupMembers = await prisma.groupMember.findMany({
+      const groupMembers = await req.prisma.groupMember.findMany({
         select: { user_id: true }
       });
       usersInGroups = groupMembers.map(gm => gm.user_id);
@@ -329,12 +322,12 @@ exports.getIsoles = async (req, res) => {
         churchFilter.eglise_locale_id = churchId;
 
         // Récupérer les réseaux de l'église du manager
-        const networksInChurch = await prisma.network.findMany({
+        const networksInChurch = await req.prisma.network.findMany({
           where: { church_id: churchId },
           select: { id: true }
         });
         const networkIds = networksInChurch.map(n => n.id);
-        const groupMembers = await prisma.groupMember.findMany({
+        const groupMembers = await req.prisma.groupMember.findMany({
           where: { group: { network_id: { in: networkIds } } },
           select: { user_id: true }
         });
@@ -343,7 +336,7 @@ exports.getIsoles = async (req, res) => {
     }
 
     const specialQualifications = ['RESPONSABLE_RESEAU', 'GOUVERNANCE', 'ECODIM'];
-    const users = await prisma.user.findMany({
+    const users = await req.prisma.user.findMany({
       where: {
         id: { notIn: usersInGroups },
         qualification: { notIn: specialQualifications },
@@ -381,9 +374,7 @@ exports.getIsoles = async (req, res) => {
 // Obtenir les membres non isolés
 exports.getNonIsoles = async (req, res) => {
   try {
-    const { prisma } = req;
-
-    let usersInGroups = [];
+        let usersInGroups = [];
     const churchFilter = {};
 
     // Ajouter le filtre par église si spécifié
@@ -391,18 +382,18 @@ exports.getNonIsoles = async (req, res) => {
       churchFilter.eglise_locale_id = req.query.churchId;
 
       // Si on filtre par église, on doit d'abord récupérer les réseaux de cette église
-      const networksInChurch = await prisma.network.findMany({
+      const networksInChurch = await req.prisma.network.findMany({
         where: { church_id: req.query.churchId },
         select: { id: true }
       });
       const networkIds = networksInChurch.map(n => n.id);
-      const groupMembers = await prisma.groupMember.findMany({
+      const groupMembers = await req.prisma.groupMember.findMany({
         where: { group: { network_id: { in: networkIds } } },
         select: { user_id: true }
       });
       usersInGroups = groupMembers.map(gm => gm.user_id);
     } else {
-      const groupMembers = await prisma.groupMember.findMany({
+      const groupMembers = await req.prisma.groupMember.findMany({
         select: { user_id: true }
       });
       usersInGroups = groupMembers.map(gm => gm.user_id);
@@ -419,12 +410,12 @@ exports.getNonIsoles = async (req, res) => {
         churchFilter.eglise_locale_id = churchId;
 
         // Récupérer les réseaux de l'église du manager
-        const networksInChurch = await prisma.network.findMany({
+        const networksInChurch = await req.prisma.network.findMany({
           where: { church_id: churchId },
           select: { id: true }
         });
         const networkIds = networksInChurch.map(n => n.id);
-        const groupMembers = await prisma.groupMember.findMany({
+        const groupMembers = await req.prisma.groupMember.findMany({
           where: { group: { network_id: { in: networkIds } } },
           select: { user_id: true }
         });
@@ -433,7 +424,7 @@ exports.getNonIsoles = async (req, res) => {
     }
 
     const specialQualifications = ['RESPONSABLE_RESEAU', 'GOUVERNANCE', 'ECODIM'];
-    const users = await prisma.user.findMany({
+    const users = await req.prisma.user.findMany({
       where: {
         OR: [
           { id: { in: usersInGroups } },
@@ -473,8 +464,7 @@ exports.getNonIsoles = async (req, res) => {
 // Créer un nouvel utilisateur
 exports.createUser = async (req, res) => {
   try {
-    const { prisma } = req;
-    const userData = req.body;
+        const userData = req.body;
 
     // Logs supprimés pour réduire le volume de logs
 
@@ -534,7 +524,7 @@ exports.createUser = async (req, res) => {
 
     // Validation du département si fourni (pour compatibilité)
     if (userData.departement_id) {
-      const department = await prisma.department.findUnique({
+      const department = await req.prisma.department.findUnique({
         where: { id: userData.departement_id }
       });
 
@@ -548,7 +538,7 @@ exports.createUser = async (req, res) => {
 
     // Validation des départements multiples si fournis
     if (userData.departement_ids && Array.isArray(userData.departement_ids) && userData.departement_ids.length > 0) {
-      const departments = await prisma.department.findMany({
+      const departments = await req.prisma.department.findMany({
         where: { id: { in: userData.departement_ids } }
       });
 
@@ -570,7 +560,7 @@ exports.createUser = async (req, res) => {
     }
 
     if (orConditions.length > 0) {
-      const existingUser = await prisma.user.findFirst({
+      const existingUser = await req.prisma.user.findFirst({
         where: {
           OR: orConditions
         },
@@ -603,7 +593,7 @@ exports.createUser = async (req, res) => {
         
         // Récupérer les informations de réseau/GR seulement si l'email est en doublon
         if (isEmailDuplicate) {
-          const networkGroupInfo = await getUserNetworkGroupInfo(prisma, existingUser.id);
+          const networkGroupInfo = await getUserNetworkGroupInfo(req.prisma, existingUser.id);
           
           if (networkGroupInfo) {
             if (networkGroupInfo.type === 'groupe') {
@@ -643,7 +633,7 @@ exports.createUser = async (req, res) => {
     delete userCreateData.departement_ids;
 
     // Création de l'utilisateur
-    const newUser = await prisma.user.create({
+    const newUser = await req.prisma.user.create({
       data: userCreateData,
       include: {
         eglise_locale: {
@@ -684,7 +674,7 @@ exports.createUser = async (req, res) => {
 
     // Créer les associations avec les départements multiples
     if (userData.departement_ids && Array.isArray(userData.departement_ids) && userData.departement_ids.length > 0) {
-      await prisma.userDepartment.createMany({
+      await req.prisma.userDepartment.createMany({
         data: userData.departement_ids.map(departmentId => ({
           user_id: newUser.id,
           department_id: departmentId
@@ -692,7 +682,7 @@ exports.createUser = async (req, res) => {
       });
 
       // Recharger l'utilisateur avec les départements
-      const updatedUser = await prisma.user.findUnique({
+      const updatedUser = await req.prisma.user.findUnique({
         where: { id: newUser.id },
         include: {
           eglise_locale: {
@@ -752,7 +742,7 @@ exports.createUser = async (req, res) => {
         try {
           // Trouver l'utilisateur existant avec ce champ
           const whereClause = { [duplicateField]: duplicateValue };
-          const existingUser = await prisma.user.findFirst({
+          const existingUser = await req.prisma.user.findFirst({
             where: whereClause,
             select: {
               id: true,
@@ -767,7 +757,7 @@ exports.createUser = async (req, res) => {
             
             // Récupérer les informations de réseau/GR seulement si l'email est en doublon
             if (duplicateField === 'email') {
-              const networkGroupInfo = await getUserNetworkGroupInfo(prisma, existingUser.id);
+              const networkGroupInfo = await getUserNetworkGroupInfo(req.prisma, existingUser.id);
               
               if (networkGroupInfo) {
                 if (networkGroupInfo.type === 'groupe') {
@@ -812,14 +802,13 @@ exports.createUser = async (req, res) => {
 // Mettre à jour un utilisateur
 exports.updateUser = async (req, res) => {
   try {
-    const { prisma } = req;
     const { id } = req.params;
     const updateData = req.body;
 
     // Logs supprimés pour réduire le volume de logs
 
     // Vérifier que l'utilisateur existe
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await req.prisma.user.findUnique({
       where: { id }
     });
 
@@ -887,7 +876,7 @@ exports.updateUser = async (req, res) => {
     logger.info('User - updateUser - Données mappées', mappedUpdateData);
 
     // Mise à jour de l'utilisateur
-    const updatedUser = await prisma.user.update({
+    const updatedUser = await req.prisma.user.update({
       where: { id },
       data: mappedUpdateData,
       include: {
@@ -919,13 +908,13 @@ exports.updateUser = async (req, res) => {
     // Mettre à jour les départements multiples si fournis
     if (departementIds !== null) {
       // Supprimer les associations existantes
-      await prisma.userDepartment.deleteMany({
+      await req.prisma.userDepartment.deleteMany({
         where: { user_id: id }
       });
 
       // Créer les nouvelles associations
       if (Array.isArray(departementIds) && departementIds.length > 0) {
-        await prisma.userDepartment.createMany({
+        await req.prisma.userDepartment.createMany({
           data: departementIds.map(departmentId => ({
             user_id: id,
             department_id: departmentId
@@ -934,7 +923,7 @@ exports.updateUser = async (req, res) => {
       }
 
       // Recharger l'utilisateur avec les départements mis à jour
-      const finalUser = await prisma.user.findUnique({
+      const finalUser = await req.prisma.user.findUnique({
         where: { id },
         include: {
           eglise_locale: {
@@ -963,7 +952,7 @@ exports.updateUser = async (req, res) => {
       });
 
       // Log de l'activité
-      await createActivityLog(prisma, req.user.id, 'UPDATE', 'USER', finalUser.id, finalUser.username, `Utilisateur modifié: ${finalUser.username}`, req);
+      await createActivityLog(req.prisma, req.user.id, 'UPDATE', 'USER', finalUser.id, finalUser.username, `Utilisateur modifié: ${finalUser.username}`, req);
 
       return res.status(200).json({
         success: true,
@@ -973,7 +962,7 @@ exports.updateUser = async (req, res) => {
     }
 
     // Log de l'activité
-    await createActivityLog(prisma, req.user.id, 'UPDATE', 'USER', updatedUser.id, updatedUser.username, `Utilisateur modifié: ${updatedUser.username}`, req);
+    await createActivityLog(req.prisma, req.user.id, 'UPDATE', 'USER', updatedUser.id, updatedUser.username, `Utilisateur modifié: ${updatedUser.username}`, req);
 
     res.status(200).json({
       success: true,
@@ -993,11 +982,10 @@ exports.updateUser = async (req, res) => {
 // Supprimer un utilisateur
 exports.deleteUser = async (req, res) => {
   try {
-    const { prisma } = req;
-    const { id } = req.params;
+        const { id } = req.params;
 
     // Vérifier que l'utilisateur existe
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await req.prisma.user.findUnique({
       where: { id }
     });
 
@@ -1019,7 +1007,7 @@ exports.deleteUser = async (req, res) => {
     }
 
     // Vérifier si l'utilisateur est responsable d'un groupe
-    const userAsGroupResponsible = await prisma.group.findFirst({
+    const userAsGroupResponsible = await req.prisma.group.findFirst({
       where: {
         OR: [
           { responsable1_id: id },
@@ -1036,7 +1024,7 @@ exports.deleteUser = async (req, res) => {
     }
 
     // Vérifier si l'utilisateur est responsable d'un réseau
-    const userAsNetworkResponsible = await prisma.network.findFirst({
+    const userAsNetworkResponsible = await req.prisma.network.findFirst({
       where: {
         OR: [
           { responsable1_id: id },
@@ -1053,7 +1041,7 @@ exports.deleteUser = async (req, res) => {
     }
 
     // Vérifier si l'utilisateur est responsable d'une session
-    const userAsSessionResponsible = await prisma.session.findFirst({
+    const userAsSessionResponsible = await req.prisma.session.findFirst({
       where: {
         OR: [
           { responsable1_id: id },
@@ -1070,7 +1058,7 @@ exports.deleteUser = async (req, res) => {
     }
 
     // Vérifier si l'utilisateur est responsable d'une unité
-    const userAsUnitResponsible = await prisma.unit.findFirst({
+    const userAsUnitResponsible = await req.prisma.unit.findFirst({
       where: {
         OR: [
           { responsable1_id: id },
@@ -1089,27 +1077,27 @@ exports.deleteUser = async (req, res) => {
     // Nettoyage automatique de toutes les références
     try {
       // Retirer l'utilisateur du groupe dont il est membre (un seul groupe possible)
-      await prisma.groupMember.deleteMany({
+      await req.prisma.groupMember.deleteMany({
         where: { user_id: id }
       });
 
       // Retirer l'utilisateur de l'historique des groupes
-      await prisma.groupMemberHistory.deleteMany({
+      await req.prisma.groupMemberHistory.deleteMany({
         where: { user_id: id }
       });
 
       // Retirer l'utilisateur des unités (en tant que membre)
-      await prisma.unitMember.deleteMany({
+      await req.prisma.unitMember.deleteMany({
         where: { user_id: id }
       });
 
       // Retirer l'utilisateur des compagnons d'œuvre de réseaux
-      await prisma.networkCompanion.deleteMany({
+      await req.prisma.networkCompanion.deleteMany({
         where: { user_id: id }
       });
 
       // Retirer l'utilisateur des services (collecteur ou superviseur)
-      await prisma.service.updateMany({
+      await req.prisma.service.updateMany({
         where: {
           OR: [
             { collecteur_culte_id: id },
@@ -1123,12 +1111,12 @@ exports.deleteUser = async (req, res) => {
       });
 
       // Supprimer les messages envoyés par l'utilisateur
-      await prisma.message.deleteMany({
+      await req.prisma.message.deleteMany({
         where: { sender_id: id }
       });
 
       // Supprimer les MessageRecipient où l'utilisateur est destinataire
-      await prisma.messageRecipient.deleteMany({
+      await req.prisma.messageRecipient.deleteMany({
         where: { recipient_id: id }
       });
 
@@ -1143,7 +1131,7 @@ exports.deleteUser = async (req, res) => {
     await createActivityLog(prisma, req.user.id, 'DELETE', 'USER', id, existingUser.username, `Utilisateur supprimé: ${existingUser.username}`, req);
 
     // Suppression de l'utilisateur
-    await prisma.user.delete({
+    await req.prisma.user.delete({
       where: { id }
     });
 
@@ -1163,8 +1151,7 @@ exports.deleteUser = async (req, res) => {
 // Récupérer les utilisateurs disponibles pour les groupes
 exports.getAvailableUsers = async (req, res) => {
   try {
-    const { prisma } = req;
-    const { churchId, forSession, forNetwork } = req.query;
+        const { churchId, forSession, forNetwork } = req.query;
 
     const where = {};
 
@@ -1182,7 +1169,7 @@ exports.getAvailableUsers = async (req, res) => {
     // (pas de filtre d'église appliqué)
 
     // Récupérer tous les utilisateurs qui correspondent aux critères de base
-    const allUsers = await prisma.user.findMany({
+    const allUsers = await req.prisma.user.findMany({
       where,
       select: {
         id: true,
@@ -1202,7 +1189,7 @@ exports.getAvailableUsers = async (req, res) => {
     });
 
     // Récupérer les IDs des utilisateurs qui sont déjà dans des groupes
-    const usersInGroups = await prisma.groupMember.findMany({
+    const usersInGroups = await req.prisma.groupMember.findMany({
       select: {
         user_id: true
       }
@@ -1210,7 +1197,7 @@ exports.getAvailableUsers = async (req, res) => {
     const userIdsInGroups = usersInGroups.map(member => member.user_id);
 
     // Récupérer les IDs des utilisateurs qui sont responsables de réseaux
-    const allNetworks = await prisma.network.findMany({
+    const allNetworks = await req.prisma.network.findMany({
       select: {
         responsable1_id: true,
         responsable2_id: true
@@ -1224,7 +1211,7 @@ exports.getAvailableUsers = async (req, res) => {
     }, []);
 
     // Récupérer les IDs des utilisateurs qui sont déjà compagnons d'un réseau
-    const companionsInNetworks = await prisma.networkCompanion.findMany({
+    const companionsInNetworks = await req.prisma.networkCompanion.findMany({
       select: {
         user_id: true
       }
@@ -1291,8 +1278,7 @@ exports.getAvailableUsers = async (req, res) => {
 // Mettre à jour la qualification d'un utilisateur
 exports.updateQualification = async (req, res) => {
   try {
-    const { prisma } = req;
-    const { id } = req.params;
+        const { id } = req.params;
     const { qualification } = req.body;
 
     if (!qualification) {
@@ -1302,7 +1288,7 @@ exports.updateQualification = async (req, res) => {
       });
     }
 
-    const updatedUser = await prisma.user.update({
+    const updatedUser = await req.prisma.user.update({
       where: { id },
       data: { qualification },
       include: {
@@ -1333,8 +1319,7 @@ exports.updateQualification = async (req, res) => {
 // Réinitialiser le mot de passe d'un utilisateur
 exports.resetPassword = async (req, res) => {
   try {
-    const { prisma } = req;
-    const { id } = req.params;
+        const { id } = req.params;
     const { newPassword } = req.body;
 
     if (!newPassword) {
@@ -1348,7 +1333,7 @@ exports.resetPassword = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    await prisma.user.update({
+    await req.prisma.user.update({
       where: { id },
       data: { password: hashedPassword }
     });
@@ -1370,16 +1355,14 @@ exports.resetPassword = async (req, res) => {
 // Récupérer les utilisateurs non isolés
 exports.getNonIsoles = async (req, res) => {
   try {
-    const { prisma } = req;
-
-    const where = {};
+        const where = {};
 
     // Filtrage automatique pour les managers
     if (req.user && req.user.role === 'MANAGER' && req.user.eglise_locale_id) {
       where.eglise_locale_id = req.user.eglise_locale_id;
     }
 
-    const users = await prisma.user.findMany({
+    const users = await req.prisma.user.findMany({
       where: {
         ...where,
         // Logique pour les utilisateurs non isolés (à adapter selon vos besoins)
@@ -1415,16 +1398,14 @@ exports.getNonIsoles = async (req, res) => {
 // Récupérer les utilisateurs en intégration
 exports.getUsersEnIntegration = async (req, res) => {
   try {
-    const { prisma } = req;
-
-    const where = {};
+        const where = {};
 
     // Filtrage automatique pour les managers
     if (req.user && req.user.role === 'MANAGER' && req.user.eglise_locale_id) {
       where.eglise_locale_id = req.user.eglise_locale_id;
     }
 
-    const users = await prisma.user.findMany({
+    const users = await req.prisma.user.findMany({
       where: {
         ...where,
         qualification: 'EN_INTEGRATION'
@@ -1457,16 +1438,14 @@ exports.getUsersEnIntegration = async (req, res) => {
 // Récupérer les statistiques des utilisateurs
 exports.getUserStats = async (req, res) => {
   try {
-    const { prisma } = req;
-
-    const where = {};
+        const where = {};
 
     // Filtrage automatique pour les managers
     if (req.user && req.user.role === 'MANAGER' && req.user.eglise_locale_id) {
       where.eglise_locale_id = req.user.eglise_locale_id;
     }
 
-    const stats = await prisma.user.groupBy({
+    const stats = await req.prisma.user.groupBy({
       by: ['qualification'],
       where,
       _count: {
@@ -1474,7 +1453,7 @@ exports.getUserStats = async (req, res) => {
       }
     });
 
-    const totalUsers = await prisma.user.count({ where });
+    const totalUsers = await req.prisma.user.count({ where });
 
     res.status(200).json({
       success: true,
@@ -1495,8 +1474,7 @@ exports.getUserStats = async (req, res) => {
 // Obtenir l'évolution des membres sur 12 mois
 exports.getUsersEvolution = async (req, res) => {
   try {
-    const { prisma } = req;
-    const { churchId } = req.query;
+        const { churchId } = req.query;
 
     const where = {};
 
@@ -1516,7 +1494,7 @@ exports.getUsersEvolution = async (req, res) => {
     }
 
     // Récupérer tous les utilisateurs avec leur date de création
-    const users = await prisma.user.findMany({
+    const users = await req.prisma.user.findMany({
       where,
       select: {
         createdAt: true
@@ -1582,9 +1560,7 @@ exports.getUsersEvolution = async (req, res) => {
 // Mettre à jour son propre profil (pour les utilisateurs connectés)
 exports.updateOwnProfile = async (req, res) => {
   try {
-    const { prisma } = req;
-
-    // L'utilisateur ne peut modifier que son propre profil
+        // L'utilisateur ne peut modifier que son propre profil
     const userId = req.user.id;
 
     // Empêcher la modification de champs sensibles
@@ -1593,7 +1569,7 @@ exports.updateOwnProfile = async (req, res) => {
     delete updateData.eglise_locale_id; // Empêcher le changement d'église
     delete updateData.password; // Empêcher le changement de mot de passe via cette route
 
-    const user = await prisma.user.update({
+    const user = await req.prisma.user.update({
       where: { id: userId },
       data: updateData,
       include: {
@@ -1638,8 +1614,7 @@ exports.updateOwnProfile = async (req, res) => {
 // @access  Private/Admin
 exports.getRetiredUsers = async (req, res) => {
   try {
-    const { prisma } = req;
-    const churchFilter = {};
+        const churchFilter = {};
 
     // Ajouter le filtre par église si spécifié
     if (req.query.churchId) {
@@ -1659,7 +1634,7 @@ exports.getRetiredUsers = async (req, res) => {
     }
 
     // Récupérer l'historique des membres qui ont quitté des groupes
-    const leftMembers = await prisma.groupMemberHistory.findMany({
+    const leftMembers = await req.prisma.groupMemberHistory.findMany({
       where: {
         action: 'LEFT'
       },
@@ -1729,7 +1704,7 @@ exports.getRetiredUsers = async (req, res) => {
       }
 
       // Vérifier si l'utilisateur est encore dans un groupe
-      const isStillInGroup = await prisma.groupMember.findFirst({
+      const isStillInGroup = await req.prisma.groupMember.findFirst({
         where: {
           user_id: leftMember.user.id
         }
@@ -1775,9 +1750,7 @@ exports.getRetiredUsers = async (req, res) => {
 // Upload d'image de profil
 exports.uploadProfileImage = async (req, res) => {
   try {
-    const { prisma } = req;
-    
-    if (!req.file) {
+        if (!req.file) {
       return res.status(400).json({
         success: false,
         message: 'Aucune image fournie'
@@ -1804,7 +1777,7 @@ exports.uploadProfileImage = async (req, res) => {
     const uploadPath = `uploads/profiles/${req.file.filename}`;
 
     // Mettre à jour l'utilisateur avec le chemin de l'image
-    const updatedUser = await prisma.user.update({
+    const updatedUser = await req.prisma.user.update({
       where: { id: req.user.id },
       data: { image: uploadPath },
       select: {
@@ -1836,10 +1809,8 @@ exports.uploadProfileImage = async (req, res) => {
 // Suppression d'image de profil
 exports.removeProfileImage = async (req, res) => {
   try {
-    const { prisma } = req;
-
-    // Récupérer l'utilisateur actuel
-    const user = await prisma.user.findUnique({
+        // Récupérer l'utilisateur actuel
+    const user = await req.prisma.user.findUnique({
       where: { id: req.user.id },
       select: { image: true }
     });
@@ -1856,7 +1827,7 @@ exports.removeProfileImage = async (req, res) => {
     }
 
     // Mettre à jour l'utilisateur pour supprimer le chemin de l'image
-    await prisma.user.update({
+    await req.prisma.user.update({
       where: { id: req.user.id },
       data: { image: '' }
     });
@@ -1880,8 +1851,7 @@ exports.removeProfileImage = async (req, res) => {
 // Uploader l'image d'un utilisateur spécifique
 exports.uploadUserImage = async (req, res) => {
   try {
-    const { prisma } = req;
-    const { id } = req.params;
+        const { id } = req.params;
     
     if (!req.file) {
       return res.status(400).json({
@@ -1907,7 +1877,7 @@ exports.uploadUserImage = async (req, res) => {
     }
 
     // Vérifier que l'utilisateur existe
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await req.prisma.user.findUnique({
       where: { id }
     });
 
@@ -1922,7 +1892,7 @@ exports.uploadUserImage = async (req, res) => {
     const uploadPath = `uploads/profiles/${req.file.filename}`;
 
     // Mettre à jour l'utilisateur avec le chemin de l'image
-    const updatedUser = await prisma.user.update({
+    const updatedUser = await req.prisma.user.update({
       where: { id },
       data: { image: uploadPath },
       select: {
@@ -1953,8 +1923,7 @@ exports.uploadUserImage = async (req, res) => {
 // Récupérer le réseau d'un utilisateur
 exports.getUserNetwork = async (req, res) => {
   try {
-    const { prisma } = req;
-    const { id } = req.params;
+        const { id } = req.params;
 
     if (!id) {
       return res.status(400).json({
@@ -1964,7 +1933,7 @@ exports.getUserNetwork = async (req, res) => {
     }
 
     // Vérifier que l'utilisateur existe
-    const user = await prisma.user.findUnique({
+    const user = await req.prisma.user.findUnique({
       where: { id },
       select: {
         id: true,
@@ -1987,7 +1956,7 @@ exports.getUserNetwork = async (req, res) => {
     let relationType = null;
 
     // Cas 1: Responsable du réseau (responsable1 ou responsable2)
-    network = await prisma.network.findFirst({
+    network = await req.prisma.network.findFirst({
       where: {
         OR: [
           { responsable1_id: id },
@@ -2015,7 +1984,7 @@ exports.getUserNetwork = async (req, res) => {
       relationType = 'responsable';
     } else {
       // Cas 2: Membre d'un GR (groupe) du réseau
-      const groupMember = await prisma.groupMember.findFirst({
+      const groupMember = await req.prisma.groupMember.findFirst({
         where: { user_id: id },
         include: {
           group: {
@@ -2047,7 +2016,7 @@ exports.getUserNetwork = async (req, res) => {
         relationType = 'membre_gr';
       } else {
         // Cas 3: Compagnon d'œuvre du réseau
-        const companion = await prisma.networkCompanion.findFirst({
+        const companion = await req.prisma.networkCompanion.findFirst({
           where: { user_id: id },
           include: {
             network: {
@@ -2125,8 +2094,7 @@ exports.getUserNetwork = async (req, res) => {
 // Récupérer la session d'un utilisateur
 exports.getUserSession = async (req, res) => {
   try {
-    const { prisma } = req;
-    const { id } = req.params;
+        const { id } = req.params;
 
     if (!id) {
       return res.status(400).json({
@@ -2136,7 +2104,7 @@ exports.getUserSession = async (req, res) => {
     }
 
     // Vérifier que l'utilisateur existe
-    const user = await prisma.user.findUnique({
+    const user = await req.prisma.user.findUnique({
       where: { id },
       select: {
         id: true,
@@ -2159,7 +2127,7 @@ exports.getUserSession = async (req, res) => {
     let relationType = null;
 
     // Cas 1: Responsable de la session (responsable1 ou responsable2)
-    session = await prisma.session.findFirst({
+    session = await req.prisma.session.findFirst({
       where: {
         OR: [
           { responsable1_id: id },
@@ -2187,7 +2155,7 @@ exports.getUserSession = async (req, res) => {
       relationType = 'responsable';
     } else {
       // Cas 2: Membre d'une unité de la session
-      const unitMember = await prisma.unitMember.findFirst({
+      const unitMember = await req.prisma.unitMember.findFirst({
         where: { user_id: id },
         include: {
           unit: {
@@ -2219,7 +2187,7 @@ exports.getUserSession = async (req, res) => {
         relationType = 'membre_unite';
       } else {
         // Cas 3: Responsable d'une unité de la session
-        const unitResponsable = await prisma.unit.findFirst({
+        const unitResponsable = await req.prisma.unit.findFirst({
           where: {
             OR: [
               { responsable1_id: id },

@@ -50,10 +50,10 @@ router.get('/:id/members', getNetworkMembers);
 router.get('/:id/companions', getNetworkCompanions);
 
 router.route('/:id/companions')
-  .post(authorize('ADMIN', 'MANAGER'), authorizeManagerNetworkAccess, addCompanion);
+  .post(authorize('ADMIN', 'MANAGER', 'COLLECTEUR_RESEAUX'), authorizeManagerNetworkAccess, addCompanion);
 
 router.route('/:id/companions/:companionId')
-  .delete(authorize('ADMIN', 'MANAGER'), authorizeManagerNetworkAccess, removeCompanion);
+  .delete(authorize('ADMIN', 'MANAGER', 'COLLECTEUR_RESEAUX'), authorizeManagerNetworkAccess, removeCompanion);
 
 router.route('/:id')
   .get(getNetwork)

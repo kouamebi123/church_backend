@@ -353,8 +353,8 @@ function authorizeManagerNetworkAccess(req, res, next) {
     return next();
   }
 
-  // manager ne peut accéder qu'aux réseaux de son église
-  if (req.user.role === 'MANAGER') {
+  // manager et COLLECTEUR_RESEAUX ne peuvent accéder qu'aux réseaux de leur église
+  if (req.user.role === 'MANAGER' || req.user.role === 'COLLECTEUR_RESEAUX') {
     const targetChurchId = req.params.churchId || req.query.churchId || req.body.church;
 
     if (targetChurchId && targetChurchId !== req.user.eglise_locale?.toString()) {

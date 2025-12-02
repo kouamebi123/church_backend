@@ -1,5 +1,131 @@
 const logger = require('../utils/logger');
 
+// Fonction utilitaire pour vérifier si un utilisateur a accès à un réseau
+const hasAccessToNetwork = async (prisma, user, network_id, church_id) => {
+  // SUPER_ADMIN a toujours accès
+  if (user.role === 'SUPER_ADMIN') {
+    return true;
+  }
+
+  // Vérifier si l'utilisateur appartient à la même église
+  const userChurchId = user.eglise_locale || user.eglise_locale_id;
+  if (userChurchId === church_id) {
+    // COLLECTEUR_RESEAUX a accès aux réseaux de son église
+    if (user.role === 'COLLECTEUR_RESEAUX') {
+      return true;
+    }
+    
+    // Vérifier aussi dans les rôles assignés si l'utilisateur a COLLECTEUR_RESEAUX
+    if (user.available_roles && user.available_roles.includes('COLLECTEUR_RESEAUX')) {
+      return true;
+    }
+    
+    // ADMIN et MANAGER ont accès
+    if (['ADMIN', 'MANAGER'].includes(user.role)) {
+      return true;
+    }
+    
+    // Vérifier aussi dans les rôles assignés si l'utilisateur a ADMIN ou MANAGER
+    if (user.available_roles) {
+      if (user.available_roles.some(role => ['ADMIN', 'MANAGER'].includes(role))) {
+        return true;
+      }
+    }
+  }
+
+  // Vérifier si l'utilisateur est responsable du réseau
+  const networkAsResponsable = await prisma.network.findFirst({
+    where: {
+      id: network_id,
+      OR: [
+        { responsable1_id: user.id },
+        { responsable2_id: user.id }
+      ]
+    }
+  });
+
+  if (networkAsResponsable) {
+    return true;
+  }
+
+  // Vérifier si l'utilisateur est compagnon d'œuvre du réseau
+  const networkCompanion = await prisma.networkCompanion.findFirst({
+    where: {
+      network_id: network_id,
+      user_id: user.id
+    }
+  });
+
+  if (networkCompanion) {
+    return true;
+  }
+
+  return false;
+};
+
+// Fonction utilitaire pour vérifier si un utilisateur a accès à un réseau/prévisionnel
+const hasAccessToPrevisionnel = async (prisma, user, previsionnel) => {
+  // SUPER_ADMIN a toujours accès
+  if (user.role === 'SUPER_ADMIN') {
+    return true;
+  }
+
+  // Vérifier si l'utilisateur appartient à la même église
+  const userChurchId = user.eglise_locale || user.eglise_locale_id;
+  if (userChurchId === previsionnel.church_id) {
+    // COLLECTEUR_RESEAUX a accès aux prévisionnels de son église
+    if (user.role === 'COLLECTEUR_RESEAUX') {
+      return true;
+    }
+    
+    // Vérifier aussi dans les rôles assignés si l'utilisateur a COLLECTEUR_RESEAUX
+    if (user.available_roles && user.available_roles.includes('COLLECTEUR_RESEAUX')) {
+      return true;
+    }
+    
+    // ADMIN et MANAGER ont accès
+    if (['ADMIN', 'MANAGER'].includes(user.role)) {
+      return true;
+    }
+    
+    // Vérifier aussi dans les rôles assignés si l'utilisateur a ADMIN ou MANAGER
+    if (user.available_roles) {
+      if (user.available_roles.some(role => ['ADMIN', 'MANAGER'].includes(role))) {
+        return true;
+      }
+    }
+  }
+
+  // Vérifier si l'utilisateur est responsable du réseau
+  const networkAsResponsable = await prisma.network.findFirst({
+    where: {
+      id: previsionnel.network_id,
+      OR: [
+        { responsable1_id: user.id },
+        { responsable2_id: user.id }
+      ]
+    }
+  });
+
+  if (networkAsResponsable) {
+    return true;
+  }
+
+  // Vérifier si l'utilisateur est compagnon d'œuvre du réseau
+  const networkCompanion = await prisma.networkCompanion.findFirst({
+    where: {
+      network_id: previsionnel.network_id,
+      user_id: user.id
+    }
+  });
+
+  if (networkCompanion) {
+    return true;
+  }
+
+  return false;
+};
+
 // Fonction utilitaire pour vérifier les doublons par semaine et type de culte
 const checkDuplicatePrevisionnel = async (prisma, network_id, date, type_culte, excludeId = null) => {
   try {
@@ -17,7 +143,7 @@ const checkDuplicatePrevisionnel = async (prisma, network_id, date, type_culte, 
     sunday.setHours(23, 59, 59, 999);
     
     // Vérifier s'il existe déjà un previsionnel pour cette semaine et ce type de culte
-    const existingPrevisionnel = await req.prisma.previsionnel.findFirst({
+    const existingPrevisionnel = await prisma.previsionnel.findFirst({
       where: {
         network_id,
         type_culte,
@@ -61,7 +187,8 @@ const createPrevisionnel = async (req, res) => {
     logger.info('✅ Réseau trouvé:', { network_id: network.id, church_id: church_id });
 
     // Vérifier que l'utilisateur a accès à ce réseau
-    if (req.user.role !== 'SUPER_ADMIN' && req.user.eglise_locale_id !== church_id) {
+    const hasAccess = await hasAccessToNetwork(req.prisma, req.user, network_id, church_id);
+    if (!hasAccess) {
       return res.status(403).json({
         success: false,
         message: 'Accès non autorisé à ce réseau'
@@ -159,7 +286,8 @@ const getPrevisionnelsByNetwork = async (req, res) => {
     }
 
     // Vérifier les permissions
-    if (req.user.role !== 'SUPER_ADMIN' && req.user.eglise_locale_id !== network.church_id) {
+    const hasAccess = await hasAccessToNetwork(req.prisma, req.user, networkId, network.church_id);
+    if (!hasAccess) {
       return res.status(403).json({
         success: false,
         message: 'Accès non autorisé à ce réseau'
@@ -233,7 +361,19 @@ const getPrevisionnelById = async (req, res) => {
 
     const previsionnel = await req.prisma.previsionnel.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        date: true,
+        type_culte: true,
+        total_prevu: true,
+        invites: true,
+        responsables_reseau: true,
+        compagnons_oeuvre: true,
+        network_id: true,
+        church_id: true,
+        created_by_id: true,
+        createdAt: true,
+        updatedAt: true,
         network: { select: { nom: true, church: { select: { nom: true } } } },
         groupes_previsions: {
           include: {
@@ -259,7 +399,8 @@ const getPrevisionnelById = async (req, res) => {
     }
 
     // Vérifier les permissions
-    if (req.user.role !== 'SUPER_ADMIN' && req.user.eglise_locale_id !== previsionnel.church_id) {
+    const hasAccess = await hasAccessToPrevisionnel(req.prisma, req.user, previsionnel);
+    if (!hasAccess) {
       return res.status(403).json({
         success: false,
         message: 'Accès non autorisé à ce prévisionnel'
@@ -301,7 +442,8 @@ const updatePrevisionnel = async (req, res) => {
     }
 
     // Vérifier les permissions
-    if (req.user.role !== 'SUPER_ADMIN' && req.user.eglise_locale_id !== existingPrevisionnel.church_id) {
+    const hasAccess = await hasAccessToPrevisionnel(req.prisma, req.user, existingPrevisionnel);
+    if (!hasAccess) {
       return res.status(403).json({
         success: false,
         message: 'Accès non autorisé à ce prévisionnel'
@@ -408,7 +550,8 @@ const deletePrevisionnel = async (req, res) => {
     }
 
     // Vérifier les permissions
-    if (req.user.role !== 'SUPER_ADMIN' && req.user.eglise_locale_id !== previsionnel.church_id) {
+    const hasAccess = await hasAccessToPrevisionnel(req.prisma, req.user, previsionnel);
+    if (!hasAccess) {
       return res.status(403).json({
         success: false,
         message: 'Accès non autorisé à ce prévisionnel'

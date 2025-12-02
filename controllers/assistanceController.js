@@ -52,7 +52,7 @@ const checkDuplicateAssistance = async (prisma, network_id, date, type_culte, ex
     nextSunday.setHours(0, 0, 0, 0);
     
     // Vérifier s'il existe déjà une assistance pour cette semaine (dimanche) et ce type de culte
-    const existingAssistance = await prisma.assistance.findFirst({
+    const existingAssistance = await req.prisma.assistance.findFirst({
       where: {
         network_id,
         type_culte,
@@ -345,7 +345,7 @@ const updateAssistance = async (req, res) => {
     logger.info('📅 Mise à jour assistance - Date du culte:', { originalDate: date, sundayOfWeek: sundayOfWeek.toISOString() });
 
     // Vérifier que l'assistance existe
-    const existingAssistance = await prisma.assistance.findUnique({
+    const existingAssistance = await req.prisma.assistance.findUnique({
       where: { id },
       include: { created_by: true }
     });
@@ -443,7 +443,7 @@ const deleteAssistance = async (req, res) => {
     const { id } = req.params;
 
     // Vérifier que l'assistance existe
-    const existingAssistance = await prisma.assistance.findUnique({
+    const existingAssistance = await req.prisma.assistance.findUnique({
       where: { id },
       include: { created_by: true }
     });

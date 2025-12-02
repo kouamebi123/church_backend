@@ -1462,7 +1462,6 @@ exports.getNetworksDepartmentInvolvement = async (req, res) => {
 // Ajouter un compagnon d'œuvre à un réseau
 exports.addCompanion = async (req, res) => {
   try {
-    const { prisma } = req;
     const { id } = req.params;
     const { user_id } = req.body;
 
@@ -1474,8 +1473,13 @@ exports.addCompanion = async (req, res) => {
     }
 
     // Vérifier que le réseau existe
-    const network = await prisma.network.findUnique({
-      where: { id }
+    const network = await req.prisma.network.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        nom: true,
+        church_id: true
+      }
     });
 
     if (!network) {
@@ -1485,8 +1489,20 @@ exports.addCompanion = async (req, res) => {
       });
     }
 
+    // Vérifier les permissions : SUPER_ADMIN, ADMIN, MANAGER ou COLLECTEUR_RESEAUX de la même église
+    const userChurchId = req.user.eglise_locale || req.user.eglise_locale_id;
+    if (req.user.role !== 'SUPER_ADMIN' && 
+        req.user.role !== 'ADMIN' && 
+        req.user.role !== 'MANAGER' && 
+        (req.user.role !== 'COLLECTEUR_RESEAUX' || userChurchId !== network.church_id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès non autorisé à ce réseau'
+      });
+    }
+
     // Vérifier que l'utilisateur existe
-    const user = await prisma.user.findUnique({
+    const user = await req.prisma.user.findUnique({
       where: { id: user_id }
     });
 
@@ -1498,7 +1514,7 @@ exports.addCompanion = async (req, res) => {
     }
 
     // Contrainte 1: Vérifier que l'utilisateur n'est pas déjà compagnon d'un autre réseau
-    const existingCompanionInOtherNetwork = await prisma.networkCompanion.findFirst({
+    const existingCompanionInOtherNetwork = await req.prisma.networkCompanion.findFirst({
       where: {
         user_id: user_id,
         network_id: { not: id }
@@ -1513,7 +1529,7 @@ exports.addCompanion = async (req, res) => {
     }
 
     // Contrainte 2: Vérifier que l'utilisateur n'est pas membre d'un GR
-    const isMemberOfGroup = await prisma.groupMember.findFirst({
+    const isMemberOfGroup = await req.prisma.groupMember.findFirst({
       where: { user_id: user_id }
     });
 
@@ -1525,7 +1541,7 @@ exports.addCompanion = async (req, res) => {
     }
 
     // Contrainte 3: Vérifier si le compagnon d'œuvre n'est pas déjà ajouté à CE réseau
-    const existingCompanion = await prisma.networkCompanion.findUnique({
+    const existingCompanion = await req.prisma.networkCompanion.findUnique({
       where: {
         network_id_user_id: {
           network_id: id,
@@ -1542,7 +1558,7 @@ exports.addCompanion = async (req, res) => {
     }
 
     // Créer le compagnon d'œuvre
-    const companion = await prisma.networkCompanion.create({
+    const companion = await req.prisma.networkCompanion.create({
       data: {
         network_id: id,
         user_id: user_id
@@ -1579,17 +1595,17 @@ exports.addCompanion = async (req, res) => {
 // Supprimer un compagnon d'œuvre d'un réseau
 exports.removeCompanion = async (req, res) => {
   try {
-    const { prisma } = req;
     const { id, companionId } = req.params;
 
     // Vérifier que le compagnon d'œuvre existe
-    const companion = await prisma.networkCompanion.findUnique({
+    const companion = await req.prisma.networkCompanion.findUnique({
       where: { id: companionId },
       include: {
         network: {
           select: {
             id: true,
-            nom: true
+            nom: true,
+            church_id: true
           }
         }
       }
@@ -1610,8 +1626,20 @@ exports.removeCompanion = async (req, res) => {
       });
     }
 
+    // Vérifier les permissions : SUPER_ADMIN, ADMIN, MANAGER ou COLLECTEUR_RESEAUX de la même église
+    const userChurchId = req.user.eglise_locale || req.user.eglise_locale_id;
+    if (req.user.role !== 'SUPER_ADMIN' && 
+        req.user.role !== 'ADMIN' && 
+        req.user.role !== 'MANAGER' && 
+        (req.user.role !== 'COLLECTEUR_RESEAUX' || userChurchId !== companion.network.church_id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès non autorisé à ce réseau'
+      });
+    }
+
     // Supprimer le compagnon d'œuvre
-    await prisma.networkCompanion.delete({
+    await req.prisma.networkCompanion.delete({
       where: { id: companionId }
     });
 
