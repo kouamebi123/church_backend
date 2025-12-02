@@ -1703,15 +1703,37 @@ exports.getRetiredUsers = async (req, res) => {
         continue;
       }
 
-      // Vérifier si l'utilisateur est encore dans un groupe
+      // Vérifier si l'utilisateur est encore actif par l'une des conditions suivantes:
+      // - encore dans un groupe
+      // - compagnon d'oeuvre (lié via networkCompanion)
+      // - responsable de réseau (assigné comme responsable1 ou responsable2)
+      // - possède une qualification spéciale (GOUVERNANCE ou ECODIM)
+      const userId = leftMember.user.id;
+
       const isStillInGroup = await req.prisma.groupMember.findFirst({
+        where: { user_id: userId }
+      });
+
+      const isCompanion = await req.prisma.networkCompanion.findFirst({
+        where: { user_id: userId }
+      });
+
+      const isNetworkResponsible = await req.prisma.network.findFirst({
         where: {
-          user_id: leftMember.user.id
+          OR: [
+            { responsable1_id: userId },
+            { responsable2_id: userId }
+          ]
         }
       });
 
-      // Si l'utilisateur n'est plus dans aucun groupe, il est retiré
-      if (!isStillInGroup) {
+      const hasSpecialQualification = [
+        'GOUVERNANCE',
+        'ECODIM'
+      ].includes(leftMember.user.qualification);
+
+      // Si l'utilisateur n'est plus actif selon les critères ci-dessus, il est considéré comme retiré
+      if (!isStillInGroup && !isCompanion && !isNetworkResponsible && !hasSpecialQualification) {
         retiredUsers.push({
           user: leftMember.user,
           leftAt: leftMember.createdAt,
