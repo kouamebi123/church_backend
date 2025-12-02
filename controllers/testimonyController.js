@@ -743,7 +743,8 @@ exports.getTestimonyById = async (req, res) => {
             fileName: true,
             originalName: true,
             fileType: true,
-            fileSize: true
+            fileSize: true,
+            fileCategory: true
           }
         }
       }
@@ -823,7 +824,7 @@ exports.getAllTestimonies = async (req, res) => {
             select: { id: true, nom: true }
           },
           illustrations: {
-            select: { id: true, fileName: true, originalName: true }
+            select: { id: true, fileName: true, originalName: true, fileType: true, fileSize: true, fileCategory: true }
           }
         }
       }),
