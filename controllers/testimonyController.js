@@ -44,7 +44,6 @@ exports.uploadTestimonyFiles = testimonyUpload.array('illustrations', 2);
 // Obtenir toutes les églises (pour le formulaire)
 exports.getChurches = async (req, res) => {
   try {
-    const { prisma } = req;
     const churches = await req.prisma.church.findMany({
       select: {
         id: true,
@@ -72,7 +71,6 @@ exports.getChurches = async (req, res) => {
 // Obtenir les réseaux d'une église
 exports.getNetworksByChurch = async (req, res) => {
   try {
-    const { prisma } = req;
     const { churchId } = req.params;
 
     if (!churchId) {
@@ -112,7 +110,6 @@ exports.getNetworksByChurch = async (req, res) => {
 // Obtenir les sections (sessions) d'une église
 exports.getSectionsByChurch = async (req, res) => {
   try {
-    const { prisma } = req;
     const { churchId } = req.params;
 
     if (!churchId) {
@@ -153,7 +150,6 @@ exports.getSectionsByChurch = async (req, res) => {
 // Créer un nouveau témoignage
 exports.createTestimony = async (req, res) => {
   try {
-    const { prisma } = req;
     const {
       firstName,
       lastName,
@@ -413,7 +409,6 @@ exports.getApprovedTestimonies = async (req, res) => {
 // Obtenir un témoignage par ID
 exports.getTestimonyById = async (req, res) => {
   try {
-    const { prisma } = req;
     const { id } = req.params;
 
     const testimony = await req.prisma.testimony.findUnique({
@@ -466,7 +461,6 @@ exports.getTestimonyById = async (req, res) => {
 // Obtenir tous les témoignages (pour l'admin)
 exports.getAllTestimonies = async (req, res) => {
   try {
-    const { prisma } = req;
     const { page = 1, limit = 10, churchId, category, search, isRead } = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -547,7 +541,6 @@ exports.getAllTestimonies = async (req, res) => {
 // Supprimer un témoignage
 exports.deleteTestimony = async (req, res) => {
   try {
-    const { prisma } = req;
     const { id } = req.params;
 
     // Vérifier si le témoignage existe
@@ -622,7 +615,6 @@ exports.getTestimonyCategories = async (req, res) => {
 // Marquer un témoignage comme lu
 exports.markAsRead = async (req, res) => {
   try {
-    const { prisma } = req;
     const { id } = req.params;
 
     const testimony = await req.prisma.testimony.update({
@@ -649,7 +641,6 @@ exports.markAsRead = async (req, res) => {
 // Obtenir les témoignages pour le culte (avec filtres)
 exports.getTestimoniesForCulte = async (req, res) => {
   try {
-    const { prisma } = req;
     const { churchId } = req.params;
     const { wantsToTestify, isConfirmed, hasTestified } = req.query;
 
@@ -823,7 +814,6 @@ exports.markAsTestified = async (req, res) => {
 // Ajouter ou modifier une note
 exports.addNote = async (req, res) => {
   try {
-    const { prisma } = req;
     const { id } = req.params;
     const { note } = req.body;
 

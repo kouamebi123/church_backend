@@ -17,7 +17,7 @@ const checkDuplicatePrevisionnel = async (prisma, network_id, date, type_culte, 
     sunday.setHours(23, 59, 59, 999);
     
     // Vérifier s'il existe déjà un previsionnel pour cette semaine et ce type de culte
-    const existingPrevisionnel = await prisma.previsionnel.findFirst({
+    const existingPrevisionnel = await req.prisma.previsionnel.findFirst({
       where: {
         network_id,
         type_culte,
