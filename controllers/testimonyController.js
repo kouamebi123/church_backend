@@ -192,7 +192,18 @@ exports.createTestimony = async (req, res) => {
 
     // Validation des champs requis
     // Le témoignage peut être soit du texte (content) soit un fichier audio
-    const hasAudioFile = req.files && req.files.audioFile && req.files.audioFile.length > 0;
+    // Vérifier la structure de req.files (peut être un objet avec des arrays ou directement des arrays)
+    let hasAudioFile = false;
+    if (req.files) {
+      if (req.files.audioFile) {
+        if (Array.isArray(req.files.audioFile)) {
+          hasAudioFile = req.files.audioFile.length > 0;
+        } else {
+          // Si c'est un seul fichier (pas un array)
+          hasAudioFile = true;
+        }
+      }
+    }
     const hasTextContent = content && content.trim() !== '';
     
     if (!churchId || !category) {
@@ -291,6 +302,23 @@ exports.createTestimony = async (req, res) => {
       }
     }
 
+    // Vérifier que la section existe si fournie
+    if (finalSection) {
+      const session = await req.prisma.session.findFirst({
+        where: {
+          id: finalSection,
+          church_id: churchId
+        }
+      });
+
+      if (!session) {
+        return res.status(400).json({
+          success: false,
+          message: 'Section non trouvée pour cette église'
+        });
+      }
+    }
+
     // Déterminer le contenu : si audio fourni et pas de texte, mettre un placeholder
     let finalContent = content || '';
     if (hasAudioFile && !hasTextContent) {
@@ -335,27 +363,40 @@ exports.createTestimony = async (req, res) => {
     
     if (req.files) {
       // Ajouter les illustrations
-      if (req.files.illustrations && Array.isArray(req.files.illustrations)) {
-        allFiles.push(...req.files.illustrations.map(f => ({ ...f, category: 'ILLUSTRATION' })));
+      if (req.files.illustrations) {
+        if (Array.isArray(req.files.illustrations)) {
+          allFiles.push(...req.files.illustrations.map(f => ({ ...f, category: 'ILLUSTRATION' })));
+        } else {
+          // Si c'est un seul fichier (pas un array)
+          allFiles.push({ ...req.files.illustrations, category: 'ILLUSTRATION' });
+        }
       }
       
       // Ajouter le fichier audio
-      if (req.files.audioFile && Array.isArray(req.files.audioFile) && req.files.audioFile.length > 0) {
-        allFiles.push({ ...req.files.audioFile[0], category: 'AUDIO' });
+      if (req.files.audioFile) {
+        if (Array.isArray(req.files.audioFile) && req.files.audioFile.length > 0) {
+          allFiles.push({ ...req.files.audioFile[0], category: 'AUDIO' });
+        } else if (!Array.isArray(req.files.audioFile)) {
+          // Si c'est un seul fichier (pas un array)
+          allFiles.push({ ...req.files.audioFile, category: 'AUDIO' });
+        }
       }
     }
 
     // Créer les fichiers en base de données
     if (allFiles.length > 0) {
       const filePromises = allFiles.map(file => {
+        // Construire le chemin du fichier si nécessaire
+        const filePath = file.path || path.join(__dirname, '../uploads/testimonies', file.filename);
+        
         return req.prisma.testimonyFile.create({
           data: {
             testimonyId: testimony.id,
             fileName: file.filename,
-            originalName: file.originalname,
-            filePath: file.path,
-            fileType: file.mimetype,
-            fileSize: file.size,
+            originalName: file.originalname || file.filename,
+            filePath: filePath,
+            fileType: file.mimetype || 'application/octet-stream',
+            fileSize: file.size || 0,
             fileCategory: file.category || 'ILLUSTRATION'
           }
         });
@@ -382,9 +423,13 @@ exports.createTestimony = async (req, res) => {
 
   } catch (error) {
     logger.error('Erreur lors de la création du témoignage:', error);
+    logger.error('Stack trace:', error.stack);
+    logger.error('Request body:', req.body);
+    logger.error('Request files:', req.files);
     res.status(500).json({
       success: false,
-      message: 'Erreur lors de la soumission du témoignage'
+      message: 'Erreur lors de la soumission du témoignage',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
