@@ -271,7 +271,32 @@ exports.getGlobalStats = async (req, res) => {
           ...respIds
         ]);
         total_network_members = membersSet.size;
-      } 
+      } else {
+        // Toutes les églises: agréger sur l'ensemble des réseaux
+        const allNetworks = await prisma.network.findMany({
+          select: { id: true, responsable1_id: true, responsable2_id: true }
+        });
+        const allGroupMembers = await prisma.groupMember.findMany({
+          select: { user_id: true, group: { select: { network_id: true } } }
+        });
+        const allCompanions = await prisma.networkCompanion.findMany({
+          select: { user_id: true, network_id: true }
+        });
+
+        const respIds = new Set();
+        allNetworks.forEach(n => {
+          if (n.responsable1_id) respIds.add(n.responsable1_id);
+          if (n.responsable2_id) respIds.add(n.responsable2_id);
+        });
+
+        const membersSet = new Set([
+          ...allGroupMembers.map(gm => gm.user_id),
+          ...allCompanions.map(c => c.user_id),
+          ...respIds
+        ]);
+
+        total_network_members = membersSet.size;
+      }
     } catch (e) {
       logger.warn('Stats - total_network_members - calcul partiel échoué, valeur par défaut 0');
       total_network_members = 0;

@@ -711,7 +711,7 @@ exports.createUser = async (req, res) => {
       });
 
       // Log de l'activité
-      await createActivityLog(prisma, req.user.id, 'CREATE', 'USER', updatedUser.id, updatedUser.username, `Utilisateur créé: ${updatedUser.username}`, req);
+      await createActivityLog(req.prisma, req.user.id, 'CREATE', 'USER', updatedUser.id, updatedUser.username, `Utilisateur créé: ${updatedUser.username}`, req);
 
       return res.status(201).json({
         success: true,
@@ -722,7 +722,7 @@ exports.createUser = async (req, res) => {
     }
 
     // Log de l'activité
-    await createActivityLog(prisma, req.user.id, 'CREATE', 'USER', newUser.id, newUser.username, `Utilisateur créé: ${newUser.username}`, req);
+    await createActivityLog(req.prisma, req.user.id, 'CREATE', 'USER', newUser.id, newUser.username, `Utilisateur créé: ${newUser.username}`, req);
 
     res.status(201).json({
       success: true,
@@ -1128,7 +1128,7 @@ exports.deleteUser = async (req, res) => {
     }
 
     // Log de l'activité avant suppression
-    await createActivityLog(prisma, req.user.id, 'DELETE', 'USER', id, existingUser.username, `Utilisateur supprimé: ${existingUser.username}`, req);
+    await createActivityLog(req.prisma, req.user.id, 'DELETE', 'USER', id, existingUser.username, `Utilisateur supprimé: ${existingUser.username}`, req);
 
     // Suppression de l'utilisateur
     await req.prisma.user.delete({
