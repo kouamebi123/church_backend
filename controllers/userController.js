@@ -286,7 +286,7 @@ exports.getUser = async (req, res) => {
 // Obtenir les membres isolés
 exports.getIsoles = async (req, res) => {
   try {
-        let usersInGroups = [];
+    let usersInGroups = [];
     const churchFilter = {};
 
     // Ajouter le filtre par église si spécifié
@@ -374,7 +374,7 @@ exports.getIsoles = async (req, res) => {
 // Obtenir les membres non isolés
 exports.getNonIsoles = async (req, res) => {
   try {
-        let usersInGroups = [];
+    let usersInGroups = [];
     const churchFilter = {};
 
     // Ajouter le filtre par église si spécifié
@@ -464,7 +464,7 @@ exports.getNonIsoles = async (req, res) => {
 // Créer un nouvel utilisateur
 exports.createUser = async (req, res) => {
   try {
-        const userData = req.body;
+    const userData = req.body;
 
     // Logs supprimés pour réduire le volume de logs
 
@@ -982,7 +982,7 @@ exports.updateUser = async (req, res) => {
 // Supprimer un utilisateur
 exports.deleteUser = async (req, res) => {
   try {
-        const { id } = req.params;
+    const { id } = req.params;
 
     // Vérifier que l'utilisateur existe
     const existingUser = await req.prisma.user.findUnique({
@@ -1151,7 +1151,7 @@ exports.deleteUser = async (req, res) => {
 // Récupérer les utilisateurs disponibles pour les groupes
 exports.getAvailableUsers = async (req, res) => {
   try {
-        const { churchId, forSession, forNetwork } = req.query;
+    const { churchId, forSession, forNetwork } = req.query;
 
     const where = {};
 
@@ -1278,7 +1278,7 @@ exports.getAvailableUsers = async (req, res) => {
 // Mettre à jour la qualification d'un utilisateur
 exports.updateQualification = async (req, res) => {
   try {
-        const { id } = req.params;
+    const { id } = req.params;
     const { qualification } = req.body;
 
     if (!qualification) {
@@ -1319,7 +1319,7 @@ exports.updateQualification = async (req, res) => {
 // Réinitialiser le mot de passe d'un utilisateur
 exports.resetPassword = async (req, res) => {
   try {
-        const { id } = req.params;
+    const { id } = req.params;
     const { newPassword } = req.body;
 
     if (!newPassword) {
@@ -1355,7 +1355,7 @@ exports.resetPassword = async (req, res) => {
 // Récupérer les utilisateurs non isolés
 exports.getNonIsoles = async (req, res) => {
   try {
-        const where = {};
+    const where = {};
 
     // Filtrage automatique pour les managers
     if (req.user && req.user.role === 'MANAGER' && req.user.eglise_locale_id) {
@@ -1398,7 +1398,7 @@ exports.getNonIsoles = async (req, res) => {
 // Récupérer les utilisateurs en intégration
 exports.getUsersEnIntegration = async (req, res) => {
   try {
-        const where = {};
+    const where = {};
 
     // Filtrage automatique pour les managers
     if (req.user && req.user.role === 'MANAGER' && req.user.eglise_locale_id) {
@@ -1438,7 +1438,7 @@ exports.getUsersEnIntegration = async (req, res) => {
 // Récupérer les statistiques des utilisateurs
 exports.getUserStats = async (req, res) => {
   try {
-        const where = {};
+    const where = {};
 
     // Filtrage automatique pour les managers
     if (req.user && req.user.role === 'MANAGER' && req.user.eglise_locale_id) {
@@ -1474,7 +1474,7 @@ exports.getUserStats = async (req, res) => {
 // Obtenir l'évolution des membres sur 12 mois
 exports.getUsersEvolution = async (req, res) => {
   try {
-        const { churchId } = req.query;
+    const { churchId } = req.query;
 
     const where = {};
 
@@ -1560,7 +1560,7 @@ exports.getUsersEvolution = async (req, res) => {
 // Mettre à jour son propre profil (pour les utilisateurs connectés)
 exports.updateOwnProfile = async (req, res) => {
   try {
-        // L'utilisateur ne peut modifier que son propre profil
+    // L'utilisateur ne peut modifier que son propre profil
     const userId = req.user.id;
 
     // Empêcher la modification de champs sensibles
@@ -1614,7 +1614,7 @@ exports.updateOwnProfile = async (req, res) => {
 // @access  Private/Admin
 exports.getRetiredUsers = async (req, res) => {
   try {
-        const churchFilter = {};
+    const churchFilter = {};
 
     // Ajouter le filtre par église si spécifié
     if (req.query.churchId) {
@@ -1750,7 +1750,7 @@ exports.getRetiredUsers = async (req, res) => {
 // Upload d'image de profil
 exports.uploadProfileImage = async (req, res) => {
   try {
-        if (!req.file) {
+    if (!req.file) {
       return res.status(400).json({
         success: false,
         message: 'Aucune image fournie'
@@ -1809,7 +1809,7 @@ exports.uploadProfileImage = async (req, res) => {
 // Suppression d'image de profil
 exports.removeProfileImage = async (req, res) => {
   try {
-        // Récupérer l'utilisateur actuel
+    // Récupérer l'utilisateur actuel
     const user = await req.prisma.user.findUnique({
       where: { id: req.user.id },
       select: { image: true }
@@ -1851,7 +1851,7 @@ exports.removeProfileImage = async (req, res) => {
 // Uploader l'image d'un utilisateur spécifique
 exports.uploadUserImage = async (req, res) => {
   try {
-        const { id } = req.params;
+    const { id } = req.params;
     
     if (!req.file) {
       return res.status(400).json({
@@ -1923,7 +1923,7 @@ exports.uploadUserImage = async (req, res) => {
 // Récupérer le réseau d'un utilisateur
 exports.getUserNetwork = async (req, res) => {
   try {
-        const { id } = req.params;
+    const { id } = req.params;
 
     if (!id) {
       return res.status(400).json({
@@ -2094,7 +2094,7 @@ exports.getUserNetwork = async (req, res) => {
 // Récupérer la session d'un utilisateur
 exports.getUserSession = async (req, res) => {
   try {
-        const { id } = req.params;
+    const { id } = req.params;
 
     if (!id) {
       return res.status(400).json({

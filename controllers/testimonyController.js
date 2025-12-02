@@ -334,10 +334,14 @@ exports.createTestimony = async (req, res) => {
     }
 
     // Créer le témoignage
+    // S'assurer que firstName et lastName ne sont jamais undefined ou null
+    const finalFirstName = isAnonymousBool ? 'Anonyme' : (firstName || 'Anonyme');
+    const finalLastName = isAnonymousBool ? 'Anonyme' : (lastName || 'Anonyme');
+    
     const testimony = await req.prisma.testimony.create({
       data: {
-        firstName: isAnonymousBool ? 'Anonyme' : firstName,
-        lastName: isAnonymousBool ? 'Anonyme' : lastName,
+        firstName: finalFirstName,
+        lastName: finalLastName,
         phone: phone || null,
         email: email || null,
         churchId,
@@ -379,20 +383,69 @@ exports.createTestimony = async (req, res) => {
       // Ajouter les illustrations
       if (req.files.illustrations) {
         if (Array.isArray(req.files.illustrations)) {
-          allFiles.push(...req.files.illustrations.map(f => ({ ...f, category: 'ILLUSTRATION' })));
+          req.files.illustrations.forEach(f => {
+            if (f && f.filename) {
+              allFiles.push({
+                filename: f.filename,
+                originalname: f.originalname || f.filename,
+                mimetype: f.mimetype || 'application/octet-stream',
+                size: f.size,
+                path: f.path,
+                category: 'ILLUSTRATION'
+              });
+            } else {
+              logger.warn('Fichier illustration invalide ignoré:', f);
+            }
+          });
         } else {
           // Si c'est un seul fichier (pas un array)
-          allFiles.push({ ...req.files.illustrations, category: 'ILLUSTRATION' });
+          const f = req.files.illustrations;
+          if (f && f.filename) {
+            allFiles.push({
+              filename: f.filename,
+              originalname: f.originalname || f.filename,
+              mimetype: f.mimetype || 'application/octet-stream',
+              size: f.size,
+              path: f.path,
+              category: 'ILLUSTRATION'
+            });
+          } else {
+            logger.warn('Fichier illustration invalide ignoré:', f);
+          }
         }
       }
       
       // Ajouter le fichier audio
       if (req.files.audioFile) {
         if (Array.isArray(req.files.audioFile) && req.files.audioFile.length > 0) {
-          allFiles.push({ ...req.files.audioFile[0], category: 'AUDIO' });
+          const f = req.files.audioFile[0];
+          if (f && f.filename) {
+            allFiles.push({
+              filename: f.filename,
+              originalname: f.originalname || f.filename,
+              mimetype: f.mimetype || 'application/octet-stream',
+              size: f.size,
+              path: f.path,
+              category: 'AUDIO'
+            });
+          } else {
+            logger.warn('Fichier audio invalide ignoré:', f);
+          }
         } else if (!Array.isArray(req.files.audioFile)) {
           // Si c'est un seul fichier (pas un array)
-          allFiles.push({ ...req.files.audioFile, category: 'AUDIO' });
+          const f = req.files.audioFile;
+          if (f && f.filename) {
+            allFiles.push({
+              filename: f.filename,
+              originalname: f.originalname || f.filename,
+              mimetype: f.mimetype || 'application/octet-stream',
+              size: f.size,
+              path: f.path,
+              category: 'AUDIO'
+            });
+          } else {
+            logger.warn('Fichier audio invalide ignoré:', f);
+          }
         }
       }
     }
@@ -410,17 +463,45 @@ exports.createTestimony = async (req, res) => {
           }
           
           // Construire le chemin du fichier si nécessaire
-          const filePath = file.path || path.join(__dirname, '../uploads/testimonies', file.filename);
+          let filePath;
+          if (!file.path || typeof file.path !== 'string' || file.path.trim() === '') {
+            filePath = path.join(__dirname, '../uploads/testimonies', file.filename);
+          } else {
+            filePath = file.path;
+          }
+          
+          // S'assurer que tous les champs sont correctement définis pour Prisma
+          let fileSize = 0;
+          if (file.size !== undefined && file.size !== null) {
+            const parsedSize = parseInt(file.size, 10);
+            fileSize = isNaN(parsedSize) ? 0 : parsedSize;
+          }
+          const fileType = file.mimetype || 'application/octet-stream';
+          const originalName = file.originalname || file.filename || 'unknown';
+          const fileName = file.filename || 'unknown';
+          const fileCategory = file.category || 'ILLUSTRATION';
+          
+          logger.info('Création fichier témoignage:', {
+            filename: fileName,
+            originalName: originalName,
+            filePath: filePath,
+            fileType: fileType,
+            fileSize: fileSize,
+            category: fileCategory,
+            hasPath: !!file.path,
+            rawSize: file.size,
+            rawMimetype: file.mimetype
+          });
           
           return req.prisma.testimonyFile.create({
             data: {
               testimonyId: testimony.id,
-              fileName: file.filename,
-              originalName: file.originalname || file.filename,
+              fileName: fileName,
+              originalName: originalName,
               filePath: filePath,
-              fileType: file.mimetype || 'application/octet-stream',
-              fileSize: file.size || 0,
-              fileCategory: file.category || 'ILLUSTRATION'
+              fileType: fileType,
+              fileSize: fileSize,
+              fileCategory: fileCategory
             }
           });
         });
