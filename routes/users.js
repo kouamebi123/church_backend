@@ -83,6 +83,7 @@ router.route('/')
 router.get('/retired', userController.getRetiredUsers || ((req, res) => res.status(501).json({ success: false, message: 'Non implémenté' })));
 router.get('/stats', userController.getUserStats);
 router.get('/evolution', userController.getUsersEvolution);
+router.get('/:id/relations', authorize('ADMIN', 'MANAGER', 'SUPER_ADMIN'), userController.getUserRelations);
 
 router.route('/:id')
   .get(userController.getUser)

@@ -15,6 +15,100 @@ const extractChurchId = (egliseLocale) => {
   return null;
 };
 
+// Récupérer toutes les relations clés d'un utilisateur (diagnostic suppression)
+exports.getUserRelations = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'ID utilisateur requis' });
+    }
+
+    // Vérifier que l'utilisateur existe
+    const user = await req.prisma.user.findUnique({ where: { id }, select: { id: true, username: true } });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
+    }
+
+    // Collecte des relations
+    const [
+      groupMemberOf,
+      groupsResponsible,
+      networksResponsible,
+      companionOf,
+      sessionsResponsible,
+      unitMemberOf,
+      unitsResponsible,
+      servicesLinkedCollect,
+      servicesLinkedSuperv,
+      messagesSentCount,
+      messagesReceivedCount
+    ] = await Promise.all([
+      // Membre de GR
+      req.prisma.groupMember.findMany({
+        where: { user_id: id },
+        include: { group: { select: { id: true, nom: true, network: { select: { id: true, nom: true } } } } }
+      }),
+      // Responsable de GR
+      req.prisma.group.findMany({
+        where: { OR: [{ responsable1_id: id }, { responsable2_id: id }] },
+        select: { id: true, nom: true }
+      }),
+      // Responsable de réseau
+      req.prisma.network.findMany({
+        where: { OR: [{ responsable1_id: id }, { responsable2_id: id }] },
+        select: { id: true, nom: true }
+      }),
+      // Compagnon d'œuvre
+      req.prisma.networkCompanion.findMany({
+        where: { user_id: id },
+        include: { network: { select: { id: true, nom: true } } }
+      }),
+      // Responsable de session
+      req.prisma.session.findMany({
+        where: { OR: [{ responsable1_id: id }, { responsable2_id: id }] },
+        select: { id: true, nom: true }
+      }),
+      // Membre d'unité
+      req.prisma.unitMember.findMany({
+        where: { user_id: id },
+        include: { unit: { select: { id: true, nom: true, session: { select: { id: true, nom: true } } } } }
+      }),
+      // Responsable d'unité
+      req.prisma.unit.findMany({
+        where: { OR: [{ responsable1_id: id }, { responsable2_id: id }] },
+        select: { id: true, nom: true }
+      }),
+      // Services liés - collecteur
+      req.prisma.service.count({ where: { collecteur_culte_id: id } }),
+      // Services liés - superviseur
+      req.prisma.service.count({ where: { superviseur_id: id } }),
+      // Messages
+      req.prisma.message.count({ where: { sender_id: id } }),
+      req.prisma.messageRecipient.count({ where: { recipient_id: id } })
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user: { id: user.id, username: user.username },
+        groupMemberOf: groupMemberOf.map(gm => ({ id: gm.group.id, name: gm.group.nom, network: gm.group.network })),
+        groupsResponsible,
+        networksResponsible,
+        companionOf: companionOf.map(c => ({ id: c.network.id, name: c.network.nom })),
+        sessionsResponsible,
+        unitMemberOf: unitMemberOf.map(um => ({ id: um.unit.id, name: um.unit.nom, session: um.unit.session })),
+        unitsResponsible,
+        services: { asCollector: servicesLinkedCollect, asSupervisor: servicesLinkedSuperv },
+        messages: { sent: messagesSentCount, received: messagesReceivedCount }
+      }
+    });
+  } catch (error) {
+    logger.error('User - getUserRelations - Erreur:', error);
+    const { status, message } = handleError(error, 'la récupération des relations utilisateur');
+    res.status(status).json({ success: false, message });
+  }
+};
+
 // Fonction pour récupérer les informations de réseau/GR d'un utilisateur
 const getUserNetworkGroupInfo = async (prisma, userId) => {
   try {
