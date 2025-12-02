@@ -204,7 +204,9 @@ exports.createTestimony = async (req, res) => {
         }
       }
     }
-    const hasTextContent = content && content.trim() !== '';
+    // Vérifier si le contenu texte existe et n'est pas vide
+    // Si content est une chaîne vide "", cela compte comme pas de contenu texte
+    const hasTextContent = content && typeof content === 'string' && content.trim() !== '';
     
     if (!churchId || !category) {
       return res.status(400).json({
@@ -320,9 +322,15 @@ exports.createTestimony = async (req, res) => {
     }
 
     // Déterminer le contenu : si audio fourni et pas de texte, mettre un placeholder
-    let finalContent = content || '';
+    // Si content est undefined ou null, utiliser une chaîne vide
+    let finalContent = (content !== undefined && content !== null) ? content : '';
     if (hasAudioFile && !hasTextContent) {
       finalContent = '[Témoignage vocal]';
+    }
+    
+    // S'assurer que finalContent n'est jamais null ou undefined
+    if (!finalContent) {
+      finalContent = '';
     }
 
     // Créer le témoignage
@@ -361,6 +369,12 @@ exports.createTestimony = async (req, res) => {
     // req.files est maintenant un objet avec les clés 'illustrations' et 'audioFile'
     const allFiles = [];
     
+    logger.info('Traitement des fichiers uploadés:', {
+      hasFiles: !!req.files,
+      filesKeys: req.files ? Object.keys(req.files) : [],
+      filesStructure: req.files ? JSON.stringify(Object.keys(req.files)) : 'No files'
+    });
+    
     if (req.files) {
       // Ajouter les illustrations
       if (req.files.illustrations) {
@@ -382,27 +396,57 @@ exports.createTestimony = async (req, res) => {
         }
       }
     }
+    
+    logger.info(`Nombre de fichiers à traiter: ${allFiles.length}`);
 
     // Créer les fichiers en base de données
     if (allFiles.length > 0) {
-      const filePromises = allFiles.map(file => {
-        // Construire le chemin du fichier si nécessaire
-        const filePath = file.path || path.join(__dirname, '../uploads/testimonies', file.filename);
-        
-        return req.prisma.testimonyFile.create({
-          data: {
-            testimonyId: testimony.id,
-            fileName: file.filename,
-            originalName: file.originalname || file.filename,
-            filePath: filePath,
-            fileType: file.mimetype || 'application/octet-stream',
-            fileSize: file.size || 0,
-            fileCategory: file.category || 'ILLUSTRATION'
+      try {
+        const filePromises = allFiles.map(file => {
+          // Vérifier que le fichier a les propriétés nécessaires
+          if (!file || !file.filename) {
+            logger.error('Fichier invalide:', file);
+            throw new Error('Fichier invalide: propriété filename manquante');
           }
+          
+          // Construire le chemin du fichier si nécessaire
+          const filePath = file.path || path.join(__dirname, '../uploads/testimonies', file.filename);
+          
+          return req.prisma.testimonyFile.create({
+            data: {
+              testimonyId: testimony.id,
+              fileName: file.filename,
+              originalName: file.originalname || file.filename,
+              filePath: filePath,
+              fileType: file.mimetype || 'application/octet-stream',
+              fileSize: file.size || 0,
+              fileCategory: file.category || 'ILLUSTRATION'
+            }
+          });
         });
-      });
 
-      await Promise.all(filePromises);
+        await Promise.all(filePromises);
+        logger.info(`✅ ${allFiles.length} fichier(s) créé(s) pour le témoignage ${testimony.id}`);
+      } catch (fileError) {
+        logger.error('Erreur lors de la création des fichiers:', fileError);
+        logger.error('Stack trace fichiers:', fileError.stack);
+        logger.error('Détails des fichiers qui ont échoué:', {
+          allFilesCount: allFiles.length,
+          filesInfo: allFiles.map(f => ({
+            filename: f.filename,
+            originalname: f.originalname,
+            mimetype: f.mimetype,
+            size: f.size,
+            path: f.path,
+            category: f.category
+          }))
+        });
+        // Ne pas échouer complètement si les fichiers ne peuvent pas être créés
+        // Le témoignage a déjà été créé
+        logger.warn('Le témoignage a été créé mais les fichiers n\'ont pas pu être enregistrés');
+        // Relancer l'erreur pour que l'utilisateur soit informé
+        throw new Error(`Erreur lors de l'enregistrement des fichiers: ${fileError.message}`);
+      }
     }
 
     logger.info('Nouveau témoignage créé:', {
@@ -424,13 +468,36 @@ exports.createTestimony = async (req, res) => {
   } catch (error) {
     logger.error('Erreur lors de la création du témoignage:', error);
     logger.error('Stack trace:', error.stack);
-    logger.error('Request body:', req.body);
-    logger.error('Request files:', req.files);
-    res.status(500).json({
+    logger.error('Request body:', JSON.stringify(req.body, null, 2));
+    logger.error('Request files:', req.files ? Object.keys(req.files) : 'No files');
+    if (req.files) {
+      logger.error('Files details:', {
+        illustrations: req.files.illustrations ? (Array.isArray(req.files.illustrations) ? req.files.illustrations.length : 1) : 0,
+        audioFile: req.files.audioFile ? (Array.isArray(req.files.audioFile) ? req.files.audioFile.length : 1) : 0
+      });
+    }
+    
+    // Retourner plus de détails en développement
+    const errorResponse = {
       success: false,
       message: 'Erreur lors de la soumission du témoignage',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    };
+    
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production') {
+      errorResponse.error = error.message;
+      errorResponse.stack = error.stack;
+      errorResponse.details = {
+        hasFiles: !!req.files,
+        filesKeys: req.files ? Object.keys(req.files) : [],
+        bodyKeys: Object.keys(req.body || {}),
+        hasAudioFile: req.files?.audioFile ? (Array.isArray(req.files.audioFile) ? req.files.audioFile.length > 0 : true) : false,
+        hasIllustrations: req.files?.illustrations ? (Array.isArray(req.files.illustrations) ? req.files.illustrations.length > 0 : true) : false,
+        content: req.body?.content || 'vide',
+        hasTextContent: req.body?.content && req.body.content.trim() !== ''
+      };
+    }
+    
+    res.status(500).json(errorResponse);
   }
 };
 
