@@ -524,12 +524,43 @@ exports.getAllTestimonies = async (req, res) => {
       req.prisma.testimony.count({ where })
     ]);
 
+    // Enrichir les témoignages avec les informations de section (session) si disponible
+    const enrichedTestimonies = await Promise.all(
+      testimonies.map(async (testimony) => {
+        if (testimony.section) {
+          try {
+            const session = await req.prisma.session.findUnique({
+              where: { id: testimony.section },
+              select: {
+                id: true,
+                nom: true
+              }
+            });
+            return {
+              ...testimony,
+              session: session || null
+            };
+          } catch (error) {
+            logger.error('Erreur lors de la récupération de la session:', error);
+            return {
+              ...testimony,
+              session: null
+            };
+          }
+        }
+        return {
+          ...testimony,
+          session: null
+        };
+      })
+    );
+
     const totalPages = Math.ceil(total / parseInt(limit));
 
     res.json({
       success: true,
       data: {
-        testimonies,
+        testimonies: enrichedTestimonies,
         totalPages,
         totalItems: total,
         currentPage: parseInt(page)
