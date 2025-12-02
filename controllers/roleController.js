@@ -26,7 +26,7 @@ exports.changeRole = async (req, res) => {
     }
 
     // Mettre à jour le rôle actuel
-    const updatedUser = await prisma.user.update({
+    const updatedUser = await req.prisma.user.update({
       where: { id: userId },
       data: { current_role: role },
       select: {
@@ -124,7 +124,7 @@ exports.assignRole = async (req, res) => {
     }
 
     // Vérifier si le rôle est déjà assigné
-    const existingAssignment = await prisma.userRoleAssignment.findFirst({
+    const existingAssignment = await req.prisma.userRoleAssignment.findFirst({
       where: {
         user_id: userId,
         role: role
@@ -191,7 +191,7 @@ exports.removeRole = async (req, res) => {
     }
 
     // Désactiver l'assignation de rôle
-    const updatedAssignment = await prisma.userRoleAssignment.updateMany({
+    const updatedAssignment = await req.prisma.userRoleAssignment.updateMany({
       where: {
         user_id: userId,
         role: role
@@ -242,7 +242,7 @@ exports.assignMultipleRoles = async (req, res) => {
     });
 
     // Vérifier que l'utilisateur a les permissions pour assigner des rôles
-    const currentUser = await prisma.user.findUnique({
+    const currentUser = await req.prisma.user.findUnique({
       where: { id: currentUserId },
       select: { role: true, current_role: true }
     });
@@ -256,7 +256,7 @@ exports.assignMultipleRoles = async (req, res) => {
     }
 
     // Vérifier que l'utilisateur cible existe
-    const targetUser = await prisma.user.findUnique({
+    const targetUser = await req.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, username: true }
     });
@@ -277,7 +277,7 @@ exports.assignMultipleRoles = async (req, res) => {
     }
 
     // Supprimer tous les rôles existants de l'utilisateur
-    await prisma.userRoleAssignment.deleteMany({
+    await req.prisma.userRoleAssignment.deleteMany({
       where: { user_id: userId }
     });
 
@@ -288,7 +288,7 @@ exports.assignMultipleRoles = async (req, res) => {
       is_active: true
     }));
 
-    await prisma.userRoleAssignment.createMany({
+    await req.prisma.userRoleAssignment.createMany({
       data: roleAssignments
     });
 
@@ -348,7 +348,7 @@ exports.getUserRoles = async (req, res) => {
     });
 
     // Vérifier les permissions
-    const currentUser = await prisma.user.findUnique({
+    const currentUser = await req.prisma.user.findUnique({
       where: { id: currentUserId },
       select: { role: true, current_role: true }
     });
