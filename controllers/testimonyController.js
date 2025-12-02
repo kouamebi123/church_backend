@@ -45,7 +45,7 @@ exports.uploadTestimonyFiles = testimonyUpload.array('illustrations', 2);
 exports.getChurches = async (req, res) => {
   try {
     const { prisma } = req;
-    const churches = await prisma.church.findMany({
+    const churches = await req.prisma.church.findMany({
       select: {
         id: true,
         nom: true,
@@ -82,7 +82,7 @@ exports.getNetworksByChurch = async (req, res) => {
       });
     }
 
-    const networks = await prisma.network.findMany({
+    const networks = await req.prisma.network.findMany({
       where: {
         church_id: churchId,
         active: true
@@ -123,7 +123,7 @@ exports.getSectionsByChurch = async (req, res) => {
     }
 
     // Récupérer les sessions (sections) de l'église
-    const sections = await prisma.session.findMany({
+    const sections = await req.prisma.session.findMany({
       where: {
         church_id: churchId,
         active: true
@@ -213,7 +213,7 @@ exports.createTestimony = async (req, res) => {
     }
 
     // Vérifier que l'église existe
-    const church = await prisma.church.findUnique({
+    const church = await req.prisma.church.findUnique({
       where: { id: churchId }
     });
 
@@ -239,7 +239,7 @@ exports.createTestimony = async (req, res) => {
 
     // Vérifier que le réseau existe si fourni
     if (finalNetworkId) {
-      const network = await prisma.network.findFirst({
+      const network = await req.prisma.network.findFirst({
         where: {
           id: finalNetworkId,
           church_id: churchId
@@ -289,7 +289,7 @@ exports.createTestimony = async (req, res) => {
     // Traiter les fichiers uploadés
     if (req.files && req.files.length > 0) {
       const filePromises = req.files.map(file => {
-        return prisma.testimonyFile.create({
+        return req.prisma.testimonyFile.create({
           data: {
             testimonyId: testimony.id,
             fileName: file.filename,
@@ -348,7 +348,7 @@ exports.getApprovedTestimonies = async (req, res) => {
     }
 
     const [testimonies, total] = await Promise.all([
-      prisma.testimony.findMany({
+      req.prisma.testimony.findMany({
         where,
         select: {
           id: true,
@@ -385,7 +385,7 @@ exports.getApprovedTestimonies = async (req, res) => {
         skip,
         take: parseInt(limit)
       }),
-      prisma.testimony.count({ where })
+      req.prisma.testimony.count({ where })
     ]);
 
     res.json({
@@ -504,7 +504,7 @@ exports.getAllTestimonies = async (req, res) => {
     }
 
     const [testimonies, total] = await Promise.all([
-      prisma.testimony.findMany({
+      req.prisma.testimony.findMany({
         where,
         skip,
         take,
@@ -521,7 +521,7 @@ exports.getAllTestimonies = async (req, res) => {
           }
         }
       }),
-      prisma.testimony.count({ where })
+      req.prisma.testimony.count({ where })
     ]);
 
     const totalPages = Math.ceil(total / parseInt(limit));
@@ -565,7 +565,7 @@ exports.deleteTestimony = async (req, res) => {
 
     // Supprimer les fichiers associés
     if (testimony.illustrations && testimony.illustrations.length > 0) {
-      await prisma.testimonyFile.deleteMany({
+      await req.prisma.testimonyFile.deleteMany({
         where: { testimonyId: id }
       });
     }
@@ -622,9 +622,10 @@ exports.getTestimonyCategories = async (req, res) => {
 // Marquer un témoignage comme lu
 exports.markAsRead = async (req, res) => {
   try {
+    const { prisma } = req;
     const { id } = req.params;
 
-    const testimony = await prisma.testimony.update({
+    const testimony = await req.prisma.testimony.update({
       where: { id },
       data: { isRead: true }
     });
@@ -734,7 +735,7 @@ exports.confirmTestimonyForCulte = async (req, res) => {
       });
     }
 
-    const updatedTestimony = await prisma.testimony.update({
+    const updatedTestimony = await req.prisma.testimony.update({
       where: { id },
       data: {
         isConfirmedToTestify: confirmed === true,
@@ -791,7 +792,7 @@ exports.markAsTestified = async (req, res) => {
       });
     }
 
-    const updatedTestimony = await prisma.testimony.update({
+    const updatedTestimony = await req.prisma.testimony.update({
       where: { id },
       data: {
         hasTestified: true,
@@ -822,10 +823,11 @@ exports.markAsTestified = async (req, res) => {
 // Ajouter ou modifier une note
 exports.addNote = async (req, res) => {
   try {
+    const { prisma } = req;
     const { id } = req.params;
     const { note } = req.body;
 
-    const testimony = await prisma.testimony.update({
+    const testimony = await req.prisma.testimony.update({
       where: { id },
       data: { note: note || null }
     });
