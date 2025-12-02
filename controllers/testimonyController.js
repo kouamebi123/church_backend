@@ -221,10 +221,10 @@ exports.createTestimony = async (req, res) => {
     }
 
     // Convertir networkId vide ou "AUCUN_RESEAU" en null
-    const finalNetworkId = (networkId && networkId.trim() !== '' && networkId !== 'AUCUN_RESEAU') ? networkId : null;
+    const finalNetworkId = (networkId && typeof networkId === 'string' && networkId.trim() !== '' && networkId !== 'AUCUN_RESEAU') ? networkId : null;
     
     // Convertir section vide en null
-    const finalSection = (section && section.trim() !== '') ? section : null;
+    const finalSection = (section && typeof section === 'string' && section.trim() !== '') ? section : null;
 
     // Déterminer le type de témoignage automatiquement
     let determinedTestimonyType = null;
@@ -232,7 +232,7 @@ exports.createTestimony = async (req, res) => {
       determinedTestimonyType = 'NETWORK_MEMBER';
     } else if (finalSection) {
       // Si une section est sélectionnée (mais pas de réseau), c'est un membre de section
-      determinedTestimonyType = 'SECTION_MEMBER';
+      determinedTestimonyType = 'SECTION';
     } else if (testimonyType) {
       determinedTestimonyType = testimonyType.toUpperCase();
     } else {
