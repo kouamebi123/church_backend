@@ -499,6 +499,7 @@ model TestimonyFile {
   filePath    String
   fileType    String
   fileSize    Int
+  fileCategory String?  @default("ILLUSTRATION") // ILLUSTRATION ou AUDIO
   createdAt   DateTime  @default(now())
   testimony   Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
 

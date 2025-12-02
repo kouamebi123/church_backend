@@ -21,25 +21,49 @@ const testimonyStorage = multer.diskStorage({
 const testimonyUpload = multer({
   storage: testimonyStorage,
   fileFilter: (req, file, cb) => {
-    // Accepter images, vidéos et documents
-    const allowedTypes = /jpeg|jpg|png|gif|mp4|avi|mov|pdf|doc|docx|txt/;
+    // Accepter images, vidéos, documents et fichiers audio
+    const allowedTypes = /jpeg|jpg|png|gif|mp4|avi|mov|pdf|doc|docx|txt|mp3|wav|ogg|m4a|webm|aac/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     
     // Vérifier l'extension OU le mimetype (plus permissif)
     if (extname) {
       return cb(null, true);
     } else {
-      cb(new Error('Type de fichier non autorisé. Seuls les images, vidéos et documents sont acceptés.'));
+      cb(new Error('Type de fichier non autorisé. Formats acceptés : images, vidéos, documents et fichiers audio (mp3, wav, ogg, m4a, webm).'));
     }
   },
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max par fichier
-    files: 2 // Maximum 2 fichiers pour un total de 10MB
+    fileSize: 10 * 1024 * 1024, // 10MB max par fichier (augmenté pour les fichiers audio)
+    files: 3 // Maximum 3 fichiers : 2 illustrations + 1 audio
   }
 });
 
-// Middleware d'upload pour les témoignages
-exports.uploadTestimonyFiles = testimonyUpload.array('illustrations', 2);
+// Middleware d'upload pour les témoignages (illustrations + audio)
+exports.uploadTestimonyFiles = (req, res, next) => {
+  // Utiliser fields pour accepter plusieurs champs de fichiers
+  const upload = multer({
+    storage: testimonyStorage,
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = /jpeg|jpg|png|gif|mp4|avi|mov|pdf|doc|docx|txt|mp3|wav|ogg|m4a|webm|aac/;
+      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      
+      if (extname) {
+        return cb(null, true);
+      } else {
+        cb(new Error('Type de fichier non autorisé. Formats acceptés : images, vidéos, documents et fichiers audio (mp3, wav, ogg, m4a, webm).'));
+      }
+    },
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB max par fichier
+      files: 3 // Maximum 3 fichiers : 2 illustrations + 1 audio
+    }
+  }).fields([
+    { name: 'illustrations', maxCount: 2 },
+    { name: 'audioFile', maxCount: 1 }
+  ]);
+
+  upload(req, res, next);
+};
 
 // Obtenir toutes les églises (pour le formulaire)
 exports.getChurches = async (req, res) => {
@@ -167,10 +191,21 @@ exports.createTestimony = async (req, res) => {
     } = req.body;
 
     // Validation des champs requis
-    if (!churchId || !category || !content) {
+    // Le témoignage peut être soit du texte (content) soit un fichier audio
+    const hasAudioFile = req.files && req.files.audioFile && req.files.audioFile.length > 0;
+    const hasTextContent = content && content.trim() !== '';
+    
+    if (!churchId || !category) {
       return res.status(400).json({
         success: false,
-        message: 'L\'église, la catégorie et le témoignage sont requis'
+        message: 'L\'église et la catégorie sont requis'
+      });
+    }
+    
+    if (!hasTextContent && !hasAudioFile) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le témoignage est requis (texte ou enregistrement vocal)'
       });
     }
 
@@ -256,6 +291,12 @@ exports.createTestimony = async (req, res) => {
       }
     }
 
+    // Déterminer le contenu : si audio fourni et pas de texte, mettre un placeholder
+    let finalContent = content || '';
+    if (hasAudioFile && !hasTextContent) {
+      finalContent = '[Témoignage vocal]';
+    }
+
     // Créer le témoignage
     const testimony = await req.prisma.testimony.create({
       data: {
@@ -269,7 +310,7 @@ exports.createTestimony = async (req, res) => {
         section: finalSection,
         unit: unit || null,
         category: category.toUpperCase(),
-        content,
+        content: finalContent,
         isAnonymous: isAnonymousBool,
         wantsToTestify: wantsToTestifyBool
       },
@@ -289,8 +330,24 @@ exports.createTestimony = async (req, res) => {
     });
 
     // Traiter les fichiers uploadés
-    if (req.files && req.files.length > 0) {
-      const filePromises = req.files.map(file => {
+    // req.files est maintenant un objet avec les clés 'illustrations' et 'audioFile'
+    const allFiles = [];
+    
+    if (req.files) {
+      // Ajouter les illustrations
+      if (req.files.illustrations && Array.isArray(req.files.illustrations)) {
+        allFiles.push(...req.files.illustrations.map(f => ({ ...f, category: 'ILLUSTRATION' })));
+      }
+      
+      // Ajouter le fichier audio
+      if (req.files.audioFile && Array.isArray(req.files.audioFile) && req.files.audioFile.length > 0) {
+        allFiles.push({ ...req.files.audioFile[0], category: 'AUDIO' });
+      }
+    }
+
+    // Créer les fichiers en base de données
+    if (allFiles.length > 0) {
+      const filePromises = allFiles.map(file => {
         return req.prisma.testimonyFile.create({
           data: {
             testimonyId: testimony.id,
@@ -298,7 +355,8 @@ exports.createTestimony = async (req, res) => {
             originalName: file.originalname,
             filePath: file.path,
             fileType: file.mimetype,
-            fileSize: file.size
+            fileSize: file.size,
+            fileCategory: file.category || 'ILLUSTRATION'
           }
         });
       });

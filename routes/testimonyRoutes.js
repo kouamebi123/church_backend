@@ -21,13 +21,13 @@ router.post('/',
         let message = 'Erreur lors de l\'upload du fichier';
         
         if (err.code === 'LIMIT_FILE_SIZE') {
-          message = 'Fichier trop volumineux. Taille maximale autorisée : 5 MB par fichier.';
+          message = 'Fichier trop volumineux. Taille maximale autorisée : 10 MB par fichier.';
         } else if (err.code === 'LIMIT_FILE_COUNT') {
-          message = 'Trop de fichiers. Maximum autorisé : 2 fichiers par témoignage.';
+          message = 'Trop de fichiers. Maximum autorisé : 2 illustrations + 1 fichier audio par témoignage.';
         } else if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-          message = 'Champ de fichier inattendu. Utilisez le champ "illustrations".';
+          message = 'Champ de fichier inattendu. Utilisez les champs "illustrations" ou "audioFile".';
         } else if (err.message && err.message.includes('Type de fichier non autorisé')) {
-          message = 'Type de fichier non autorisé. Formats acceptés : images (jpg, png, gif), vidéos (mp4, avi, mov), documents (pdf, doc, docx, txt).';
+          message = 'Type de fichier non autorisé. Formats acceptés : images (jpg, png, gif), vidéos (mp4, avi, mov), documents (pdf, doc, docx, txt), fichiers audio (mp3, wav, ogg, m4a, webm).';
         } else if (err.message) {
           message = err.message;
         }
