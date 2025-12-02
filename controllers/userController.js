@@ -335,7 +335,7 @@ exports.getIsoles = async (req, res) => {
       }
     }
 
-    const specialQualifications = ['RESPONSABLE_RESEAU', 'GOUVERNANCE', 'ECODIM'];
+    const specialQualifications = ['RESPONSABLE_RESEAU', 'GOUVERNANCE', 'ECODIM', 'COMPAGNON_OEUVRE'];
     const users = await req.prisma.user.findMany({
       where: {
         id: { notIn: usersInGroups },

@@ -198,9 +198,41 @@ exports.getGlobalStats = async (req, res) => {
       total_resp_unites = responsableIds.size;
     }
 
-    const total_membres_session = await prisma.user.count({
-      where: { qualification: 'MEMBRE_SESSION', ...churchFilter }
-    });
+    // Membres de section: compter les utilisateurs assignés aux unités (UnitMember) ∪ responsables de sections (responsable1/2 des sessions), distinct par user_id
+    let total_membres_session = 0;
+    if (churchId) {
+      const sessionsInChurchForMembers = await prisma.session.findMany({
+        where: { church_id: churchId },
+        select: { id: true, responsable1_id: true, responsable2_id: true }
+      });
+      const sessionIdsForMembers = sessionsInChurchForMembers.map(s => s.id);
+      const unitMembers = await prisma.unitMember.findMany({
+        where: { unit: { session_id: { in: sessionIdsForMembers } } },
+        select: { user_id: true }
+      });
+      // Ajouter les responsables de sections (1 et 2)
+      const sessionRespIds = new Set();
+      sessionsInChurchForMembers.forEach(s => {
+        if (s.responsable1_id) sessionRespIds.add(s.responsable1_id);
+        if (s.responsable2_id) sessionRespIds.add(s.responsable2_id);
+      });
+      const unitMemberSet = new Set(unitMembers.map(um => um.user_id));
+      const unionSet = new Set([...unitMemberSet, ...sessionRespIds]);
+      total_membres_session = unionSet.size;
+    } else {
+      const [unitMembers, allSessionsForMembers] = await Promise.all([
+        prisma.unitMember.findMany({ select: { user_id: true } }),
+        prisma.session.findMany({ select: { responsable1_id: true, responsable2_id: true } })
+      ]);
+      const unitMemberSet = new Set(unitMembers.map(um => um.user_id));
+      const sessionRespIds = new Set();
+      allSessionsForMembers.forEach(s => {
+        if (s.responsable1_id) sessionRespIds.add(s.responsable1_id);
+        if (s.responsable2_id) sessionRespIds.add(s.responsable2_id);
+      });
+      const unionSet = new Set([...unitMemberSet, ...sessionRespIds]);
+      total_membres_session = unionSet.size;
+    }
 
     // Calcul des Membres réseaux (membres de GR des réseaux + responsables de réseau + compagnons d'œuvre)
     let total_network_members = 0;
