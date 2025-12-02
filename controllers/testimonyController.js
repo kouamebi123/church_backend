@@ -522,11 +522,26 @@ exports.createTestimony = async (req, res) => {
             category: f.category
           }))
         });
-        // Ne pas échouer complètement si les fichiers ne peuvent pas être créés
-        // Le témoignage a déjà été créé
-        logger.warn('Le témoignage a été créé mais les fichiers n\'ont pas pu être enregistrés');
-        // Relancer l'erreur pour que l'utilisateur soit informé
-        throw new Error(`Erreur lors de l'enregistrement des fichiers: ${fileError.message}`);
+        
+        // Messages d'erreur explicites selon le type d'erreur
+        let errorMessage = 'Erreur lors de l\'enregistrement des fichiers';
+        
+        if (fileError.code === 'P2002') {
+          errorMessage = 'Un fichier avec ce nom existe déjà. Veuillez réessayer.';
+        } else if (fileError.code === 'P2003') {
+          errorMessage = 'Erreur de référence : le témoignage associé n\'existe pas.';
+        } else if (fileError.message && fileError.message.includes('filename')) {
+          errorMessage = 'Erreur : le nom du fichier est manquant ou invalide.';
+        } else if (fileError.message && fileError.message.includes('path')) {
+          errorMessage = 'Erreur : impossible de déterminer le chemin du fichier.';
+        } else if (fileError.message && fileError.message.includes('size')) {
+          errorMessage = 'Erreur : la taille du fichier est invalide.';
+        } else if (fileError.message) {
+          errorMessage = `Erreur lors de l'enregistrement des fichiers : ${fileError.message}`;
+        }
+        
+        // Relancer l'erreur avec un message explicite
+        throw new Error(errorMessage);
       }
     }
 
@@ -558,10 +573,50 @@ exports.createTestimony = async (req, res) => {
       });
     }
     
+    // Messages d'erreur explicites selon le type d'erreur
+    let errorMessage = 'Erreur lors de la soumission du témoignage';
+    
+    // Erreurs Prisma
+    if (error.code === 'P2002') {
+      errorMessage = 'Un témoignage similaire existe déjà. Veuillez vérifier vos données.';
+    } else if (error.code === 'P2003') {
+      errorMessage = 'Erreur de référence : l\'église, le réseau ou la section sélectionné(e) n\'existe pas.';
+    } else if (error.code === 'P2011') {
+      errorMessage = 'Erreur : un champ requis est manquant ou invalide.';
+    } else if (error.code === 'P2012') {
+      errorMessage = 'Erreur : un champ requis est manquant.';
+    } else if (error.code === 'P2025') {
+      errorMessage = 'Erreur : l\'enregistrement recherché n\'existe pas.';
+    }
+    // Erreurs de fichiers
+    else if (error.message && error.message.includes('fichier')) {
+      errorMessage = error.message;
+    } else if (error.message && error.message.includes('file')) {
+      errorMessage = error.message;
+    } else if (error.message && error.message.includes('Fichier invalide')) {
+      errorMessage = error.message;
+    }
+    // Erreurs de validation
+    else if (error.message && error.message.includes('requis')) {
+      errorMessage = error.message;
+    } else if (error.message && error.message.includes('required')) {
+      errorMessage = 'Un ou plusieurs champs requis sont manquants.';
+    }
+    // Erreurs de base de données
+    else if (error.message && error.message.includes('Unique constraint')) {
+      errorMessage = 'Un témoignage similaire existe déjà.';
+    } else if (error.message && error.message.includes('Foreign key constraint')) {
+      errorMessage = 'Erreur : référence invalide (église, réseau ou section inexistant(e)).';
+    }
+    // Autres erreurs avec message explicite
+    else if (error.message && error.message !== 'Erreur lors de la soumission du témoignage') {
+      errorMessage = error.message;
+    }
+    
     // Retourner plus de détails en développement
     const errorResponse = {
       success: false,
-      message: 'Erreur lors de la soumission du témoignage',
+      message: errorMessage,
     };
     
     if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production') {
