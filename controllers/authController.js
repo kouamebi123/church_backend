@@ -388,23 +388,8 @@ exports.login = async (req, res) => {
       data: { current_role: null }
     });
 
-    const safeUser = await req.prisma.user.findUnique({
-      where: { id: user.id },
-      select: {
-        id: true,
-        username: true,
-        role: true,
-        current_role: true,
-        qualification: true,
-        eglise_locale_id: true,
-        role_assignments: {
-          where: { is_active: true },
-          select: { role: true }
-        }
-      }
-    });
-
-    await sendTokenResponse(safeUser, 200, res);
+    // Utiliser user complet qui a déjà toutes les propriétés nécessaires (eglise_locale, departement, etc.)
+    await sendTokenResponse(req.prisma, user, 200, res);
   } catch (error) {
     // Utilisation du gestionnaire d'erreurs centralisé
     const { status, message } = handleError(error, 'la connexion');
