@@ -26,9 +26,15 @@ const runPrismaResolve = (migrationName) => {
 };
 
 async function fixFailedMigration() {
+  // Timeout de 5 minutes pour éviter que le script bloque indéfiniment
+  const timeout = setTimeout(() => {
+    console.error('❌ Timeout: Le script de migration prend trop de temps');
+    process.exit(1);
+  }, 5 * 60 * 1000); // 5 minutes
+
   try {
     console.log('🔧 Génération du client Prisma...');
-    execSync('npx prisma generate', { stdio: 'inherit' });
+    execSync('npx prisma generate', { stdio: 'inherit', timeout: 60000 }); // 1 minute max pour generate
     
     console.log('🔧 Connexion à la base de données...');
     const { PrismaClient } = require('@prisma/client');
@@ -519,6 +525,41 @@ async function fixFailedMigration() {
       console.log('✅ Table app_settings existe déjà');
     }
 
+    // Vérification table network_objectives
+    console.log('🚀 Vérification de la table network_objectives...');
+    const networkObjectivesTableCheck = await prisma.$queryRaw`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'network_objectives'
+      )
+    `;
+
+    if (!networkObjectivesTableCheck[0].exists) {
+      await prisma.$executeRaw`
+        CREATE TABLE "network_objectives" (
+          "id" TEXT NOT NULL,
+          "network_id" TEXT NOT NULL,
+          "objectif" INTEGER NOT NULL,
+          "date_fin" TIMESTAMP(3) NOT NULL,
+          "description" TEXT,
+          "active" BOOLEAN NOT NULL DEFAULT true,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL,
+          CONSTRAINT "network_objectives_pkey" PRIMARY KEY ("id")
+        )
+      `;
+      await prisma.$executeRaw`
+        ALTER TABLE "network_objectives" 
+        ADD CONSTRAINT "network_objectives_network_id_fkey" 
+        FOREIGN KEY ("network_id") REFERENCES "networks"("id") 
+        ON DELETE CASCADE ON UPDATE CASCADE
+      `;
+      console.log('✅ Table network_objectives créée');
+    } else {
+      console.log('✅ Table network_objectives existe déjà');
+    }
+
     const incompleteMigrationNames = incompleteMigrations.map((row) => row.migration_name);
     const migrationsToResolve = new Set();
 
@@ -577,7 +618,7 @@ async function fixFailedMigration() {
 
     console.log('🚀 Application des migrations Prisma officielles...');
     try {
-      execSync('npx prisma migrate deploy', { stdio: 'inherit' });
+      execSync('npx prisma migrate deploy', { stdio: 'inherit', timeout: 120000 }); // 2 minutes max
       console.log('✅ Migrations Prisma synchronisées');
     } catch (migrateError) {
       const stderr = migrateError?.stderr?.toString() || '';
@@ -586,23 +627,46 @@ async function fixFailedMigration() {
       if (combined.includes('type "TestimonyCategory" already exists')) {
         console.log('⚠️  Migration testimonies déjà appliquée. Marquage manuel comme appliquée...');
         runPrismaResolve(MIGRATION_TESTIMONIES_ACTIVITY);
-        execSync('npx prisma migrate deploy', { stdio: 'inherit' });
-        console.log('✅ Migrations Prisma synchronisées (après résolution de TestimonyCategory)');
+        try {
+          execSync('npx prisma migrate deploy', { stdio: 'inherit', timeout: 120000 });
+          console.log('✅ Migrations Prisma synchronisées (après résolution de TestimonyCategory)');
+        } catch (retryError) {
+          console.log('⚠️  Erreur lors de la réapplication des migrations:', retryError.message);
+        }
         return;
       }
       if (combined.includes('P3009') && combined.includes(MIGRATION_TESTIMONIES_FILES)) {
         console.log(`⚠️  Migration ${MIGRATION_TESTIMONIES_FILES} marquée comme échouée. Marquage manuel comme appliquée...`);
         runPrismaResolve(MIGRATION_TESTIMONIES_FILES);
-        execSync('npx prisma migrate deploy', { stdio: 'inherit' });
-        console.log('✅ Migrations Prisma synchronisées (après résolution de testimonies files)');
+        try {
+          execSync('npx prisma migrate deploy', { stdio: 'inherit', timeout: 120000 });
+          console.log('✅ Migrations Prisma synchronisées (après résolution de testimonies files)');
+        } catch (retryError) {
+          console.log('⚠️  Erreur lors de la réapplication des migrations:', retryError.message);
+        }
         return;
       }
-      throw migrateError;
+      // Si c'est juste une migration qui existe déjà, ne pas bloquer
+      if (combined.includes('already applied') || combined.includes('P3008')) {
+        console.log('⚠️  Certaines migrations sont déjà appliquées, continuons...');
+        return;
+      }
+      // Pour les autres erreurs, logger mais ne pas bloquer
+      console.log('⚠️  Erreur lors de l\'application des migrations:', migrateError.message);
+      console.log('⚠️  Continuons le démarrage du serveur...');
     }
     
   } catch (error) {
-    console.error('❌ Erreur:', error.message);
+    clearTimeout(timeout);
+    console.error('❌ Erreur dans fix-migration:', error.message);
+    if (error.stack) {
+      console.error('❌ Stack:', error.stack);
+    }
     console.log('⚠️  Démarrant le serveur malgré l\'erreur...');
+    // Ne pas bloquer le démarrage du serveur - laisser le processus continuer
+    process.exitCode = 0;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
