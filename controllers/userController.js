@@ -1168,76 +1168,267 @@ exports.deleteUser = async (req, res) => {
       });
     }
 
-    // Nettoyage automatique de toutes les références
+    // Nettoyage automatique de toutes les références dans une transaction
     try {
-      // Retirer l'utilisateur du groupe dont il est membre (un seul groupe possible)
-      await req.prisma.groupMember.deleteMany({
-        where: { user_id: id }
-      });
+      await req.prisma.$transaction(async (tx) => {
+        // Retirer l'utilisateur du groupe dont il est membre (un seul groupe possible)
+        await tx.groupMember.deleteMany({
+          where: { user_id: id }
+        });
 
-      // Retirer l'utilisateur de l'historique des groupes
-      await req.prisma.groupMemberHistory.deleteMany({
-        where: { user_id: id }
-      });
+        // Retirer l'utilisateur de l'historique des groupes
+        await tx.groupMemberHistory.deleteMany({
+          where: { user_id: id }
+        });
 
-      // Retirer l'utilisateur des unités (en tant que membre)
-      await req.prisma.unitMember.deleteMany({
-        where: { user_id: id }
-      });
+        // Retirer l'utilisateur des unités (en tant que membre)
+        await tx.unitMember.deleteMany({
+          where: { user_id: id }
+        });
 
-      // Retirer l'utilisateur des compagnons d'œuvre de réseaux
-      await req.prisma.networkCompanion.deleteMany({
-        where: { user_id: id }
-      });
+        // Retirer l'utilisateur des compagnons d'œuvre de réseaux
+        await tx.networkCompanion.deleteMany({
+          where: { user_id: id }
+        });
 
-      // Retirer l'utilisateur des services (collecteur ou superviseur)
-      await req.prisma.service.updateMany({
-        where: {
-          OR: [
-            { collecteur_culte_id: id },
-            { superviseur_id: id }
-          ]
-        },
-        data: {
-          collecteur_culte_id: null,
-          superviseur_id: null
-        }
-      });
+        // Retirer l'utilisateur des services (collecteur ou superviseur)
+        await tx.service.updateMany({
+          where: {
+            OR: [
+              { collecteur_culte_id: id },
+              { superviseur_id: id }
+            ]
+          },
+          data: {
+            collecteur_culte_id: null,
+            superviseur_id: null
+          }
+        });
 
-      // Supprimer les messages envoyés par l'utilisateur
-      await req.prisma.message.deleteMany({
-        where: { sender_id: id }
-      });
+        // IMPORTANT : Supprimer d'abord les MessageRecipient où l'utilisateur est destinataire
+        // (avant de supprimer les messages, car MessageRecipient référence les messages)
+        const deletedRecipients = await tx.messageRecipient.deleteMany({
+          where: { recipient_id: id }
+        });
+        logger.info('MessageRecipient supprimés pour l\'utilisateur', { 
+          userId: id, 
+          count: deletedRecipients.count 
+        });
 
-      // Supprimer les MessageRecipient où l'utilisateur est destinataire
-      await req.prisma.messageRecipient.deleteMany({
-        where: { recipient_id: id }
+        // Ensuite, supprimer les messages envoyés par l'utilisateur
+        // (cela supprimera automatiquement les MessageRecipient associés grâce au onDelete: Cascade)
+        const deletedMessages = await tx.message.deleteMany({
+          where: { sender_id: id }
+        });
+        logger.info('Messages envoyés supprimés pour l\'utilisateur', { 
+          userId: id, 
+          count: deletedMessages.count 
+        });
       });
-
 
       logger.info('Nettoyage automatique terminé pour l\'utilisateur', { id });
     } catch (cleanupError) {
-      logger.error('Erreur lors du nettoyage automatique', cleanupError);
-      // Continuer avec la suppression même si le nettoyage échoue
+      logger.error('Erreur lors du nettoyage automatique', {
+        userId: id,
+        error: cleanupError,
+        errorCode: cleanupError.code,
+        errorMessage: cleanupError.message
+      });
+      
+      // Si l'erreur est liée aux messages, retourner un message explicite
+      if (cleanupError.message && (cleanupError.message.includes('message') || cleanupError.message.includes('Message'))) {
+        return res.status(400).json({
+          success: false,
+          message: 'Impossible de supprimer cet utilisateur car il y a une erreur lors de la suppression de ses messages. Veuillez réessayer ou contacter l\'administrateur.'
+        });
+      }
+      
+      // Si c'est une contrainte de clé étrangère, essayer de continuer avec un nettoyage manuel
+      if (cleanupError.code === 'P2003') {
+        logger.warn('Tentative de nettoyage manuel après erreur de contrainte', { userId: id });
+        
+        // Essayer de supprimer les messages de manière non transactionnelle
+        try {
+          await req.prisma.messageRecipient.deleteMany({
+            where: { recipient_id: id }
+          });
+          await req.prisma.message.deleteMany({
+            where: { sender_id: id }
+          });
+          logger.info('Nettoyage manuel réussi pour les messages', { userId: id });
+        } catch (manualCleanupError) {
+          logger.error('Échec du nettoyage manuel des messages', {
+            userId: id,
+            error: manualCleanupError
+          });
+          return res.status(400).json({
+            success: false,
+            message: 'Impossible de supprimer cet utilisateur car il a des messages (envoyés ou reçus) qui ne peuvent pas être supprimés automatiquement. Veuillez contacter l\'administrateur pour résoudre ce problème.'
+          });
+        }
+      } else {
+        // Pour les autres erreurs de nettoyage, retourner une erreur
+        return res.status(400).json({
+          success: false,
+          message: `Erreur lors du nettoyage des données de l'utilisateur: ${cleanupError.message || 'Erreur inconnue'}. Veuillez contacter l'administrateur.`
+        });
+      }
+    }
+
+    // Vérification finale : s'assurer qu'il ne reste plus de références aux messages
+    const remainingMessageRecipients = await req.prisma.messageRecipient.count({
+      where: { recipient_id: id }
+    });
+    
+    const remainingMessages = await req.prisma.message.count({
+      where: { sender_id: id }
+    });
+
+    if (remainingMessageRecipients > 0 || remainingMessages > 0) {
+      logger.error('Il reste des références aux messages après le nettoyage', {
+        userId: id,
+        remainingRecipients: remainingMessageRecipients,
+        remainingMessages: remainingMessages
+      });
+      
+      return res.status(400).json({
+        success: false,
+        message: `Impossible de supprimer cet utilisateur car il reste ${remainingMessageRecipients + remainingMessages} référence(s) aux messages. Veuillez contacter l'administrateur.`
+      });
     }
 
     // Log de l'activité avant suppression
     await createActivityLog(req.prisma, req.user.id, 'DELETE', 'USER', id, existingUser.username, `Utilisateur supprimé: ${existingUser.username}`, req);
 
     // Suppression de l'utilisateur
-    await req.prisma.user.delete({
-      where: { id }
+    try {
+      await req.prisma.user.delete({
+        where: { id }
+      });
+
+      res.status(200).json({
+        success: true,
+        message: `L'utilisateur "${existingUser.username || existingUser.pseudo || 'sans nom'}" a été supprimé avec succès.`,
+        data: {}
+      });
+    } catch (deleteError) {
+      // Gestion spécifique des erreurs de suppression
+      logger.error('Erreur lors de la suppression de l\'utilisateur', {
+        userId: id,
+        error: deleteError,
+        errorCode: deleteError.code,
+        errorMessage: deleteError.message
+      });
+
+      // Vérifier les contraintes de clé étrangère spécifiques
+      if (deleteError.code === 'P2003') {
+        const errorMessage = deleteError.message || '';
+        
+        // Messages spécifiques selon la contrainte
+        if (errorMessage.includes('sessions_responsable1_id_fkey') || errorMessage.includes('sessions_responsable2_id_fkey')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Impossible de supprimer cet utilisateur car il est responsable d\'une section. Veuillez d\'abord changer le responsable de la section ou supprimer la section.'
+          });
+        }
+
+        if (errorMessage.includes('units_responsable1_id_fkey') || errorMessage.includes('units_responsable2_id_fkey')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Impossible de supprimer cet utilisateur car il est responsable d\'une unité. Veuillez d\'abord changer le responsable de l\'unité ou supprimer l\'unité.'
+          });
+        }
+
+        if (errorMessage.includes('networks_responsable1_id_fkey') || errorMessage.includes('networks_responsable2_id_fkey')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Impossible de supprimer cet utilisateur car il est responsable d\'un réseau. Veuillez d\'abord changer le responsable du réseau ou supprimer le réseau.'
+          });
+        }
+
+        if (errorMessage.includes('groups_responsable1_id_fkey') || errorMessage.includes('groups_responsable2_id_fkey')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Impossible de supprimer cet utilisateur car il est responsable d\'un groupe de réveil. Veuillez d\'abord changer le responsable du groupe ou supprimer le groupe.'
+          });
+        }
+
+        if (errorMessage.includes('group_members_user_id_fkey')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Impossible de supprimer cet utilisateur car il est membre d\'un groupe de réveil. Veuillez d\'abord le retirer du groupe ou supprimer le groupe.'
+          });
+        }
+
+        if (errorMessage.includes('unit_members_user_id_fkey')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Impossible de supprimer cet utilisateur car il est membre d\'une unité. Veuillez d\'abord le retirer de l\'unité ou supprimer l\'unité.'
+          });
+        }
+
+        if (errorMessage.includes('network_companions_user_id_fkey')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Impossible de supprimer cet utilisateur car il est compagnon d\'œuvre d\'un réseau. Veuillez d\'abord le retirer du réseau.'
+          });
+        }
+
+        if (errorMessage.includes('services_collecteur_culte_id_fkey') || errorMessage.includes('services_superviseur_id_fkey')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Impossible de supprimer cet utilisateur car il est associé à un service (collecteur ou superviseur). Veuillez d\'abord modifier ou supprimer le service.'
+          });
+        }
+
+        if (errorMessage.includes('messages_sender_id_fkey') || errorMessage.includes('MessageSender')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Impossible de supprimer cet utilisateur car il a envoyé des messages. Le système n\'a pas pu supprimer ces messages automatiquement. Veuillez contacter l\'administrateur.'
+          });
+        }
+
+        if (errorMessage.includes('message_recipients_recipient_id_fkey') || errorMessage.includes('MessageRecipient')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Impossible de supprimer cet utilisateur car il a reçu des messages. Le système n\'a pas pu supprimer ces références automatiquement. Veuillez contacter l\'administrateur.'
+          });
+        }
+
+        // Message générique pour les autres contraintes
+        return res.status(400).json({
+          success: false,
+          message: `Impossible de supprimer cet utilisateur car il est référencé dans d'autres données du système. Détails techniques: ${errorMessage.substring(0, 200)}. Veuillez contacter l'administrateur.`
+        });
+      }
+
+      // Autres erreurs Prisma
+      if (deleteError.code === 'P2025') {
+        return res.status(404).json({
+          success: false,
+          message: 'L\'utilisateur que vous tentez de supprimer n\'existe plus dans le système.'
+        });
+      }
+
+      // Erreur générique avec contexte
+      const { status, message } = handleError(deleteError, 'la suppression de l\'utilisateur');
+      return res.status(status).json({
+        success: false,
+        message: message || `Impossible de supprimer l'utilisateur. ${deleteError.message || 'Une erreur inattendue s\'est produite.'}`
+      });
+    }
+  } catch (error) {
+    logger.error('Erreur générale lors de la suppression de l\'utilisateur', {
+      userId: req.params.id,
+      error: error,
+      errorCode: error.code,
+      errorMessage: error.message
     });
 
-    res.status(200).json({
-      success: true,
-      data: {}
-    });
-  } catch (error) {
     const { status, message } = handleError(error, 'la suppression de l\'utilisateur');
     res.status(status).json({
       success: false,
-      message
+      message: message || `Erreur lors de la suppression de l'utilisateur. ${error.message || 'Veuillez réessayer ou contacter l\'administrateur.'}`
     });
   }
 };
@@ -1421,8 +1612,9 @@ exports.getAvailableUsers = async (req, res) => {
         return false;
       }
 
-      // Exclure TOUJOURS les utilisateurs de la gouvernance (même pour les réseaux et sessions)
-      if (user.qualification === 'GOUVERNANCE') {
+      // Exclure les utilisateurs de la gouvernance SAUF si c'est pour une session ou un réseau
+      // (les membres de la gouvernance peuvent être responsables de réseaux/sessions)
+      if (user.qualification === 'GOUVERNANCE' && forSession !== 'true' && forNetwork !== 'true') {
         return false;
       }
 

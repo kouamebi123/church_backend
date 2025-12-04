@@ -150,6 +150,22 @@ class QualificationService {
   }
 
   /**
+   * Rétrograder un ancien responsable d'unité.
+   * @param userId
+   * @example
+   */
+  async downgradeUnitResponsable(userId) {
+    try {
+      // Quand une personne n'est plus responsable d'une unité, elle devient systématiquement LEADER
+      await this.updateUserQualification(userId, 'LEADER');
+      logger.info(`Utilisateur ${userId} rétrogradé en LEADER (plus responsable d'unité)`);
+    } catch (error) {
+      logger.error(`Erreur lors de la rétrogradation de l'utilisateur ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Nettoyer les qualifications lors de la suppression d'un groupe.
    * @param groupId
    * @example
@@ -254,23 +270,30 @@ class QualificationService {
           await this.updateUserQualification(session.responsable2_id, 'LEADER');
         }
 
-        // Rétrograder tous les membres et responsables des unités
-        const allUserIds = new Set();
+        // Rétrograder les responsables d'unités en LEADER
+        const unitResponsableIds = new Set();
+        const memberIds = new Set();
         
         session.units.forEach(unit => {
-          // Ajouter les membres des unités
+          // Ajouter les membres des unités (seront mis en IRREGULIER)
           unit.members.forEach(member => {
-            allUserIds.add(member.user_id);
+            memberIds.add(member.user_id);
           });
-          // Ajouter les responsables des unités
-          if (unit.responsable1_id) allUserIds.add(unit.responsable1_id);
-          if (unit.responsable2_id) allUserIds.add(unit.responsable2_id);
+          // Ajouter les responsables des unités (seront mis en LEADER)
+          if (unit.responsable1_id) unitResponsableIds.add(unit.responsable1_id);
+          if (unit.responsable2_id) unitResponsableIds.add(unit.responsable2_id);
         });
 
-        // Mettre tous les utilisateurs en IRREGULIER
-        if (allUserIds.size > 0) {
+        // Mettre les responsables d'unités en LEADER
+        for (const responsableId of unitResponsableIds) {
+          await this.downgradeUnitResponsable(responsableId);
+        }
+
+        // Mettre les membres en IRREGULIER (sauf les responsables qui sont déjà en LEADER)
+        const memberIdsToUpdate = Array.from(memberIds).filter(id => !unitResponsableIds.has(id));
+        if (memberIdsToUpdate.length > 0) {
           await this.prisma.user.updateMany({
-            where: { id: { in: Array.from(allUserIds) } },
+            where: { id: { in: memberIdsToUpdate } },
             data: { qualification: 'IRREGULIER' }
           });
         }

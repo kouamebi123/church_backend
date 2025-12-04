@@ -378,10 +378,30 @@ exports.updateUnit = async (req, res) => {
       }
     }
 
-    // Mettre à jour la qualification des responsables (anciens et nouveaux)
+    // Gérer les anciens responsables qui ne sont plus responsables
+    const QualificationService = require('../services/qualificationService');
+    const qualificationService = new QualificationService(prisma);
+    
+    const oldResponsable1Id = currentUnit.responsable1_id;
+    const oldResponsable2Id = currentUnit.responsable2_id;
+    const newResponsable1Id = updatedUnit.responsable1_id;
+    const newResponsable2Id = updatedUnit.responsable2_id;
+
+    // Rétrograder les anciens responsables qui ne sont plus responsables
+    if (oldResponsable1Id && oldResponsable1Id !== newResponsable1Id && oldResponsable1Id !== newResponsable2Id) {
+      await qualificationService.downgradeUnitResponsable(oldResponsable1Id);
+      logger.info('Unit updateUnit - Ancien responsable1 rétrogradé en LEADER', { userId: oldResponsable1Id });
+    }
+
+    if (oldResponsable2Id && oldResponsable2Id !== newResponsable1Id && oldResponsable2Id !== newResponsable2Id) {
+      await qualificationService.downgradeUnitResponsable(oldResponsable2Id);
+      logger.info('Unit updateUnit - Ancien responsable2 rétrogradé en LEADER', { userId: oldResponsable2Id });
+    }
+
+    // Mettre à jour la qualification des nouveaux responsables
     const responsablesToUpdate = [];
-    if (updatedUnit.responsable1_id) responsablesToUpdate.push(updatedUnit.responsable1_id);
-    if (updatedUnit.responsable2_id) responsablesToUpdate.push(updatedUnit.responsable2_id);
+    if (newResponsable1Id) responsablesToUpdate.push(newResponsable1Id);
+    if (newResponsable2Id) responsablesToUpdate.push(newResponsable2Id);
 
     if (responsablesToUpdate.length > 0) {
       const gouvernanceResponsables = await prisma.user.findMany({
@@ -400,7 +420,7 @@ exports.updateUnit = async (req, res) => {
           where: { id: { in: responsablesEligibles } },
           data: { qualification: 'RESPONSABLE_UNITE' }
         });
-        logger.info('Unit updateUnit - Qualifications mises à jour pour les responsables', { responsables: responsablesEligibles });
+        logger.info('Unit updateUnit - Qualifications mises à jour pour les nouveaux responsables', { responsables: responsablesEligibles });
       }
 
       if (gouvernanceIds.size > 0) {
@@ -453,18 +473,30 @@ exports.deleteUnit = async (req, res) => {
       });
     }
 
-    // Collecter tous les IDs d'utilisateurs (membres + responsables)
-    const allUserIds = new Set(unit.members.map(member => member.user_id));
-    if (unit.responsable1_id) allUserIds.add(unit.responsable1_id);
-    if (unit.responsable2_id) allUserIds.add(unit.responsable2_id);
+    // Collecter les IDs des membres et des responsables séparément
+    const memberIds = unit.members.map(member => member.user_id);
+    const responsableIds = [];
+    if (unit.responsable1_id) responsableIds.push(unit.responsable1_id);
+    if (unit.responsable2_id) responsableIds.push(unit.responsable2_id);
 
-    // Mettre à jour la qualification de tous les utilisateurs à IRREGULIER avant suppression
-    if (allUserIds.size > 0) {
+    // Mettre les responsables d'unités en LEADER
+    if (responsableIds.length > 0) {
+      const QualificationService = require('../services/qualificationService');
+      const qualificationService = new QualificationService(prisma);
+      
+      for (const responsableId of responsableIds) {
+        await qualificationService.downgradeUnitResponsable(responsableId);
+      }
+      logger.info('Unit deleteUnit - Responsables remis à LEADER', { responsableIds });
+    }
+
+    // Mettre les membres en IRREGULIER
+    if (memberIds.length > 0) {
       await prisma.user.updateMany({
-        where: { id: { in: Array.from(allUserIds) } },
+        where: { id: { in: memberIds } },
         data: { qualification: 'IRREGULIER' }
       });
-      logger.info('Unit deleteUnit - Tous les utilisateurs remis à IRREGULIER', { allUserIds: Array.from(allUserIds) });
+      logger.info('Unit deleteUnit - Membres remis à IRREGULIER', { memberIds });
     }
 
     // Supprimer tous les membres de l'unité
