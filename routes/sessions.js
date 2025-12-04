@@ -12,6 +12,7 @@ const {
   createSession,
   updateSession,
   deleteSession,
+  getSessionsStats,
   getSessionStatsById,
   getSessionUnits
 } = require('../controllers/sessionController');
@@ -22,6 +23,9 @@ router.use(requireChurchAssignment);
 router.route('/')
   .get(getSessions)
   .post(authorize('ADMIN', 'MANAGER'), authorizeManagerNetworkAccess, createSession);
+
+// Route pour récupérer toutes les stats des sessions d'une église
+router.get('/stats', authorize('ADMIN', 'MANAGER'), getSessionsStats);
 
 // Routes spécifiques AVANT la route générique pour éviter les conflits
 router.get('/:id/stats', getSessionStatsById);
