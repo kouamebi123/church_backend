@@ -166,16 +166,23 @@ exports.createNetworkObjective = async (req, res) => {
       });
     }
 
-    // Désactiver les anciens objectifs actifs
-    await req.prisma.networkObjective.updateMany({
-      where: {
-        network_id: networkId,
-        active: true
-      },
-      data: {
-        active: false
-      }
-    });
+    const isMainObjective = is_main === true || is_main === 'true';
+    
+    // Si c'est un objectif principal, désactiver uniquement les anciens objectifs principaux actifs
+    // Les objectifs à court terme ne sont pas affectés - on peut en avoir plusieurs actifs
+    if (isMainObjective) {
+      await req.prisma.networkObjective.updateMany({
+        where: {
+          network_id: networkId,
+          active: true,
+          is_main: true
+        },
+        data: {
+          active: false
+        }
+      });
+    }
+    // Si c'est un objectif à court terme, on ne désactive rien - on peut en avoir plusieurs actifs
 
     // Créer le nouvel objectif
     const objective = await req.prisma.networkObjective.create({
@@ -184,7 +191,8 @@ exports.createNetworkObjective = async (req, res) => {
         objectif: parseInt(objectif),
         date_fin: dateFin,
         description: description || null,
-        active: true
+        active: true,
+        is_main: isMainObjective
       }
     });
 
