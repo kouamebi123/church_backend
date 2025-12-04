@@ -816,79 +816,122 @@ exports.getNetworkStats = async (req, res) => {
       });
     }
 
-    // Calculer les statistiques pour chaque réseau
+    // Récupérer tous les compagnons d'œuvre pour tous les réseaux en une seule requête
+    const networkIds = networks.map(n => n.id);
+    const allCompanions = await prisma.networkCompanion.findMany({
+      where: {
+        network_id: { in: networkIds }
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            qualification: true
+          }
+        }
+      }
+    });
+
+    // Grouper les compagnons par réseau
+    const companionsByNetwork = {};
+    allCompanions.forEach(companion => {
+      const networkId = companion.network_id;
+      if (!companionsByNetwork[networkId]) {
+        companionsByNetwork[networkId] = [];
+      }
+      companionsByNetwork[networkId].push(companion);
+    });
+
+    // Calculer les statistiques pour chaque réseau (même format que getNetworkStatsById)
     const networksWithStats = networks.map(network => {
-      // Extraire toutes les qualifications des membres
-      const qualifications = [];
-      const allMemberIds = new Set(); // Pour éviter les doublons
+      const memberIds = new Set();
+      const userQualifications = new Map(); // Map pour éviter les doublons par utilisateur
+      const groupResponsables = new Set();
 
-      // Ajouter les responsables du réseau
-      if (network.responsable1) {
-        qualifications.push(network.responsable1.qualification);
-        allMemberIds.add(network.responsable1.id);
-      }
-      if (network.responsable2) {
-        qualifications.push(network.responsable2.qualification);
-        allMemberIds.add(network.responsable2.id);
-      }
-
-      // Ajouter les membres des groupes
+      // Traiter les groupes
       network.groups.forEach(group => {
         group.members.forEach(member => {
-          if (member.user && member.user.qualification) {
-            qualifications.push(member.user.qualification);
-            allMemberIds.add(member.user.id);
+          if (member.user) {
+            memberIds.add(member.user.id);
+            // Ne pas ajouter de doublons pour le même utilisateur
+            if (!userQualifications.has(member.user.id)) {
+              userQualifications.set(member.user.id, member.user.qualification);
+            }
           }
         });
-      });
 
-      // Compter les responsables de groupes
-      const groupResponsablesIds = new Set();
-      network.groups.forEach(group => {
         if (group.responsable1) {
-          groupResponsablesIds.add(group.responsable1.id);
-          // Ajouter aussi leurs qualifications si pas déjà comptées
-          if (!allMemberIds.has(group.responsable1.id)) {
-            qualifications.push(group.responsable1.qualification);
-            allMemberIds.add(group.responsable1.id);
+          groupResponsables.add(group.responsable1.id);
+          // Ajouter la qualification du responsable seulement s'il n'est pas déjà compté
+          if (!userQualifications.has(group.responsable1.id)) {
+            userQualifications.set(group.responsable1.id, group.responsable1.qualification);
           }
         }
         if (group.responsable2) {
-          groupResponsablesIds.add(group.responsable2.id);
-          // Ajouter aussi leurs qualifications si pas déjà comptées
-          if (!allMemberIds.has(group.responsable2.id)) {
-            qualifications.push(group.responsable2.qualification);
-            allMemberIds.add(group.responsable2.id);
+          groupResponsables.add(group.responsable2.id);
+          // Ajouter la qualification du responsable seulement s'il n'est pas déjà compté
+          if (!userQualifications.has(group.responsable2.id)) {
+            userQualifications.set(group.responsable2.id, group.responsable2.qualification);
           }
         }
       });
 
-      // Calculer l'effectif total (membres des groupes + responsables du réseau)
-      const memberCount = allMemberIds.size;
-
-      logger.info(`Réseau ${network.nom}: Effectif total calculé`, {
-        nom: network.nom,
-        memberCount,
-        membresGroupes: network.groups.reduce((total, group) => total + group.members.length, 0),
-        responsables: [network.responsable1, network.responsable2].filter(Boolean).length
+      // Ajouter les compagnons d'œuvre
+      const companions = companionsByNetwork[network.id] || [];
+      companions.forEach(companion => {
+        const companionUserId = companion.user?.id || companion.user_id;
+        if (companionUserId) {
+          memberIds.add(companionUserId);
+          if (!userQualifications.has(companionUserId)) {
+            userQualifications.set(companionUserId, companion.user?.qualification || 'COMPAGNON_OEUVRE');
+          }
+        }
       });
+
+      // Ajouter les responsables du réseau
+      if (network.responsable1) {
+        memberIds.add(network.responsable1.id);
+        if (!userQualifications.has(network.responsable1.id)) {
+          userQualifications.set(network.responsable1.id, network.responsable1.qualification);
+        }
+      }
+      if (network.responsable2) {
+        memberIds.add(network.responsable2.id);
+        if (!userQualifications.has(network.responsable2.id)) {
+          userQualifications.set(network.responsable2.id, network.responsable2.qualification);
+        }
+      }
+
+      // Compter les qualifications
+      const qualificationsArray = Array.from(userQualifications.values());
+      const stats = {
+        '12': qualificationsArray.filter(q => q === 'QUALIFICATION_12').length,
+        '144': qualificationsArray.filter(q => q === 'QUALIFICATION_144').length,
+        '1728': qualificationsArray.filter(q => q === 'QUALIFICATION_1728').length,
+        totalGroups: network.groups.length,
+        'Responsables de GR': groupResponsables.size,
+        'Compagnon d\'œuvre': companions.length,
+        'Leader': qualificationsArray.filter(q => q === 'LEADER').length,
+        'Leader (Tous)': qualificationsArray.filter(q =>
+          ['LEADER', 'RESPONSABLE_RESEAU', 'QUALIFICATION_12', 'QUALIFICATION_144', 'QUALIFICATION_1728', 'COMPAGNON_OEUVRE'].includes(q)
+        ).length,
+        'Membre simple': qualificationsArray.filter(q =>
+          !['QUALIFICATION_12', 'QUALIFICATION_144', 'QUALIFICATION_1728', 'LEADER', 'RESPONSABLE_RESEAU', 'COMPAGNON_OEUVRE'].includes(q)
+        ).length,
+        totalMembers: memberIds.size
+      };
 
       return {
         id: network.id,
         nom: network.nom,
-        memberCount,
-        qualifications,
-        groupCount: network.groups.length,
-        groupResponsablesCount: groupResponsablesIds.size
+        stats
       };
     });
 
     logger.info('getNetworkStats - Statistiques calculées', networksWithStats.map(n => ({
       nom: n.nom,
-      memberCount: n.memberCount,
-      qualificationsCount: n.qualifications.length,
-      groupCount: n.groupCount,
-      groupResponsablesCount: n.groupResponsablesCount
+      totalMembers: n.stats.totalMembers,
+      totalGroups: n.stats.totalGroups
     })));
 
     res.json({
