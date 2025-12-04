@@ -1334,6 +1334,61 @@ exports.getAvailableUsers = async (req, res) => {
     });
     const companionIdsInNetworks = companionsInNetworks.map(c => c.user_id);
 
+    // Récupérer les IDs des utilisateurs qui sont membres de sessions (UnitMember) - filtrés par église si spécifié
+    const unitMemberWhere = {};
+    if (where.eglise_locale_id) {
+      unitMemberWhere.unit = {
+        session: {
+          church_id: where.eglise_locale_id
+        }
+      };
+    }
+    const unitMembers = await req.prisma.unitMember.findMany({
+      where: unitMemberWhere,
+      select: {
+        user_id: true
+      }
+    });
+    const unitMemberIds = unitMembers.map(um => um.user_id);
+
+    // Récupérer les IDs des utilisateurs qui sont responsables d'unités - filtrés par église si spécifié
+    const unitWhere = {};
+    if (where.eglise_locale_id) {
+      unitWhere.session = {
+        church_id: where.eglise_locale_id
+      };
+    }
+    const allUnits = await req.prisma.unit.findMany({
+      where: unitWhere,
+      select: {
+        responsable1_id: true,
+        responsable2_id: true
+      }
+    });
+    const unitResponsableIds = allUnits.reduce((ids, unit) => {
+      if (unit.responsable1_id) ids.push(unit.responsable1_id);
+      if (unit.responsable2_id) ids.push(unit.responsable2_id);
+      return ids;
+    }, []);
+
+    // Récupérer les IDs des utilisateurs qui sont responsables de sessions - filtrés par église si spécifié
+    const sessionWhere = {};
+    if (where.eglise_locale_id) {
+      sessionWhere.church_id = where.eglise_locale_id;
+    }
+    const allSessions = await req.prisma.session.findMany({
+      where: sessionWhere,
+      select: {
+        responsable1_id: true,
+        responsable2_id: true
+      }
+    });
+    const sessionResponsableIds = allSessions.reduce((ids, session) => {
+      if (session.responsable1_id) ids.push(session.responsable1_id);
+      if (session.responsable2_id) ids.push(session.responsable2_id);
+      return ids;
+    }, []);
+
     // Filtrer les utilisateurs disponibles
     const availableUsers = allUsers.filter(user => {
       // Exclure les utilisateurs déjà dans des groupes
@@ -1351,9 +1406,23 @@ exports.getAvailableUsers = async (req, res) => {
         return false;
       }
 
-      // Exclure les utilisateurs de la gouvernance SAUF si c'est pour une session ou un réseau
-      // (comme pour les églises, exception pour les sessions et réseaux)
-      if (user.qualification === 'GOUVERNANCE' && forSession !== 'true' && forNetwork !== 'true') {
+      // Exclure les membres de sessions (UnitMember)
+      if (unitMemberIds.includes(user.id)) {
+        return false;
+      }
+
+      // Exclure les responsables d'unités
+      if (unitResponsableIds.includes(user.id)) {
+        return false;
+      }
+
+      // Exclure les responsables de sessions
+      if (sessionResponsableIds.includes(user.id)) {
+        return false;
+      }
+
+      // Exclure TOUJOURS les utilisateurs de la gouvernance (même pour les réseaux et sessions)
+      if (user.qualification === 'GOUVERNANCE') {
         return false;
       }
 
@@ -1375,6 +1444,9 @@ exports.getAvailableUsers = async (req, res) => {
       usersInGroups: userIdsInGroups.length,
       networkResponsables: networkResponsableIds.length,
       companionsInNetworks: companionIdsInNetworks.length,
+      unitMembers: unitMemberIds.length,
+      unitResponsables: unitResponsableIds.length,
+      sessionResponsables: sessionResponsableIds.length,
       availableUsers: availableUsers.length
     });
 
