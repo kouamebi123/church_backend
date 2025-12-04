@@ -1282,16 +1282,31 @@ exports.getAvailableUsers = async (req, res) => {
       }
     });
 
-    // Récupérer les IDs des utilisateurs qui sont déjà dans des groupes
+    // Récupérer les IDs des utilisateurs qui sont déjà dans des groupes (filtrés par église si spécifié)
+    const groupMemberWhere = {};
+    if (where.eglise_locale_id) {
+      // Filtrer les groupes par église via leurs réseaux
+      groupMemberWhere.group = {
+        network: {
+          church_id: where.eglise_locale_id
+        }
+      };
+    }
     const usersInGroups = await req.prisma.groupMember.findMany({
+      where: groupMemberWhere,
       select: {
         user_id: true
       }
     });
     const userIdsInGroups = usersInGroups.map(member => member.user_id);
 
-    // Récupérer les IDs des utilisateurs qui sont responsables de réseaux
+    // Récupérer les IDs des utilisateurs qui sont responsables de réseaux (filtrés par église si spécifié)
+    const networkWhere = {};
+    if (where.eglise_locale_id) {
+      networkWhere.church_id = where.eglise_locale_id;
+    }
     const allNetworks = await req.prisma.network.findMany({
+      where: networkWhere,
       select: {
         responsable1_id: true,
         responsable2_id: true
@@ -1304,8 +1319,15 @@ exports.getAvailableUsers = async (req, res) => {
       return ids;
     }, []);
 
-    // Récupérer les IDs des utilisateurs qui sont déjà compagnons d'un réseau
+    // Récupérer les IDs des utilisateurs qui sont déjà compagnons d'un réseau (filtrés par église si spécifié)
+    const companionWhere = {};
+    if (where.eglise_locale_id) {
+      companionWhere.network = {
+        church_id: where.eglise_locale_id
+      };
+    }
     const companionsInNetworks = await req.prisma.networkCompanion.findMany({
+      where: companionWhere,
       select: {
         user_id: true
       }
