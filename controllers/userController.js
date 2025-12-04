@@ -883,6 +883,7 @@ exports.createUser = async (req, res) => {
       }
     }
 
+    
     // Utilisation du gestionnaire d'erreurs centralisé
     const { status, message } = handleError(error, 'la création de l\'utilisateur');
 
@@ -1168,6 +1169,31 @@ exports.deleteUser = async (req, res) => {
       });
     }
 
+    // Vérifier si l'utilisateur est collecteur ou superviseur dans des services
+    // (ces champs ne sont pas nullable, donc l'utilisateur doit être remplacé avant suppression)
+    const servicesAsCollecteur = await req.prisma.service.count({
+      where: { collecteur_culte_id: id }
+    });
+    
+    const servicesAsSuperviseur = await req.prisma.service.count({
+      where: { superviseur_id: id }
+    });
+
+    if (servicesAsCollecteur > 0 || servicesAsSuperviseur > 0) {
+      const roles = [];
+      if (servicesAsCollecteur > 0) {
+        roles.push(`collecteur de culte (${servicesAsCollecteur} service${servicesAsCollecteur > 1 ? 's' : ''})`);
+      }
+      if (servicesAsSuperviseur > 0) {
+        roles.push(`superviseur (${servicesAsSuperviseur} service${servicesAsSuperviseur > 1 ? 's' : ''})`);
+      }
+      
+      return res.status(400).json({
+        success: false,
+        message: `Impossible de supprimer cet utilisateur car il est ${roles.join(' et ')}. Veuillez d'abord remplacer cet utilisateur dans les services concernés avant de le supprimer.`
+      });
+    }
+
     // Nettoyage automatique de toutes les références dans une transaction
     try {
       await req.prisma.$transaction(async (tx) => {
@@ -1189,20 +1215,6 @@ exports.deleteUser = async (req, res) => {
         // Retirer l'utilisateur des compagnons d'œuvre de réseaux
         await tx.networkCompanion.deleteMany({
           where: { user_id: id }
-        });
-
-        // Retirer l'utilisateur des services (collecteur ou superviseur)
-        await tx.service.updateMany({
-          where: {
-            OR: [
-              { collecteur_culte_id: id },
-              { superviseur_id: id }
-            ]
-          },
-          data: {
-            collecteur_culte_id: null,
-            superviseur_id: null
-          }
         });
 
         // IMPORTANT : Supprimer d'abord les MessageRecipient où l'utilisateur est destinataire
