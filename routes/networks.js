@@ -30,8 +30,7 @@ const {
   getNetworkObjectives,
   createNetworkObjective,
   updateNetworkObjective,
-  deleteNetworkObjective,
-  getObjectiveMessage
+  deleteNetworkObjective
 } = require('../controllers/objectiveController');
 
 // Routes publiques pour l'inscription (avant le middleware protect)
@@ -71,7 +70,6 @@ router.route('/:id')
 // Routes pour les objectifs de réseau
 router.get('/:id/objectives', protect, authorize('ADMIN', 'MANAGER'), getNetworkObjectives);
 router.get('/:id/objective', protect, authorize('ADMIN', 'MANAGER'), getNetworkObjective);
-router.get('/:id/objective/message', protect, authorize('ADMIN', 'MANAGER'), getObjectiveMessage);
 router.post('/:id/objectives', protect, authorize('ADMIN', 'MANAGER'), createNetworkObjective);
 router.put('/objectives/:objectiveId', protect, authorize('ADMIN', 'MANAGER'), updateNetworkObjective);
 router.delete('/objectives/:objectiveId', protect, authorize('ADMIN', 'MANAGER'), deleteNetworkObjective);
