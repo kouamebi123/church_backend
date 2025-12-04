@@ -544,20 +544,60 @@ async function fixFailedMigration() {
           "date_fin" TIMESTAMP(3) NOT NULL,
           "description" TEXT,
           "active" BOOLEAN NOT NULL DEFAULT true,
+          "is_main" BOOLEAN NOT NULL DEFAULT false,
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updatedAt" TIMESTAMP(3) NOT NULL,
           CONSTRAINT "network_objectives_pkey" PRIMARY KEY ("id")
         )
       `;
+      
       await prisma.$executeRaw`
         ALTER TABLE "network_objectives" 
         ADD CONSTRAINT "network_objectives_network_id_fkey" 
         FOREIGN KEY ("network_id") REFERENCES "networks"("id") 
         ON DELETE CASCADE ON UPDATE CASCADE
       `;
-      console.log('✅ Table network_objectives créée');
+      
+      console.log('✅ Table network_objectives créée avec is_main');
     } else {
-      console.log('✅ Table network_objectives existe déjà');
+      // Vérifier si la colonne is_main existe
+      const isMainColumnCheck = await prisma.$queryRaw`
+        SELECT EXISTS (
+          SELECT FROM information_schema.columns 
+          WHERE table_schema = 'public' 
+          AND table_name = 'network_objectives'
+          AND column_name = 'is_main'
+        )
+      `;
+      
+      if (!isMainColumnCheck[0].exists) {
+        await prisma.$executeRaw`
+          ALTER TABLE "network_objectives" ADD COLUMN "is_main" BOOLEAN NOT NULL DEFAULT false
+        `;
+        console.log('✅ Colonne is_main ajoutée à network_objectives');
+      } else {
+        console.log('✅ Colonne is_main existe déjà dans network_objectives');
+      }
+      
+      // Vérifier si la contrainte de clé étrangère existe déjà
+      const fkCheck = await prisma.$queryRaw`
+        SELECT EXISTS (
+          SELECT FROM information_schema.table_constraints 
+          WHERE table_schema = 'public' 
+          AND table_name = 'network_objectives'
+          AND constraint_name = 'network_objectives_network_id_fkey'
+        )
+      `;
+      
+      if (!fkCheck[0].exists) {
+        await prisma.$executeRaw`
+          ALTER TABLE "network_objectives" 
+          ADD CONSTRAINT "network_objectives_network_id_fkey" 
+          FOREIGN KEY ("network_id") REFERENCES "networks"("id") 
+          ON DELETE CASCADE ON UPDATE CASCADE
+        `;
+        console.log('✅ Contrainte de clé étrangère ajoutée à network_objectives');
+      }
     }
 
     const incompleteMigrationNames = incompleteMigrations.map((row) => row.migration_name);

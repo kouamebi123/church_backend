@@ -133,6 +133,7 @@ model NetworkObjective {
   date_fin        DateTime // Date de fin de l'objectif
   description     String?  // Description optionnelle
   active          Boolean  @default(true) // Objectif actif ou terminé
+  is_main         Boolean  @default(false) // Objectif principal (true) ou objectif à court terme (false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   network         Network  @relation(fields: [network_id], references: [id], onDelete: Cascade)

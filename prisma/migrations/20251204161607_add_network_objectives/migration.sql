@@ -6,6 +6,7 @@ CREATE TABLE "network_objectives" (
     "date_fin" TIMESTAMP(3) NOT NULL,
     "description" TEXT,
     "active" BOOLEAN NOT NULL DEFAULT true,
+    "is_main" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 

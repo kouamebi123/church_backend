@@ -8,10 +8,12 @@ exports.getNetworkObjective = async (req, res) => {
   try {
     const networkId = req.params.id || req.params.networkId;
 
+    // Récupérer l'objectif principal (is_main = true) ou le plus récent actif
     const objective = await req.prisma.networkObjective.findFirst({
       where: {
         network_id: networkId,
-        active: true
+        active: true,
+        is_main: true
       },
       orderBy: {
         createdAt: 'desc'
@@ -86,9 +88,10 @@ exports.getNetworkObjectives = async (req, res) => {
       where: {
         network_id: networkId
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: [
+        { is_main: 'desc' }, // Objectifs principaux en premier
+        { createdAt: 'desc' }
+      ]
     });
 
     res.status(200).json({
@@ -119,7 +122,7 @@ exports.createNetworkObjective = async (req, res) => {
       });
     }
     
-    const { objectif, date_fin, description } = req.body;
+    const { objectif, date_fin, description, is_main } = req.body;
 
     // Validation
     if (!objectif || !date_fin) {
@@ -206,7 +209,7 @@ exports.createNetworkObjective = async (req, res) => {
 exports.updateNetworkObjective = async (req, res) => {
   try {
     const { objectiveId } = req.params;
-    const { objectif, date_fin, description, active } = req.body;
+    const { objectif, date_fin, description, active, is_main } = req.body;
 
     const objective = await req.prisma.networkObjective.findUnique({
       where: { id: objectiveId }
@@ -312,10 +315,12 @@ exports.getObjectiveMessage = async (req, res) => {
   try {
     const networkId = req.params.id || req.params.networkId;
 
+    // Récupérer l'objectif principal (is_main = true) ou le plus récent actif
     const objective = await req.prisma.networkObjective.findFirst({
       where: {
         network_id: networkId,
-        active: true
+        active: true,
+        is_main: true
       },
       orderBy: {
         createdAt: 'desc'
