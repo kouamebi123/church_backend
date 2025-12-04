@@ -114,6 +114,7 @@ model Network {
   chaine_impact   ChaineImpact[]
   groups          Group[]
   companions      NetworkCompanion[]
+  objectives      NetworkObjective[]
   church          Church         @relation(fields: [church_id], references: [id])
   responsable1    User           @relation("NetworkResponsable1", fields: [responsable1_id], references: [id])
   responsable2    User?          @relation("NetworkResponsable2", fields: [responsable2_id], references: [id])
@@ -123,6 +124,20 @@ model Network {
   @@unique([responsable1_id])
   @@unique([responsable2_id])
   @@map("networks")
+}
+
+model NetworkObjective {
+  id              String   @id @default(cuid())
+  network_id      String
+  objectif        Int      // Nombre d'objectif (effectif cible)
+  date_fin        DateTime // Date de fin de l'objectif
+  description     String?  // Description optionnelle
+  active          Boolean  @default(true) // Objectif actif ou terminé
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  network         Network  @relation(fields: [network_id], references: [id], onDelete: Cascade)
+
+  @@map("network_objectives")
 }
 
 model Group {
