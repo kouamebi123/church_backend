@@ -6,7 +6,7 @@ const { PrismaClient } = require('@prisma/client');
  */
 exports.getNetworkObjective = async (req, res) => {
   try {
-    const { networkId } = req.params;
+    const networkId = req.params.id || req.params.networkId;
 
     const objective = await req.prisma.networkObjective.findFirst({
       where: {
@@ -80,7 +80,7 @@ exports.getNetworkObjective = async (req, res) => {
  */
 exports.getNetworkObjectives = async (req, res) => {
   try {
-    const { networkId } = req.params;
+    const networkId = req.params.id || req.params.networkId;
 
     const objectives = await req.prisma.networkObjective.findMany({
       where: {
@@ -110,7 +110,15 @@ exports.getNetworkObjectives = async (req, res) => {
  */
 exports.createNetworkObjective = async (req, res) => {
   try {
-    const { networkId } = req.params;
+    const networkId = req.params.id || req.params.networkId;
+    
+    if (!networkId) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID du réseau requis'
+      });
+    }
+    
     const { objectif, date_fin, description } = req.body;
 
     // Validation
@@ -302,7 +310,7 @@ exports.deleteNetworkObjective = async (req, res) => {
  */
 exports.getObjectiveMessage = async (req, res) => {
   try {
-    const { networkId } = req.params;
+    const networkId = req.params.id || req.params.networkId;
 
     const objective = await req.prisma.networkObjective.findFirst({
       where: {
