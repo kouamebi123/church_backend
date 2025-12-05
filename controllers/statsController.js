@@ -401,19 +401,26 @@ exports.getNetworksEvolution = async (req, res) => {
 
     const { prisma } = req;
 
-    const filter = {};
+    const filter = {
+      active: true // Seulement les réseaux actifs (continués)
+    };
 
     // Ajouter le filtre par église si spécifié
     if (req.query.churchId) {
       filter.church_id = req.query.churchId;
     }
 
-    // Récupère tous les réseaux
+    // Récupère tous les réseaux actifs avec leurs responsables
     const networks = await prisma.network.findMany({
       where: filter,
-      select: { id: true, nom: true }
+      select: { 
+        id: true, 
+        nom: true,
+        responsable1_id: true,
+        responsable2_id: true,
+        createdAt: true
+      }
     });
-    const networkNames = networks.map(n => n.nom);
 
     // Prépare exactement les 12 derniers mois (YYYY-MM), y compris le mois en cours
     const now = new Date();
@@ -424,50 +431,48 @@ exports.getNetworksEvolution = async (req, res) => {
       months.push(month);
     }
 
-    // Optimisation : récupérer tous les groupes avec leurs membres en une seule requête
-    let allGroups;
-    if (req.query.churchId) {
-      // Si on filtre par église, on doit d'abord récupérer les réseaux de cette église
-      const networksInChurch = await prisma.network.findMany({
-        where: { church_id: req.query.churchId },
-        select: { id: true }
-      });
-      const networkIds = networksInChurch.map(n => n.id);
-      allGroups = await prisma.group.findMany({
-        where: { network_id: { in: networkIds } },
-        select: {
-          id: true,
-          network_id: true,
-          members: {
-            select: {
-              user_id: true,
-              createdAt: true
-            }
-          }
-        }
-      });
-    } else {
-      allGroups = await prisma.group.findMany({
-        select: {
-          id: true,
-          network_id: true,
-          members: {
-            select: {
-              user_id: true,
-              createdAt: true
-            }
-          }
-        }
-      });
-    }
+    const networkIds = networks.map(n => n.id);
 
-    // Créer un Map pour accélérer les recherches
+    // Optimisation : récupérer tous les groupes avec leurs membres en une seule requête
+    const allGroups = await prisma.group.findMany({
+      where: { network_id: { in: networkIds } },
+      select: {
+        id: true,
+        network_id: true,
+        members: {
+          select: {
+            user_id: true,
+            createdAt: true
+          }
+        }
+      }
+    });
+
+    // Récupérer tous les compagnons d'œuvre des réseaux
+    const allCompanions = await prisma.networkCompanion.findMany({
+      where: { network_id: { in: networkIds } },
+      select: {
+        network_id: true,
+        user_id: true,
+        createdAt: true
+      }
+    });
+
+    // Créer des Maps pour accélérer les recherches
     const groupsByNetwork = new Map();
     allGroups.forEach(group => {
       if (!groupsByNetwork.has(group.network_id)) {
         groupsByNetwork.set(group.network_id, []);
       }
       groupsByNetwork.get(group.network_id).push(group);
+    });
+
+    const companionsByNetwork = new Map();
+    allCompanions.forEach(companion => {
+      if (!companionsByNetwork.has(companion.network_id)) {
+        companionsByNetwork.set(companion.network_id, []);
+      }
+      companionsByNetwork.get(companion.network_id).push(companion);
     });
 
     // Prépare l'évolution
@@ -477,13 +482,13 @@ exports.getNetworksEvolution = async (req, res) => {
       const [year, m] = month.split('-');
       const endOfMonth = new Date(Number(year), Number(m), 0, 23, 59, 59, 999);
 
-      // Pour chaque réseau, compte les membres présents dans les groupes à cette date
+      // Pour chaque réseau, compte tous les membres à cette date
       const row = { month };
       for (const network of networks) {
-        const networkGroups = groupsByNetwork.get(network.id) || [];
-
-        // Récupère tous les membres uniques présents dans les groupes à cette date
         const memberIds = new Set();
+
+        // 1. Ajouter les membres des groupes (membres des GR)
+        const networkGroups = groupsByNetwork.get(network.id) || [];
         networkGroups.forEach(g => {
           if (Array.isArray(g.members)) {
             g.members.forEach(member => {
@@ -492,6 +497,26 @@ exports.getNetworksEvolution = async (req, res) => {
                 memberIds.add(member.user_id);
               }
             });
+          }
+        });
+
+        // 2. Ajouter les responsables de réseau (responsable1 et responsable2)
+        // Les responsables sont comptés depuis la création du réseau
+        if (network.createdAt <= endOfMonth) {
+          if (network.responsable1_id) {
+            memberIds.add(network.responsable1_id);
+          }
+          if (network.responsable2_id) {
+            memberIds.add(network.responsable2_id);
+          }
+        }
+
+        // 3. Ajouter les compagnons d'œuvre
+        const networkCompanions = companionsByNetwork.get(network.id) || [];
+        networkCompanions.forEach(companion => {
+          // Un compagnon est considéré comme présent s'il a été ajouté avant la fin du mois
+          if (new Date(companion.createdAt) <= endOfMonth) {
+            memberIds.add(companion.user_id);
           }
         });
 
@@ -536,7 +561,9 @@ exports.compareNetworksByYear = async (req, res) => {
       new Date(Number(year2), 11, 31, 23, 59, 59, 999)
     ];
 
-    const filter = {};
+    const filter = {
+      active: true // Seulement les réseaux actifs (continués)
+    };
 
     // Ajouter le filtre par église si spécifié
     if (req.query.churchId) {
@@ -545,47 +572,43 @@ exports.compareNetworksByYear = async (req, res) => {
 
     const networks = await prisma.network.findMany({
       where: filter,
-      select: { id: true, nom: true }
+      select: { 
+        id: true, 
+        nom: true,
+        responsable1_id: true,
+        responsable2_id: true,
+        createdAt: true
+      }
     });
 
-    // Optimisation : récupérer tous les groupes avec leur historique en une seule requête
-    let allGroups;
-    if (req.query.churchId) {
-      // Si on filtre par église, on doit d'abord récupérer les réseaux de cette église
-      const networksInChurch = await prisma.network.findMany({
-        where: { church_id: req.query.churchId },
-        select: { id: true }
-      });
-      const networkIds = networksInChurch.map(n => n.id);
-      allGroups = await prisma.group.findMany({
-        where: { network_id: { in: networkIds } },
-        select: {
-          id: true,
-          network_id: true,
-          members: {
-            select: {
-              user_id: true,
-              createdAt: true
-            }
-          }
-        }
-      });
-    } else {
-      allGroups = await prisma.group.findMany({
-        select: {
-          id: true,
-          network_id: true,
-          members: {
-            select: {
-              user_id: true,
-              createdAt: true
-            }
-          }
-        }
-      });
-    }
+    const networkIds = networks.map(n => n.id);
 
-    // Créer un Map pour accélérer les recherches
+    // Optimisation : récupérer tous les groupes avec leurs membres en une seule requête
+    const allGroups = await prisma.group.findMany({
+      where: { network_id: { in: networkIds } },
+      select: {
+        id: true,
+        network_id: true,
+        members: {
+          select: {
+            user_id: true,
+            createdAt: true
+          }
+        }
+      }
+    });
+
+    // Récupérer tous les compagnons d'œuvre des réseaux
+    const allCompanions = await prisma.networkCompanion.findMany({
+      where: { network_id: { in: networkIds } },
+      select: {
+        network_id: true,
+        user_id: true,
+        createdAt: true
+      }
+    });
+
+    // Créer des Maps pour accélérer les recherches
     const groupsByNetwork = new Map();
     allGroups.forEach(group => {
       if (!groupsByNetwork.has(group.network_id)) {
@@ -594,15 +617,26 @@ exports.compareNetworksByYear = async (req, res) => {
       groupsByNetwork.get(group.network_id).push(group);
     });
 
+    const companionsByNetwork = new Map();
+    allCompanions.forEach(companion => {
+      if (!companionsByNetwork.has(companion.network_id)) {
+        companionsByNetwork.set(companion.network_id, []);
+      }
+      companionsByNetwork.get(companion.network_id).push(companion);
+    });
+
     const result = [];
 
     for (const network of networks) {
       const row = { network: network.nom };
       const networkGroups = groupsByNetwork.get(network.id) || [];
+      const networkCompanions = companionsByNetwork.get(network.id) || [];
 
       for (let i = 0; i < 2; i++) {
         const endOfYear = dates[i];
         const memberIds = new Set();
+
+        // 1. Ajouter les membres des groupes (membres des GR)
         networkGroups.forEach(g => {
           if (Array.isArray(g.members)) {
             g.members.forEach(m => {
@@ -612,6 +646,26 @@ exports.compareNetworksByYear = async (req, res) => {
                 memberIds.add(m.user_id);
               }
             });
+          }
+        });
+
+        // 2. Ajouter les responsables de réseau (responsable1 et responsable2)
+        // Les responsables sont comptés depuis la création du réseau
+        if (network.createdAt <= endOfYear) {
+          if (network.responsable1_id) {
+            memberIds.add(network.responsable1_id);
+          }
+          if (network.responsable2_id) {
+            memberIds.add(network.responsable2_id);
+          }
+        }
+
+        // 3. Ajouter les compagnons d'œuvre
+        networkCompanions.forEach(companion => {
+          const joinedAt = new Date(companion.createdAt);
+          // Un compagnon est considéré comme présent s'il a été ajouté avant la fin de l'année
+          if (joinedAt <= endOfYear) {
+            memberIds.add(companion.user_id);
           }
         });
 

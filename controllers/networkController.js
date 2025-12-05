@@ -740,7 +740,9 @@ exports.getNetworkStats = async (req, res) => {
   try {
     const { prisma } = req;
 
-    const where = {};
+    const where = {
+      active: true // Seulement les réseaux actifs (continués)
+    };
 
     // Filtrage par église si spécifié
     if (req.query.churchId) {
@@ -760,7 +762,7 @@ exports.getNetworkStats = async (req, res) => {
     logger.info('getNetworkStats - req.user', req.user);
     logger.info('getNetworkStats - Filtres appliqués', where);
 
-    // Récupérer tous les réseaux avec leurs groupes et membres
+    // Récupérer tous les réseaux actifs avec leurs groupes et membres
     const networks = await prisma.network.findMany({
       where,
       include: {
@@ -1304,10 +1306,11 @@ exports.getNetworksQualificationStats = async (req, res) => {
       });
     }
 
-    // Récupérer tous les réseaux de l'église avec leurs groupes et membres
+    // Récupérer tous les réseaux actifs de l'église avec leurs groupes, membres, responsables et compagnons
     const networks = await prisma.network.findMany({
       where: {
-        church_id: churchId
+        church_id: churchId,
+        active: true // Seulement les réseaux actifs (continués)
       },
       include: {
         groups: {
@@ -1323,29 +1326,81 @@ exports.getNetworksQualificationStats = async (req, res) => {
               }
             }
           }
+        },
+        responsable1: {
+          select: {
+            id: true,
+            qualification: true
+          }
+        },
+        responsable2: {
+          select: {
+            id: true,
+            qualification: true
+          }
+        },
+        companions: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                qualification: true
+              }
+            }
+          }
         }
       }
     });
 
     // Calculer les statistiques par réseau
     const stats = networks.map(network => {
-      const totalMembers = network.groups.reduce((total, group) => {
-        return total + group.members.length;
-      }, 0);
-
-      // Compter les qualifications
+      const memberIds = new Set();
       const qualifications = {};
+
+      // 1. Ajouter les membres des groupes (membres des GR)
       network.groups.forEach(group => {
         group.members.forEach(member => {
-          const qual = member.user.qualification || 'Non spécifiée';
-          qualifications[qual] = (qualifications[qual] || 0) + 1;
+          const memberId = member.user.id;
+          if (!memberIds.has(memberId)) {
+            memberIds.add(memberId);
+            const qual = member.user.qualification || 'Non spécifiée';
+            qualifications[qual] = (qualifications[qual] || 0) + 1;
+          }
         });
+      });
+
+      // 2. Ajouter les responsables de réseau (responsable1 et responsable2)
+      if (network.responsable1) {
+        const resp1Id = network.responsable1.id;
+        if (!memberIds.has(resp1Id)) {
+          memberIds.add(resp1Id);
+          const qual = network.responsable1.qualification || 'Non spécifiée';
+          qualifications[qual] = (qualifications[qual] || 0) + 1;
+        }
+      }
+      if (network.responsable2) {
+        const resp2Id = network.responsable2.id;
+        if (!memberIds.has(resp2Id)) {
+          memberIds.add(resp2Id);
+          const qual = network.responsable2.qualification || 'Non spécifiée';
+          qualifications[qual] = (qualifications[qual] || 0) + 1;
+        }
+      }
+
+      // 3. Ajouter les compagnons d'œuvre
+      network.companions.forEach(companion => {
+        const companionId = companion.user.id;
+        if (!memberIds.has(companionId)) {
+          memberIds.add(companionId);
+          const qual = companion.user.qualification || 'COMPAGNON_OEUVRE';
+          qualifications[qual] = (qualifications[qual] || 0) + 1;
+        }
       });
 
       return {
         networkId: network.id,
         networkName: network.nom,
-        totalMembers,
+        totalMembers: memberIds.size,
         qualifications
       };
     });
