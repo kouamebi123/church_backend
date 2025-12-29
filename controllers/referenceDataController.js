@@ -30,7 +30,7 @@ const getAll = (modelName) => async (req, res) => {
         active: true
       },
       orderBy: {
-        nom: 'asc'
+        createdAt: 'asc'
       }
     });
 
@@ -64,7 +64,7 @@ const getAllIncludingInactive = (modelName) => async (req, res) => {
 
     const items = await model.findMany({
       orderBy: {
-        nom: 'asc'
+        createdAt: 'asc'
       }
     });
 

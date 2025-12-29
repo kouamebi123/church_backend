@@ -684,33 +684,39 @@ async function fixFailedMigration() {
       console.log('✅ Nettoyage des migrations échouées terminé\n');
     }
     
-    // Vérifier spécifiquement la migration network_objectives qui peut échouer si la table existe déjà
-    const networkObjectivesMigration = '20250102000000_add_network_objectives';
-    if (migrationExists(networkObjectivesMigration)) {
-      try {
-        const tableExists = await prisma.$queryRaw`
-          SELECT EXISTS (
-            SELECT FROM information_schema.tables 
-            WHERE table_schema = 'public' 
-            AND table_name = 'network_objectives'
-          )
-        `;
-        
-        if (tableExists[0].exists) {
-          // Vérifier si la migration est marquée comme échouée ou incomplète
-          const migrationStatus = await prisma.$queryRaw`
-            SELECT finished_at, rolled_back_at
-            FROM "_prisma_migrations"
-            WHERE migration_name = '20250102000000_add_network_objectives'
+    // Vérifier spécifiquement les migrations network_objectives qui peuvent échouer si la table existe déjà
+    const networkObjectivesMigrations = [
+      '20250102000000_add_network_objectives',
+      '20251204161607_add_network_objectives'
+    ];
+    
+    for (const migrationName of networkObjectivesMigrations) {
+      if (migrationExists(migrationName)) {
+        try {
+          const tableExists = await prisma.$queryRaw`
+            SELECT EXISTS (
+              SELECT FROM information_schema.tables 
+              WHERE table_schema = 'public' 
+              AND table_name = 'network_objectives'
+            )
           `;
           
-          if (migrationStatus.length > 0 && !migrationStatus[0].finished_at && !migrationStatus[0].rolled_back_at) {
-            console.log(`🔧 Migration ${networkObjectivesMigration} : la table existe déjà, marquage comme applied...`);
-            runPrismaResolve(networkObjectivesMigration, false);
+          if (tableExists[0].exists) {
+            // Vérifier si la migration est marquée comme échouée ou incomplète
+            const migrationStatus = await prisma.$queryRaw`
+              SELECT finished_at, rolled_back_at
+              FROM "_prisma_migrations"
+              WHERE migration_name = ${migrationName}
+            `;
+            
+            if (migrationStatus.length > 0 && !migrationStatus[0].finished_at && !migrationStatus[0].rolled_back_at) {
+              console.log(`🔧 Migration ${migrationName} : la table existe déjà, marquage comme applied...`);
+              runPrismaResolve(migrationName, false);
+            }
           }
+        } catch (error) {
+          console.log(`⚠️  Erreur lors de la vérification de ${migrationName}:`, error.message);
         }
-      } catch (error) {
-        console.log(`⚠️  Erreur lors de la vérification de ${networkObjectivesMigration}:`, error.message);
       }
     }
     
