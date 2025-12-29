@@ -8,12 +8,12 @@ datasource db {
 }
 
 model User {
-  id                           String               @id @default(cuid())
+  id                           String                    @id @default(cuid())
   username                     String
-  pseudo                       String               @unique
+  pseudo                       String                    @unique
   password                     String
-  role                         UserRole             @default(MEMBRE)
-  current_role                 UserRole?            // Rôle actuellement actif
+  role                         UserRole                  @default(MEMBRE)
+  current_role                 UserRole? // Rôle actuellement actif
   genre                        Genre
   tranche_age                  String
   profession                   String
@@ -22,91 +22,91 @@ model User {
   origine                      String
   situation_matrimoniale       String
   niveau_education             String
-  qualification                Qualification        @default(EN_INTEGRATION)
-  email                        String?              @unique
-  email_notifications          Boolean              @default(true)
-  language                     String?              @default("fr")
-  theme                        String?              @default("light")
+  qualification                Qualification             @default(EN_INTEGRATION)
+  email                        String?                   @unique
+  email_notifications          Boolean                   @default(true)
+  language                     String?                   @default("fr")
+  theme                        String?                   @default("light")
   telephone                    String?
   adresse                      String?
-  createdAt                    DateTime             @default(now())
-  updatedAt                    DateTime             @updatedAt
+  createdAt                    DateTime                  @default(now())
+  updatedAt                    DateTime                  @updatedAt
   eglise_locale_id             String
-  departement_id               String?              // Gardé pour compatibilité
-  image                        String?              @default("")
+  departement_id               String? // Gardé pour compatibilité
+  image                        String?                   @default("")
   assistance_created           Assistance[]
-  chaine_impact_responsable    ChaineImpact[]       @relation("ChaineImpactResponsable")
-  chaine_impact_user           ChaineImpact[]       @relation("ChaineImpactUser")
-  church_responsable           Church?              @relation("ChurchResponsable")
+  chaine_impact_responsable    ChaineImpact[]            @relation("ChaineImpactResponsable")
+  chaine_impact_user           ChaineImpact[]            @relation("ChaineImpactUser")
+  church_responsable           Church?                   @relation("ChurchResponsable")
   group_member_history         GroupMemberHistory[]
   group_members                GroupMember[]
-  group_responsable1           Group[]              @relation("GroupResponsable1")
-  group_responsable2           Group[]              @relation("GroupResponsable2")
-  group_superieur_hierarchique Group[]              @relation("GroupSuperieurHierarchique")
+  group_responsable1           Group[]                   @relation("GroupResponsable1")
+  group_responsable2           Group[]                   @relation("GroupResponsable2")
+  group_superieur_hierarchique Group[]                   @relation("GroupSuperieurHierarchique")
   message_recipients           MessageRecipient[]
-  messages_sent                Message[]            @relation("MessageSender")
-  network_responsable1         Network[]            @relation("NetworkResponsable1")
-  network_responsable2         Network[]            @relation("NetworkResponsable2")
+  messages_sent                Message[]                 @relation("MessageSender")
+  network_responsable1         Network[]                 @relation("NetworkResponsable1")
+  network_responsable2         Network[]                 @relation("NetworkResponsable2")
   previsionnels_created        Previsionnel[]
-  services_collecteur          Service[]            @relation("ServiceCollecteur")
+  services_collecteur          Service[]                 @relation("ServiceCollecteur")
   services                     Service[]
-  services_superviseur         Service[]            @relation("ServiceSuperviseur")
-  departement                  Department?          @relation("DepartmentMembers", fields: [departement_id], references: [id])
-  eglise_locale                Church               @relation("ChurchMembers", fields: [eglise_locale_id], references: [id])
-  user_departments             UserDepartment[]     @relation("UserDepartments")
-  role_assignments             UserRoleAssignment[] @relation("UserRoleAssignments")
-  approved_testimonies         Testimony[]          @relation("TestimonyApprover")
-  confirmed_testimonies        Testimony[]          @relation("TestimonyConfirmer")
-  activity_logs                ActivityLog[]        @relation("ActivityLogs")
+  services_superviseur         Service[]                 @relation("ServiceSuperviseur")
+  departement                  Department?               @relation("DepartmentMembers", fields: [departement_id], references: [id])
+  eglise_locale                Church                    @relation("ChurchMembers", fields: [eglise_locale_id], references: [id])
+  user_departments             UserDepartment[]          @relation("UserDepartments")
+  role_assignments             UserRoleAssignment[]      @relation("UserRoleAssignments")
+  approved_testimonies         Testimony[]               @relation("TestimonyApprover")
+  confirmed_testimonies        Testimony[]               @relation("TestimonyConfirmer")
+  activity_logs                ActivityLog[]             @relation("ActivityLogs")
   network_companions           NetworkCompanion[]
-  session_responsable1         Session[]             @relation("SessionResponsable1")
-  session_responsable2         Session[]             @relation("SessionResponsable2")
-  unit_responsable1            Unit[]                @relation("UnitResponsable1")
-  unit_responsable2            Unit[]                @relation("UnitResponsable2")
-  unit_members                 UnitMember[]          @relation("UnitMemberUser")
-  unit_superieur_hierarchique  Unit[]                @relation("UnitSuperieurHierarchique")
-  calendar_events_created      CalendarEvent[]       @relation("CalendarEventCreator")
-  app_settings_updated         AppSettings[]         @relation("AppSettingsUpdater")
+  session_responsable1         Session[]                 @relation("SessionResponsable1")
+  session_responsable2         Session[]                 @relation("SessionResponsable2")
+  unit_responsable1            Unit[]                    @relation("UnitResponsable1")
+  unit_responsable2            Unit[]                    @relation("UnitResponsable2")
+  unit_members                 UnitMember[]              @relation("UnitMemberUser")
+  unit_superieur_hierarchique  Unit[]                    @relation("UnitSuperieurHierarchique")
+  calendar_events_created      CalendarEvent[]           @relation("CalendarEventCreator")
+  app_settings_updated         AppSettings[]             @relation("AppSettingsUpdater")
 
   @@map("users")
 }
 
 model Church {
-  id             String         @id @default(cuid())
-  nom            String         @unique
-  adresse        String?
-  ville          String?
-  latitude       Float?
-  longitude      Float?
-  population     Int?
-  nombre_membres Int            @default(0)
-  description    String?
-  type           ChurchType     @default(EGLISE)
-  image          String         @default("")
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  responsable_id String?        @unique
-  assistance     Assistance[]
-  chaine_impact  ChaineImpact[]
-  responsable    User?          @relation("ChurchResponsable", fields: [responsable_id], references: [id])
-  departments    Department[]
-  networks       Network[]
-  previsionnels  Previsionnel[]
-  services       Service[]
-  members        User[]         @relation("ChurchMembers")
-  testimonies    Testimony[]
-  sessions       Session[]       @relation("ChurchSessions")
+  id              String          @id @default(cuid())
+  nom             String          @unique
+  adresse         String?
+  ville           String?
+  latitude        Float?
+  longitude       Float?
+  population      Int?
+  nombre_membres  Int             @default(0)
+  description     String?
+  type            ChurchType      @default(EGLISE)
+  image           String          @default("")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  responsable_id  String?         @unique
+  assistance      Assistance[]
+  chaine_impact   ChaineImpact[]
+  responsable     User?           @relation("ChurchResponsable", fields: [responsable_id], references: [id])
+  departments     Department[]
+  networks        Network[]
+  previsionnels   Previsionnel[]
+  services        Service[]
+  members         User[]          @relation("ChurchMembers")
+  testimonies     Testimony[]
+  sessions        Session[]       @relation("ChurchSessions")
   calendar_events CalendarEvent[]
 
   @@map("churches")
 }
 
 model Network {
-  id              String         @id @default(cuid())
-  nom             String         @unique
-  active          Boolean        @default(true)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id              String             @id @default(cuid())
+  nom             String             @unique
+  active          Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
   responsable1_id String
   responsable2_id String?
   church_id       String
@@ -115,9 +115,9 @@ model Network {
   groups          Group[]
   companions      NetworkCompanion[]
   objectives      NetworkObjective[]
-  church          Church         @relation(fields: [church_id], references: [id])
-  responsable1    User           @relation("NetworkResponsable1", fields: [responsable1_id], references: [id])
-  responsable2    User?          @relation("NetworkResponsable2", fields: [responsable2_id], references: [id])
+  church          Church             @relation(fields: [church_id], references: [id])
+  responsable1    User               @relation("NetworkResponsable1", fields: [responsable1_id], references: [id])
+  responsable2    User?              @relation("NetworkResponsable2", fields: [responsable2_id], references: [id])
   previsionnels   Previsionnel[]
   testimonies     Testimony[]
 
@@ -127,16 +127,16 @@ model Network {
 }
 
 model NetworkObjective {
-  id              String   @id @default(cuid())
-  network_id      String
-  objectif        Int      // Nombre d'objectif (effectif cible)
-  date_fin        DateTime // Date de fin de l'objectif
-  description     String?  // Description optionnelle
-  active          Boolean  @default(true) // Objectif actif ou terminé
-  is_main         Boolean  @default(false) // Objectif principal (true) ou objectif à court terme (false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  network         Network  @relation(fields: [network_id], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  network_id  String
+  objectif    Int // Nombre d'objectif (effectif cible)
+  date_fin    DateTime // Date de fin de l'objectif
+  description String? // Description optionnelle
+  active      Boolean  @default(true) // Objectif actif ou terminé
+  is_main     Boolean  @default(false) // Objectif principal (true) ou objectif à court terme (false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  network     Network  @relation(fields: [network_id], references: [id], onDelete: Cascade)
 
   @@map("network_objectives")
 }
@@ -206,17 +206,17 @@ model NetworkCompanion {
 
 model Session {
   id              String   @id @default(cuid())
-  nom            String   @unique
-  active         Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  nom             String   @unique
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
   responsable1_id String
   responsable2_id String?
-  church_id      String
-  units          Unit[]    @relation("SessionUnits")
-  church         Church   @relation("ChurchSessions", fields: [church_id], references: [id])
-  responsable1   User     @relation("SessionResponsable1", fields: [responsable1_id], references: [id])
-  responsable2   User?    @relation("SessionResponsable2", fields: [responsable2_id], references: [id])
+  church_id       String
+  units           Unit[]   @relation("SessionUnits")
+  church          Church   @relation("ChurchSessions", fields: [church_id], references: [id])
+  responsable1    User     @relation("SessionResponsable1", fields: [responsable1_id], references: [id])
+  responsable2    User?    @relation("SessionResponsable2", fields: [responsable2_id], references: [id])
 
   @@unique([responsable1_id])
   @@unique([responsable2_id])
@@ -224,21 +224,21 @@ model Session {
 }
 
 model Unit {
-  id                        String        @id @default(cuid())
+  id                        String       @id @default(cuid())
   nom                       String
   description               String?
-  active                    Boolean       @default(true)
-  createdAt                 DateTime      @default(now())
-  updatedAt                 DateTime      @updatedAt
+  active                    Boolean      @default(true)
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
   session_id                String
   responsable1_id           String
   responsable2_id           String?
   superieur_hierarchique_id String?
-  members                   UnitMember[]  @relation("UnitMembers")
-  session                   Session       @relation("SessionUnits", fields: [session_id], references: [id])
-  responsable1              User          @relation("UnitResponsable1", fields: [responsable1_id], references: [id])
-  responsable2              User?         @relation("UnitResponsable2", fields: [responsable2_id], references: [id])
-  superieur_hierarchique    User?         @relation("UnitSuperieurHierarchique", fields: [superieur_hierarchique_id], references: [id])
+  members                   UnitMember[] @relation("UnitMembers")
+  session                   Session      @relation("SessionUnits", fields: [session_id], references: [id])
+  responsable1              User         @relation("UnitResponsable1", fields: [responsable1_id], references: [id])
+  responsable2              User?        @relation("UnitResponsable2", fields: [responsable2_id], references: [id])
+  superieur_hierarchique    User?        @relation("UnitSuperieurHierarchique", fields: [superieur_hierarchique_id], references: [id])
 
   @@unique([responsable1_id])
   @@unique([responsable2_id])
@@ -258,65 +258,65 @@ model UnitMember {
 }
 
 model Department {
-  id          String   @id @default(cuid())
-  nom         String   @unique
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  church_id   String
-  church      Church   @relation(fields: [church_id], references: [id])
-  members     User[]   @relation("DepartmentMembers")
+  id               String           @id @default(cuid())
+  nom              String           @unique
+  description      String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  church_id        String
+  church           Church           @relation(fields: [church_id], references: [id])
+  members          User[]           @relation("DepartmentMembers")
   user_departments UserDepartment[] @relation("DepartmentUsers")
 
   @@map("departments")
 }
 
 model UserDepartment {
-  id             String     @id @default(cuid())
-  user_id        String
-  department_id  String
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-  user           User       @relation("UserDepartments", fields: [user_id], references: [id], onDelete: Cascade)
-  department     Department @relation("DepartmentUsers", fields: [department_id], references: [id], onDelete: Cascade)
+  id            String     @id @default(cuid())
+  user_id       String
+  department_id String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  user          User       @relation("UserDepartments", fields: [user_id], references: [id], onDelete: Cascade)
+  department    Department @relation("DepartmentUsers", fields: [department_id], references: [id], onDelete: Cascade)
 
   @@unique([user_id, department_id])
   @@map("user_departments")
 }
 
 model Service {
-  id                      String      @id @default(cuid())
+  id                      String       @id @default(cuid())
   date                    DateTime
-  culte                   String      // Gardé pour compatibilité, sera remplacé par service_type_id
-  orateur                 String      // Gardé pour compatibilité, sera remplacé par speaker_id
-  service_type_id         String?     // Nouvelle relation
-  speaker_id              String?     // Nouvelle relation
+  culte                   String // Gardé pour compatibilité, sera remplacé par service_type_id
+  orateur                 String // Gardé pour compatibilité, sera remplacé par speaker_id
+  service_type_id         String? // Nouvelle relation
+  speaker_id              String? // Nouvelle relation
   theme                   String?
   nombre_present          Int?
-  total_adultes           Int         @default(0)
-  total_enfants           Int         @default(0)
-  total_chantres          Int         @default(0)
-  total_protocoles         Int         @default(0)
-  total_multimedia        Int         @default(0)
-  total_respo_ecodim      Int         @default(0)
-  total_animateurs_ecodim Int         @default(0)
-  total_enfants_ecodim    Int         @default(0)
+  total_adultes           Int          @default(0)
+  total_enfants           Int          @default(0)
+  total_chantres          Int          @default(0)
+  total_protocoles        Int          @default(0)
+  total_multimedia        Int          @default(0)
+  total_respo_ecodim      Int          @default(0)
+  total_animateurs_ecodim Int          @default(0)
+  total_enfants_ecodim    Int          @default(0)
   collecteur_culte_id     String
   superviseur_id          String
-  invitationYoutube       Int         @default(0)
-  invitationTiktok        Int         @default(0)
-  invitationInstagram     Int         @default(0)
-  invitationPhysique      Int         @default(0)
-  createdAt               DateTime    @default(now())
-  updatedAt               DateTime    @updatedAt
+  invitationYoutube       Int          @default(0)
+  invitationTiktok        Int          @default(0)
+  invitationInstagram     Int          @default(0)
+  invitationPhysique      Int          @default(0)
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
   eglise_id               String
   responsable_id          String?
-  collecteur_culte        User        @relation("ServiceCollecteur", fields: [collecteur_culte_id], references: [id])
-  eglise                  Church      @relation(fields: [eglise_id], references: [id])
-  responsable             User?       @relation(fields: [responsable_id], references: [id])
-  superviseur             User        @relation("ServiceSuperviseur", fields: [superviseur_id], references: [id])
+  collecteur_culte        User         @relation("ServiceCollecteur", fields: [collecteur_culte_id], references: [id])
+  eglise                  Church       @relation(fields: [eglise_id], references: [id])
+  responsable             User?        @relation(fields: [responsable_id], references: [id])
+  superviseur             User         @relation("ServiceSuperviseur", fields: [superviseur_id], references: [id])
   service_type            ServiceType? @relation(fields: [service_type_id], references: [id])
-  speaker                 Speaker?    @relation(fields: [speaker_id], references: [id])
+  speaker                 Speaker?     @relation(fields: [speaker_id], references: [id])
 
   @@map("services")
 }
@@ -335,24 +335,24 @@ model CarouselImage {
 }
 
 model Previsionnel {
-  id                 String            @id @default(cuid())
-  date               DateTime
-  type_culte         String            // Gardé pour compatibilité
-  service_type_id    String?           // Nouvelle relation
-  total_prevu        Int               @default(0)
-  invites            Int               @default(0)
-  responsables_reseau Int              @default(0)
-  compagnons_oeuvre   Int              @default(0)
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  network_id         String
-  church_id          String
-  created_by_id      String
-  groupes_previsions GroupePrevision[]
-  church             Church            @relation(fields: [church_id], references: [id])
-  created_by         User              @relation(fields: [created_by_id], references: [id])
-  network            Network           @relation(fields: [network_id], references: [id])
-  service_type       ServiceType?      @relation(fields: [service_type_id], references: [id])
+  id                  String            @id @default(cuid())
+  date                DateTime
+  type_culte          String // Gardé pour compatibilité
+  service_type_id     String? // Nouvelle relation
+  total_prevu         Int               @default(0)
+  invites             Int               @default(0)
+  responsables_reseau Int               @default(0)
+  compagnons_oeuvre   Int               @default(0)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  network_id          String
+  church_id           String
+  created_by_id       String
+  groupes_previsions  GroupePrevision[]
+  church              Church            @relation(fields: [church_id], references: [id])
+  created_by          User              @relation(fields: [created_by_id], references: [id])
+  network             Network           @relation(fields: [network_id], references: [id])
+  service_type        ServiceType?      @relation(fields: [service_type_id], references: [id])
 
   @@map("previsionnels")
 }
@@ -373,24 +373,24 @@ model GroupePrevision {
 }
 
 model Assistance {
-  id                 String             @id @default(cuid())
-  date               DateTime
-  type_culte         String             // Gardé pour compatibilité
-  service_type_id    String?            // Nouvelle relation
-  total_presents     Int                @default(0)
-  network_id         String
-  church_id          String
-  created_by_id      String
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  invites            Int                @default(0)
-  responsables_reseau Int               @default(0)
+  id                  String             @id @default(cuid())
+  date                DateTime
+  type_culte          String // Gardé pour compatibilité
+  service_type_id     String? // Nouvelle relation
+  total_presents      Int                @default(0)
+  network_id          String
+  church_id           String
+  created_by_id       String
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  invites             Int                @default(0)
+  responsables_reseau Int                @default(0)
   compagnons_oeuvre   Int                @default(0)
-  church             Church             @relation(fields: [church_id], references: [id])
-  created_by         User               @relation(fields: [created_by_id], references: [id])
-  network            Network            @relation(fields: [network_id], references: [id])
-  groupes_assistance GroupeAssistance[]
-  service_type       ServiceType?      @relation(fields: [service_type_id], references: [id])
+  church              Church             @relation(fields: [church_id], references: [id])
+  created_by          User               @relation(fields: [created_by_id], references: [id])
+  network             Network            @relation(fields: [network_id], references: [id])
+  groupes_assistance  GroupeAssistance[]
+  service_type        ServiceType?       @relation(fields: [service_type_id], references: [id])
 
   @@map("assistance")
 }
@@ -480,54 +480,54 @@ enum Genre {
 }
 
 model Testimony {
-  id                    String                  @id @default(cuid())
-  firstName             String
-  lastName              String
-  phone                 String?
-  email                 String?
-  churchId              String
-  networkId             String?
-  testimonyType         TestimonyType?          // Type de personne (GOUVERNANCE, ECODIM, SECTION, VISITOR)
-  section               String?                 // Section (ex: "Section 1")
-  unit                  String?                // Unité (ex: "Unité A")
-  category              TestimonyCategory       // Gardé pour compatibilité
-  category_config_id    String?                 // Nouvelle relation
-  content               String
-  isAnonymous           Boolean                 @default(false)
-  isApproved            Boolean                 @default(false)
-  isRead                Boolean                 @default(false)
-  wantsToTestify        Boolean                 @default(false) // Souhaite témoigner lors d'un culte
-  isConfirmedToTestify  Boolean                 @default(false) // Confirmé pour témoigner
-  hasTestified          Boolean                 @default(false) // A déjà témoigné
-  confirmedAt           DateTime?               // Date de confirmation
-  testifiedAt           DateTime?               // Date du témoignage
-  confirmedBy           String?                 // Qui a confirmé
-  note                  String?
-  approvedAt            DateTime?
-  approvedBy            String?
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime                @updatedAt
-  illustrations         TestimonyFile[]
-  church                Church                  @relation(fields: [churchId], references: [id])
-  network               Network?                @relation(fields: [networkId], references: [id])
-  approver              User?                   @relation("TestimonyApprover", fields: [approvedBy], references: [id])
-  confirmer             User?                   @relation("TestimonyConfirmer", fields: [confirmedBy], references: [id])
-  category_config       TestimonyCategoryConfig? @relation("TestimonyCategory", fields: [category_config_id], references: [id])
+  id                   String                   @id @default(cuid())
+  firstName            String
+  lastName             String
+  phone                String?
+  email                String?
+  churchId             String
+  networkId            String?
+  testimonyType        TestimonyType? // Type de personne (GOUVERNANCE, ECODIM, SECTION, VISITOR)
+  section              String? // Section (ex: "Section 1")
+  unit                 String? // Unité (ex: "Unité A")
+  category             TestimonyCategory // Gardé pour compatibilité
+  category_config_id   String? // Nouvelle relation
+  content              String
+  isAnonymous          Boolean                  @default(false)
+  isApproved           Boolean                  @default(false)
+  isRead               Boolean                  @default(false)
+  wantsToTestify       Boolean                  @default(false) // Souhaite témoigner lors d'un culte
+  isConfirmedToTestify Boolean                  @default(false) // Confirmé pour témoigner
+  hasTestified         Boolean                  @default(false) // A déjà témoigné
+  confirmedAt          DateTime? // Date de confirmation
+  testifiedAt          DateTime? // Date du témoignage
+  confirmedBy          String? // Qui a confirmé
+  note                 String?
+  approvedAt           DateTime?
+  approvedBy           String?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  illustrations        TestimonyFile[]
+  church               Church                   @relation(fields: [churchId], references: [id])
+  network              Network?                 @relation(fields: [networkId], references: [id])
+  approver             User?                    @relation("TestimonyApprover", fields: [approvedBy], references: [id])
+  confirmer            User?                    @relation("TestimonyConfirmer", fields: [confirmedBy], references: [id])
+  category_config      TestimonyCategoryConfig? @relation("TestimonyCategory", fields: [category_config_id], references: [id])
 
   @@map("testimonies")
 }
 
 model TestimonyFile {
-  id          String    @id @default(cuid())
-  testimonyId String
-  fileName    String
+  id           String    @id @default(cuid())
+  testimonyId  String
+  fileName     String
   originalName String
-  filePath    String
-  fileType    String
-  fileSize    Int
-  fileCategory String?  @default("ILLUSTRATION") @map("filecategory") // ILLUSTRATION ou AUDIO
-  createdAt   DateTime  @default(now())
-  testimony   Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
+  filePath     String
+  fileType     String
+  fileSize     Int
+  fileCategory String?   @default("ILLUSTRATION") @map("filecategory") // ILLUSTRATION ou AUDIO
+  createdAt    DateTime  @default(now())
+  testimony    Testimony @relation(fields: [testimonyId], references: [id], onDelete: Cascade)
 
   @@map("testimony_files")
 }
@@ -544,11 +544,11 @@ enum TestimonyCategory {
 }
 
 enum TestimonyType {
-  GOUVERNANCE      // Personnes avec qualification GOUVERNANCE
-  ECODIM           // Personnes avec qualification ECODIM
-  SECTION          // Personnes dans une section (avec section et unit)
-  VISITOR          // Visiteur
-  NETWORK_MEMBER   // Membre de réseau (si networkId est renseigné)
+  GOUVERNANCE // Personnes avec qualification GOUVERNANCE
+  ECODIM // Personnes avec qualification ECODIM
+  SECTION // Personnes dans une section (avec section et unit)
+  VISITOR // Visiteur
+  NETWORK_MEMBER // Membre de réseau (si networkId est renseigné)
 }
 
 enum Qualification {
@@ -588,20 +588,20 @@ enum SituationProfessionnelle {
 }
 
 model UserRoleAssignment {
-  id        String   @id @default(cuid())
-  user_id   String
-  role      UserRole
-  is_active Boolean  @default(true)
+  id         String   @id @default(cuid())
+  user_id    String
+  role       UserRole
+  is_active  Boolean  @default(true)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
-  user      User     @relation("UserRoleAssignments", fields: [user_id], references: [id], onDelete: Cascade)
+  user       User     @relation("UserRoleAssignments", fields: [user_id], references: [id], onDelete: Cascade)
 
   @@unique([user_id, role])
   @@map("user_role_assignments")
 }
 
 model ActivityLog {
-  id          String      @id @default(cuid())
+  id          String         @id @default(cuid())
   user_id     String
   action      ActivityAction
   entity_type EntityType
@@ -610,8 +610,8 @@ model ActivityLog {
   details     String?
   ip_address  String?
   user_agent  String?
-  created_at  DateTime    @default(now())
-  user        User        @relation("ActivityLogs", fields: [user_id], references: [id], onDelete: Cascade)
+  created_at  DateTime       @default(now())
+  user        User           @relation("ActivityLogs", fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("activity_logs")
 }
@@ -628,26 +628,26 @@ enum ActivityAction {
 }
 
 model CalendarEvent {
-  id            String          @id @default(cuid())
-  title         String
-  description   String?
-  start_date    DateTime
-  end_date      DateTime?
-  location      String?
-  event_type    EventType       @default(GENERAL) // Gardé pour compatibilité
-  event_type_config_id String?  // Nouvelle relation
-  is_public     Boolean         @default(true)
-  is_zone_event Boolean         @default(false)
-  share_link    String?
-  share_qr_url  String?
+  id                   String           @id @default(cuid())
+  title                String
+  description          String?
+  start_date           DateTime
+  end_date             DateTime?
+  location             String?
+  event_type           EventType        @default(GENERAL) // Gardé pour compatibilité
+  event_type_config_id String? // Nouvelle relation
+  is_public            Boolean          @default(true)
+  is_zone_event        Boolean          @default(false)
+  share_link           String?
+  share_qr_url         String?
   alert_offset_minutes Int?
-  church_id     String
-  church        Church          @relation(fields: [church_id], references: [id], onDelete: Cascade)
-  created_by_id String
-  created_by    User            @relation("CalendarEventCreator", fields: [created_by_id], references: [id])
-  created_at    DateTime        @default(now())
-  updated_at    DateTime        @updatedAt
-  event_type_config EventTypeConfig? @relation("CalendarEventType", fields: [event_type_config_id], references: [id])
+  church_id            String
+  church               Church           @relation(fields: [church_id], references: [id], onDelete: Cascade)
+  created_by_id        String
+  created_by           User             @relation("CalendarEventCreator", fields: [created_by_id], references: [id])
+  created_at           DateTime         @default(now())
+  updated_at           DateTime         @updatedAt
+  event_type_config    EventTypeConfig? @relation("CalendarEventType", fields: [event_type_config_id], references: [id])
 
   @@map("calendar_events")
 }
@@ -685,26 +685,26 @@ enum EntityType {
 }
 
 model Contact {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   name       String
   email      String
   subject    String
   message    String
-  created_at DateTime @default(now())
-  read       Boolean  @default(false)
+  created_at DateTime  @default(now())
+  read       Boolean   @default(false)
   read_at    DateTime?
 
   @@map("contacts")
 }
 
 model AppSettings {
-  id                String   @id @default(cuid())
-  contact_email     String?
-  contact_phone     String?
-  contact_location  String?
-  updated_at        DateTime @updatedAt
-  updated_by_id     String?
-  updated_by        User?    @relation("AppSettingsUpdater", fields: [updated_by_id], references: [id])
+  id               String   @id @default(cuid())
+  contact_email    String?
+  contact_phone    String?
+  contact_location String?
+  updated_at       DateTime @updatedAt
+  updated_by_id    String?
+  updated_by       User?    @relation("AppSettingsUpdater", fields: [updated_by_id], references: [id])
 
   @@map("app_settings")
 }
@@ -722,15 +722,15 @@ model Speaker {
 }
 
 model ServiceType {
-  id          String       @id @default(cuid())
-  nom         String       @unique
-  description String?
-  active      Boolean      @default(true)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  services    Service[]
+  id            String         @id @default(cuid())
+  nom           String         @unique
+  description   String?
+  active        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  services      Service[]
   previsionnels Previsionnel[]
-  assistance  Assistance[]
+  assistance    Assistance[]
 
   @@map("service_types")
 }
@@ -749,13 +749,13 @@ model TestimonyCategoryConfig {
 }
 
 model EventTypeConfig {
-  id          String         @id @default(cuid())
-  code        String         @unique // Code correspondant à l'enum (GENERAL, CULTE, etc.)
-  nom         String         @unique
-  description String?
-  active      Boolean        @default(true)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id              String          @id @default(cuid())
+  code            String          @unique // Code correspondant à l'enum (GENERAL, CULTE, etc.)
+  nom             String          @unique
+  description     String?
+  active          Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
   calendar_events CalendarEvent[] @relation("CalendarEventType")
 
   @@map("event_type_configs")
