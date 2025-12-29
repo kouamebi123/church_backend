@@ -13,17 +13,30 @@ const migrationExists = (migrationName) => {
   return fs.existsSync(migrationPath);
 };
 
-const runPrismaResolve = (migrationName) => {
+const runPrismaResolve = (migrationName, asRolledBack = false) => {
   // Vérifier si la migration existe avant d'essayer de la résoudre
-  if (!migrationExists(migrationName)) {
-    console.log(`ℹ️  Migration ${migrationName} n'existe pas, ignorée`);
-    return;
+  const exists = migrationExists(migrationName);
+  
+  if (!exists && !asRolledBack) {
+    // Si la migration n'existe pas, on la marque comme rolled-back
+    console.log(`ℹ️  Migration ${migrationName} n'existe pas, marquage comme rolled-back...`);
+    try {
+      const rollbackCommand = `npx prisma migrate resolve --rolled-back ${migrationName}`;
+      execSync(rollbackCommand, { stdio: 'inherit', timeout: 30000 });
+      console.log(`✅ Migration ${migrationName} marquée comme rolled-back`);
+      return;
+    } catch (rollbackError) {
+      console.log(`⚠️  Impossible de marquer ${migrationName} comme rolled-back:`, rollbackError.message);
+      return;
+    }
   }
 
-  const command = `npx prisma migrate resolve --applied ${migrationName}`;
+  const command = asRolledBack 
+    ? `npx prisma migrate resolve --rolled-back ${migrationName}`
+    : `npx prisma migrate resolve --applied ${migrationName}`;
   try {
-    execSync(command, { stdio: 'inherit' });
-    console.log(`⚠️  Migration ${migrationName} marquée comme déjà appliquée`);
+    execSync(command, { stdio: 'inherit', timeout: 30000 });
+    console.log(`✅ Migration ${migrationName} marquée comme ${asRolledBack ? 'rolled-back' : 'applied'}`);
   } catch (resolveError) {
     const output = `${resolveError?.stdout?.toString() || ''}${resolveError?.stderr?.toString() || ''}`;
     if (
@@ -32,12 +45,25 @@ const runPrismaResolve = (migrationName) => {
       output.includes('could not be found') ||
       output.includes('P3017')
     ) {
-      console.log(`ℹ️  Migration ${migrationName} est déjà enregistrée comme appliquée ou n'existe pas`);
+      if (!asRolledBack && (output.includes('could not be found') || output.includes('P3017'))) {
+        // Si la migration n'existe pas, essayer de la marquer comme rolled-back
+        console.log(`🔄 Tentative de marquage comme rolled-back...`);
+        runPrismaResolve(migrationName, true);
+      } else {
+        console.log(`ℹ️  Migration ${migrationName} est déjà enregistrée comme appliquée ou n'existe pas`);
+      }
       return;
     }
     // Ne pas throw l'erreur, juste logger
     console.log(`⚠️  Erreur lors de la résolution de ${migrationName}: ${output}`);
   }
+};
+
+// Fonction pour extraire le nom de la migration depuis un message d'erreur P3009
+const extractFailedMigrationName = (errorMessage) => {
+  // Format: "The `20250115000001_add_testimonies_and_files` migration started at ... failed"
+  const match = errorMessage.match(/The `([^`]+)` migration/);
+  return match ? match[1] : null;
 };
 
 async function fixFailedMigration() {
@@ -707,29 +733,40 @@ async function fixFailedMigration() {
         }
         return;
       }
-      if (combined.includes('P3009') && combined.includes(MIGRATION_TESTIMONIES_FILES)) {
-        console.log(`⚠️  Migration ${MIGRATION_TESTIMONIES_FILES} marquée comme échouée. Marquage manuel comme appliquée...`);
-        if (migrationExists(MIGRATION_TESTIMONIES_FILES)) {
-          runPrismaResolve(MIGRATION_TESTIMONIES_FILES);
-        }
-        try {
-          execSync('npx prisma migrate deploy', { stdio: 'inherit', timeout: 120000 });
-          console.log('✅ Migrations Prisma synchronisées (après résolution de testimonies files)');
+      // Gestion générique des erreurs P3009 (migrations échouées)
+      if (combined.includes('P3009')) {
+        console.log('⚠️  Détection d\'une migration échouée (P3009)...');
+        const failedMigrationName = extractFailedMigrationName(combined);
+        
+        if (failedMigrationName) {
+          console.log(`🔧 Tentative de résolution de la migration échouée: ${failedMigrationName}`);
+          // Si la migration existe, on la marque comme applied, sinon comme rolled-back
+          const exists = migrationExists(failedMigrationName);
+          runPrismaResolve(failedMigrationName, !exists);
           
-          // Migrer les données de référence
+          // Réessayer les migrations
           try {
-            const migrateScriptPath = path.join(__dirname, 'migrateReferenceData.js');
-            if (fs.existsSync(migrateScriptPath)) {
-              execSync(`node ${migrateScriptPath}`, { stdio: 'inherit', timeout: 60000 });
-              console.log('✅ Données de référence migrées');
+            execSync('npx prisma migrate deploy', { stdio: 'inherit', timeout: 120000 });
+            console.log('✅ Migrations Prisma synchronisées (après résolution de migration échouée)');
+            
+            // Migrer les données de référence
+            try {
+              const migrateScriptPath = path.join(__dirname, 'migrateReferenceData.js');
+              if (fs.existsSync(migrateScriptPath)) {
+                execSync(`node ${migrateScriptPath}`, { stdio: 'inherit', timeout: 60000 });
+                console.log('✅ Données de référence migrées');
+              }
+            } catch (migrateDataError) {
+              console.log('⚠️  Erreur lors de la migration des données (non bloquant):', migrateDataError.message);
             }
-          } catch (migrateDataError) {
-            console.log('⚠️  Erreur lors de la migration des données (non bloquant):', migrateDataError.message);
+          } catch (retryError) {
+            console.log('⚠️  Erreur lors de la réapplication des migrations:', retryError.message);
+            // Ne pas retourner, continuer pour essayer d'autres solutions
           }
-        } catch (retryError) {
-          console.log('⚠️  Erreur lors de la réapplication des migrations:', retryError.message);
+        } else {
+          console.log('⚠️  Impossible d\'extraire le nom de la migration échouée depuis le message d\'erreur');
         }
-        return;
+        // Ne pas retourner immédiatement, continuer pour vérifier d'autres cas
       }
       // Si c'est juste une migration qui existe déjà, ne pas bloquer
       if (combined.includes('already applied') || combined.includes('P3008')) {
