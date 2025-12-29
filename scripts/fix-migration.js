@@ -713,6 +713,37 @@ async function fixFailedMigration() {
         console.log(`⚠️  Erreur lors de la vérification de ${networkObjectivesMigration}:`, error.message);
       }
     }
+    
+    // Vérifier spécifiquement la migration calendar_is_zone_event qui peut échouer si la colonne existe déjà
+    const calendarIsZoneEventMigration = '20251112160000_add_calendar_is_zone_event';
+    if (migrationExists(calendarIsZoneEventMigration)) {
+      try {
+        const columnExists = await prisma.$queryRaw`
+          SELECT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_schema = 'public' 
+            AND table_name = 'calendar_events'
+            AND column_name = 'is_zone_event'
+          )
+        `;
+        
+        if (columnExists[0].exists) {
+          // Vérifier si la migration est marquée comme échouée ou incomplète
+          const migrationStatus = await prisma.$queryRaw`
+            SELECT finished_at, rolled_back_at
+            FROM "_prisma_migrations"
+            WHERE migration_name = '20251112160000_add_calendar_is_zone_event'
+          `;
+          
+          if (migrationStatus.length > 0 && !migrationStatus[0].finished_at && !migrationStatus[0].rolled_back_at) {
+            console.log(`🔧 Migration ${calendarIsZoneEventMigration} : la colonne existe déjà, marquage comme applied...`);
+            runPrismaResolve(calendarIsZoneEventMigration, false);
+          }
+        }
+      } catch (error) {
+        console.log(`⚠️  Erreur lors de la vérification de ${calendarIsZoneEventMigration}:`, error.message);
+      }
+    }
 
     const incompleteMigrationNames = incompleteMigrations.map((row) => row.migration_name);
     const migrationsToResolve = new Set();
@@ -829,9 +860,9 @@ async function fixFailedMigration() {
         }
         return;
       }
-      // Gestion de l'erreur P3018 (migration échouée avec table/relation déjà existante)
+      // Gestion de l'erreur P3018 (migration échouée avec table/relation/colonne déjà existante)
       if (combined.includes('P3018') || (combined.includes('already exists') && combined.includes('Migration name:'))) {
-        console.log('⚠️  Détection d\'une migration échouée (P3018 - relation déjà existante)...');
+        console.log('⚠️  Détection d\'une migration échouée (P3018 - relation/colonne déjà existante)...');
         
         // Extraire le nom de la migration depuis le message d'erreur
         let failedMigrationName = null;
@@ -844,16 +875,16 @@ async function fixFailedMigration() {
         }
         
         if (failedMigrationName) {
-          console.log(`🔧 Migration ${failedMigrationName} échouée car la table/relation existe déjà`);
-          console.log(`   → Marquage comme applied (la table existe déjà, donc la migration est effectivement appliquée)`);
+          console.log(`🔧 Migration ${failedMigrationName} échouée car la table/relation/colonne existe déjà`);
+          console.log(`   → Marquage comme applied (la structure existe déjà, donc la migration est effectivement appliquée)`);
           
-          // Si la table existe déjà, la migration est effectivement appliquée, on la marque comme applied
+          // Si la structure existe déjà, la migration est effectivement appliquée, on la marque comme applied
           runPrismaResolve(failedMigrationName, false);
           
           // Réessayer les migrations
           try {
             execSync('npx prisma migrate deploy', { stdio: 'inherit', timeout: 120000 });
-            console.log('✅ Migrations Prisma synchronisées (après résolution de migration avec table existante)');
+            console.log('✅ Migrations Prisma synchronisées (après résolution de migration avec structure existante)');
             
             // Migrer les données de référence
             try {
@@ -926,18 +957,25 @@ async function fixFailedMigration() {
       const { PrismaClient } = require('@prisma/client');
       const finalCheckPrisma = new PrismaClient();
       
+      const speakersCount = await finalCheckPrisma.speaker.count();
       const serviceTypesCount = await finalCheckPrisma.serviceType.count();
       const testimonyCategoriesCount = await finalCheckPrisma.testimonyCategoryConfig.count();
       const eventTypesCount = await finalCheckPrisma.eventTypeConfig.count();
       
-      console.log(`📊 État actuel: ServiceTypes=${serviceTypesCount}, TestimonyCategories=${testimonyCategoriesCount}, EventTypes=${eventTypesCount}`);
+      console.log(`📊 État actuel: Speakers=${speakersCount}, ServiceTypes=${serviceTypesCount}, TestimonyCategories=${testimonyCategoriesCount}, EventTypes=${eventTypesCount}`);
       
-      if (serviceTypesCount === 0 || testimonyCategoriesCount === 0 || eventTypesCount === 0) {
-        console.log('⚠️  Certaines tables de référence sont vides, remplissage automatique...');
+      // Toujours exécuter le script si les orateurs sont vides ou insuffisants
+      if (speakersCount === 0 || speakersCount < 20 || serviceTypesCount === 0 || serviceTypesCount < 10 || testimonyCategoriesCount === 0 || eventTypesCount === 0) {
+        console.log('⚠️  Certaines tables de référence sont vides ou incomplètes, remplissage automatique...');
         const migrateScriptPath = path.join(__dirname, 'migrateReferenceData.js');
         if (fs.existsSync(migrateScriptPath)) {
           execSync(`node ${migrateScriptPath}`, { stdio: 'inherit', timeout: 60000 });
           console.log('✅ Tables de référence remplies avec succès');
+          
+          // Vérifier à nouveau après migration
+          const speakersCountAfter = await finalCheckPrisma.speaker.count();
+          const serviceTypesCountAfter = await finalCheckPrisma.serviceType.count();
+          console.log(`📊 État après migration: Speakers=${speakersCountAfter}, ServiceTypes=${serviceTypesCountAfter}`);
         } else {
           console.log('❌ Script de migration des données de référence non trouvé');
         }
