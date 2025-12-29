@@ -203,9 +203,17 @@ const update = (modelName, displayName) => async (req, res) => {
     const { prisma } = req;
     const { id } = req.params;
     const { nom, description, code, active } = req.body;
+    const model = getPrismaModel(prisma, modelName);
+
+    if (!model) {
+      return res.status(500).json({
+        success: false,
+        message: `Modèle ${modelName} non trouvé`
+      });
+    }
 
     // Vérifier si l'élément existe
-    const existing = await prisma[modelName].findUnique({
+    const existing = await model.findUnique({
       where: { id }
     });
 
@@ -274,9 +282,17 @@ const remove = (modelName, displayName) => async (req, res) => {
   try {
     const { prisma } = req;
     const { id } = req.params;
+    const model = getPrismaModel(prisma, modelName);
+
+    if (!model) {
+      return res.status(500).json({
+        success: false,
+        message: `Modèle ${modelName} non trouvé`
+      });
+    }
 
     // Vérifier si l'élément existe
-    const existing = await prisma[modelName].findUnique({
+    const existing = await model.findUnique({
       where: { id }
     });
 
@@ -287,23 +303,119 @@ const remove = (modelName, displayName) => async (req, res) => {
       });
     }
 
-    // Vérifier s'il est utilisé (dépend du modèle)
-    // Pour l'instant, on désactive au lieu de supprimer
-    await model.update({
-      where: { id },
-      data: { active: false }
-    });
+    // Vérifier s'il est utilisé dans d'autres tables avant de supprimer
+    // Pour ServiceType, vérifier s'il est utilisé dans services, previsionnels, assistance
+    if (modelName === 'serviceType') {
+      const usedInServices = await prisma.service.count({
+        where: { service_type_id: id }
+      });
+      const usedInPrevisionnels = await prisma.previsionnel.count({
+        where: { service_type_id: id }
+      });
+      const usedInAssistance = await prisma.assistance.count({
+        where: { service_type_id: id }
+      });
 
-    res.status(200).json({
-      success: true,
-      message: `${displayName} désactivé avec succès`
-    });
+      if (usedInServices > 0 || usedInPrevisionnels > 0 || usedInAssistance > 0) {
+        // Si utilisé, on désactive au lieu de supprimer
+        await model.update({
+          where: { id },
+          data: { active: false }
+        });
+        return res.status(200).json({
+          success: true,
+          message: `${displayName} désactivé avec succès (utilisé dans ${usedInServices + usedInPrevisionnels + usedInAssistance} enregistrement(s))`
+        });
+      }
+    }
+
+    // Pour Speaker, vérifier s'il est utilisé dans services
+    if (modelName === 'speaker') {
+      const usedInServices = await prisma.service.count({
+        where: { speaker_id: id }
+      });
+
+      if (usedInServices > 0) {
+        await model.update({
+          where: { id },
+          data: { active: false }
+        });
+        return res.status(200).json({
+          success: true,
+          message: `${displayName} désactivé avec succès (utilisé dans ${usedInServices} service(s))`
+        });
+      }
+    }
+
+    // Pour TestimonyCategoryConfig, vérifier s'il est utilisé dans testimonies
+    if (modelName === 'testimonyCategoryConfig') {
+      const usedInTestimonies = await prisma.testimony.count({
+        where: { category_config_id: id }
+      });
+
+      if (usedInTestimonies > 0) {
+        await model.update({
+          where: { id },
+          data: { active: false }
+        });
+        return res.status(200).json({
+          success: true,
+          message: `${displayName} désactivé avec succès (utilisé dans ${usedInTestimonies} témoignage(s))`
+        });
+      }
+    }
+
+    // Pour EventTypeConfig, vérifier s'il est utilisé dans calendar_events
+    if (modelName === 'eventTypeConfig') {
+      const usedInEvents = await prisma.calendarEvent.count({
+        where: { event_type_config_id: id }
+      });
+
+      if (usedInEvents > 0) {
+        await model.update({
+          where: { id },
+          data: { active: false }
+        });
+        return res.status(200).json({
+          success: true,
+          message: `${displayName} désactivé avec succès (utilisé dans ${usedInEvents} événement(s))`
+        });
+      }
+    }
+
+    // Si non utilisé, on peut supprimer définitivement
+    try {
+      await model.delete({
+        where: { id }
+      });
+
+      res.status(200).json({
+        success: true,
+        message: `${displayName} supprimé avec succès`
+      });
+    } catch (deleteError) {
+      // Si la suppression échoue à cause d'une contrainte de clé étrangère,
+      // on désactive au lieu de supprimer
+      if (deleteError.code === 'P2003' || deleteError.message?.includes('Foreign key constraint')) {
+        logger.warn(`${modelName} - remove - Contrainte de clé étrangère détectée, désactivation au lieu de suppression`);
+        await model.update({
+          where: { id },
+          data: { active: false }
+        });
+        res.status(200).json({
+          success: true,
+          message: `${displayName} désactivé avec succès (contrainte de clé étrangère)`
+        });
+      } else {
+        throw deleteError;
+      }
+    }
   } catch (error) {
     logger.error(`${modelName} - remove - Erreur complète`, error);
     const { status, message } = handleError(error, `la suppression du ${displayName}`);
     res.status(status).json({
       success: false,
-      message
+      message: message || error.message || 'Erreur lors de la suppression'
     });
   }
 };
