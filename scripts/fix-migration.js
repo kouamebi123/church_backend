@@ -789,6 +789,29 @@ async function fixFailedMigration() {
         console.log('⚠️  Erreur lors de la migration des données de référence (non bloquant):', migrateDataError.message);
         // Ne pas bloquer le démarrage si la migration des données échoue
       }
+      
+      // Vérifier que les tables ne sont pas vides et les remplir si nécessaire
+      try {
+        const { PrismaClient } = require('@prisma/client');
+        const checkPrisma = new PrismaClient();
+        
+        const serviceTypesCount = await checkPrisma.serviceType.count();
+        const testimonyCategoriesCount = await checkPrisma.testimonyCategoryConfig.count();
+        const eventTypesCount = await checkPrisma.eventTypeConfig.count();
+        
+        if (serviceTypesCount === 0 || testimonyCategoriesCount === 0 || eventTypesCount === 0) {
+          console.log('⚠️  Certaines tables de référence sont vides, remplissage...');
+          const migrateScriptPath = path.join(__dirname, 'migrateReferenceData.js');
+          if (fs.existsSync(migrateScriptPath)) {
+            execSync(`node ${migrateScriptPath}`, { stdio: 'inherit', timeout: 60000 });
+            console.log('✅ Tables de référence remplies');
+          }
+        }
+        
+        await checkPrisma.$disconnect();
+      } catch (checkError) {
+        console.log('⚠️  Erreur lors de la vérification des tables de référence:', checkError.message);
+      }
     } catch (migrateError) {
       const stderr = migrateError?.stderr?.toString() || '';
       const stdout = migrateError?.stdout?.toString() || '';
@@ -895,6 +918,36 @@ async function fixFailedMigration() {
       // Pour les autres erreurs, logger mais ne pas bloquer
       console.log('⚠️  Erreur lors de l\'application des migrations:', migrateError.message);
       console.log('⚠️  Continuons le démarrage du serveur...');
+    }
+    
+    // Vérification finale : s'assurer que les tables de référence sont remplies
+    console.log('🔍 Vérification finale des tables de référence...');
+    try {
+      const { PrismaClient } = require('@prisma/client');
+      const finalCheckPrisma = new PrismaClient();
+      
+      const serviceTypesCount = await finalCheckPrisma.serviceType.count();
+      const testimonyCategoriesCount = await finalCheckPrisma.testimonyCategoryConfig.count();
+      const eventTypesCount = await finalCheckPrisma.eventTypeConfig.count();
+      
+      console.log(`📊 État actuel: ServiceTypes=${serviceTypesCount}, TestimonyCategories=${testimonyCategoriesCount}, EventTypes=${eventTypesCount}`);
+      
+      if (serviceTypesCount === 0 || testimonyCategoriesCount === 0 || eventTypesCount === 0) {
+        console.log('⚠️  Certaines tables de référence sont vides, remplissage automatique...');
+        const migrateScriptPath = path.join(__dirname, 'migrateReferenceData.js');
+        if (fs.existsSync(migrateScriptPath)) {
+          execSync(`node ${migrateScriptPath}`, { stdio: 'inherit', timeout: 60000 });
+          console.log('✅ Tables de référence remplies avec succès');
+        } else {
+          console.log('❌ Script de migration des données de référence non trouvé');
+        }
+      } else {
+        console.log('✅ Toutes les tables de référence contiennent des données');
+      }
+      
+      await finalCheckPrisma.$disconnect();
+    } catch (finalCheckError) {
+      console.log('⚠️  Erreur lors de la vérification finale des tables:', finalCheckError.message);
     }
     
   } catch (error) {

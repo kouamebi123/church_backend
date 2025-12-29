@@ -141,6 +141,10 @@ async function main() {
   console.log('🚀 Début de la migration des données de référence\n');
   
   try {
+    // Vérifier la connexion à la base de données
+    await prisma.$connect();
+    console.log('✅ Connexion à la base de données établie\n');
+    
     await migrateServiceTypes();
     await migrateTestimonyCategories();
     await migrateEventTypes();
@@ -148,20 +152,38 @@ async function main() {
     console.log('✨ Migration terminée avec succès !');
     
     // Afficher un résumé
-    const serviceTypesCount = await prisma.serviceType.count();
-    const testimonyCategoriesCount = await prisma.testimonyCategoryConfig.count();
-    const eventTypesCount = await prisma.eventTypeConfig.count();
-    
-    console.log('\n📊 Résumé:');
-    console.log(`  - Types de culte: ${serviceTypesCount}`);
-    console.log(`  - Catégories de témoignage: ${testimonyCategoriesCount}`);
-    console.log(`  - Types d'événement: ${eventTypesCount}`);
+    try {
+      const serviceTypesCount = await prisma.serviceType.count();
+      const testimonyCategoriesCount = await prisma.testimonyCategoryConfig.count();
+      const eventTypesCount = await prisma.eventTypeConfig.count();
+      
+      console.log('\n📊 Résumé:');
+      console.log(`  - Types de culte: ${serviceTypesCount}`);
+      console.log(`  - Catégories de témoignage: ${testimonyCategoriesCount}`);
+      console.log(`  - Types d'événement: ${eventTypesCount}`);
+      
+      if (serviceTypesCount === 0 && testimonyCategoriesCount === 0 && eventTypesCount === 0) {
+        console.log('\n⚠️  ATTENTION: Toutes les tables sont vides !');
+        console.log('   Cela peut indiquer un problème avec la connexion à la base de données.');
+      }
+    } catch (countError) {
+      console.error('⚠️  Erreur lors du comptage des données:', countError.message);
+    }
     
   } catch (error) {
     console.error('❌ Erreur lors de la migration:', error);
+    if (error.message && error.message.includes('DATABASE_URL')) {
+      console.error('⚠️  La variable d\'environnement DATABASE_URL n\'est pas définie.');
+      console.error('   Sur Railway, cette variable est définie automatiquement.');
+    }
     throw error;
   } finally {
-    await prisma.$disconnect();
+    try {
+      await prisma.$disconnect();
+      console.log('\n✅ Connexion fermée');
+    } catch (disconnectError) {
+      console.error('⚠️  Erreur lors de la fermeture de la connexion:', disconnectError.message);
+    }
   }
 }
 
