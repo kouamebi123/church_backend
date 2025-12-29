@@ -82,7 +82,7 @@ services:
         condition: service_healthy
     networks:
       - church_network
-    command: sh -c "npx prisma migrate deploy && npx prisma db seed && echo 'Migrations et seed terminés, démarrage du serveur...' && node server.js"
+    command: sh -c "npx prisma migrate deploy && npx prisma db seed && (node scripts/migrateReferenceData.js || echo '⚠️ Migration données référence ignorée') && echo 'Migrations et seed terminés, démarrage du serveur...' && node server.js"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5001/health"]
       interval: 30s

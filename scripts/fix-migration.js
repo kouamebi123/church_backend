@@ -7,7 +7,19 @@ const MIGRATION_TESTIMONIES_FILES = '20250115000001_add_testimonies_and_files';
 const MIGRATION_CONTACT_MODEL = '20251112151048_add_contact_model';
 const MIGRATION_APP_SETTINGS = '20251112152000_add_app_settings';
 
+const migrationExists = (migrationName) => {
+  const migrationsPath = path.join(__dirname, '..', 'prisma', 'migrations');
+  const migrationPath = path.join(migrationsPath, migrationName);
+  return fs.existsSync(migrationPath);
+};
+
 const runPrismaResolve = (migrationName) => {
+  // Vérifier si la migration existe avant d'essayer de la résoudre
+  if (!migrationExists(migrationName)) {
+    console.log(`ℹ️  Migration ${migrationName} n'existe pas, ignorée`);
+    return;
+  }
+
   const command = `npx prisma migrate resolve --applied ${migrationName}`;
   try {
     execSync(command, { stdio: 'inherit' });
@@ -16,12 +28,15 @@ const runPrismaResolve = (migrationName) => {
     const output = `${resolveError?.stdout?.toString() || ''}${resolveError?.stderr?.toString() || ''}`;
     if (
       output.includes('already recorded as applied') ||
-      output.includes('P3008')
+      output.includes('P3008') ||
+      output.includes('could not be found') ||
+      output.includes('P3017')
     ) {
-      console.log(`ℹ️  Migration ${migrationName} est déjà enregistrée comme appliquée`);
+      console.log(`ℹ️  Migration ${migrationName} est déjà enregistrée comme appliquée ou n'existe pas`);
       return;
     }
-    throw resolveError;
+    // Ne pas throw l'erreur, juste logger
+    console.log(`⚠️  Erreur lors de la résolution de ${migrationName}: ${output}`);
   }
 };
 
@@ -626,7 +641,7 @@ async function fixFailedMigration() {
         )
       `;
       markTestimonyMigrationAsApplied = Boolean(testimonyEnumExists?.[0]?.exists);
-      if (markTestimonyMigrationAsApplied) {
+      if (markTestimonyMigrationAsApplied && migrationExists(MIGRATION_TESTIMONIES_ACTIVITY)) {
         console.log('⚠️  Enum TestimonyCategory déjà présent dans la base');
         migrationsToResolve.add(MIGRATION_TESTIMONIES_ACTIVITY);
       }
@@ -634,16 +649,16 @@ async function fixFailedMigration() {
       console.log('⚠️  Impossible de vérifier la présence de TestimonyCategory:', error.message);
     }
 
-    if (incompleteMigrationNames.includes(MIGRATION_TESTIMONIES_ACTIVITY)) {
+    if (incompleteMigrationNames.includes(MIGRATION_TESTIMONIES_ACTIVITY) && migrationExists(MIGRATION_TESTIMONIES_ACTIVITY)) {
       migrationsToResolve.add(MIGRATION_TESTIMONIES_ACTIVITY);
     }
-    if (incompleteMigrationNames.includes(MIGRATION_TESTIMONIES_FILES)) {
+    if (incompleteMigrationNames.includes(MIGRATION_TESTIMONIES_FILES) && migrationExists(MIGRATION_TESTIMONIES_FILES)) {
       migrationsToResolve.add(MIGRATION_TESTIMONIES_FILES);
     }
-    if (createdContactsTable || incompleteMigrationNames.includes(MIGRATION_CONTACT_MODEL)) {
+    if ((createdContactsTable || incompleteMigrationNames.includes(MIGRATION_CONTACT_MODEL)) && migrationExists(MIGRATION_CONTACT_MODEL)) {
       migrationsToResolve.add(MIGRATION_CONTACT_MODEL);
     }
-    if (createdAppSettingsTable || incompleteMigrationNames.includes(MIGRATION_APP_SETTINGS)) {
+    if ((createdAppSettingsTable || incompleteMigrationNames.includes(MIGRATION_APP_SETTINGS)) && migrationExists(MIGRATION_APP_SETTINGS)) {
       migrationsToResolve.add(MIGRATION_APP_SETTINGS);
     }
 
@@ -660,13 +675,30 @@ async function fixFailedMigration() {
     try {
       execSync('npx prisma migrate deploy', { stdio: 'inherit', timeout: 120000 }); // 2 minutes max
       console.log('✅ Migrations Prisma synchronisées');
+      
+      // Migrer les données de référence après les migrations
+      console.log('📊 Migration des données de référence...');
+      try {
+        const migrateScriptPath = path.join(__dirname, 'migrateReferenceData.js');
+        if (fs.existsSync(migrateScriptPath)) {
+          execSync(`node ${migrateScriptPath}`, { stdio: 'inherit', timeout: 60000 }); // 1 minute max
+          console.log('✅ Données de référence migrées');
+        } else {
+          console.log('⚠️  Script de migration des données de référence non trouvé, ignoré');
+        }
+      } catch (migrateDataError) {
+        console.log('⚠️  Erreur lors de la migration des données de référence (non bloquant):', migrateDataError.message);
+        // Ne pas bloquer le démarrage si la migration des données échoue
+      }
     } catch (migrateError) {
       const stderr = migrateError?.stderr?.toString() || '';
       const stdout = migrateError?.stdout?.toString() || '';
       const combined = `${stdout}\n${stderr}`;
       if (combined.includes('type "TestimonyCategory" already exists')) {
         console.log('⚠️  Migration testimonies déjà appliquée. Marquage manuel comme appliquée...');
-        runPrismaResolve(MIGRATION_TESTIMONIES_ACTIVITY);
+        if (migrationExists(MIGRATION_TESTIMONIES_ACTIVITY)) {
+          runPrismaResolve(MIGRATION_TESTIMONIES_ACTIVITY);
+        }
         try {
           execSync('npx prisma migrate deploy', { stdio: 'inherit', timeout: 120000 });
           console.log('✅ Migrations Prisma synchronisées (après résolution de TestimonyCategory)');
@@ -677,10 +709,23 @@ async function fixFailedMigration() {
       }
       if (combined.includes('P3009') && combined.includes(MIGRATION_TESTIMONIES_FILES)) {
         console.log(`⚠️  Migration ${MIGRATION_TESTIMONIES_FILES} marquée comme échouée. Marquage manuel comme appliquée...`);
-        runPrismaResolve(MIGRATION_TESTIMONIES_FILES);
+        if (migrationExists(MIGRATION_TESTIMONIES_FILES)) {
+          runPrismaResolve(MIGRATION_TESTIMONIES_FILES);
+        }
         try {
           execSync('npx prisma migrate deploy', { stdio: 'inherit', timeout: 120000 });
           console.log('✅ Migrations Prisma synchronisées (après résolution de testimonies files)');
+          
+          // Migrer les données de référence
+          try {
+            const migrateScriptPath = path.join(__dirname, 'migrateReferenceData.js');
+            if (fs.existsSync(migrateScriptPath)) {
+              execSync(`node ${migrateScriptPath}`, { stdio: 'inherit', timeout: 60000 });
+              console.log('✅ Données de référence migrées');
+            }
+          } catch (migrateDataError) {
+            console.log('⚠️  Erreur lors de la migration des données (non bloquant):', migrateDataError.message);
+          }
         } catch (retryError) {
           console.log('⚠️  Erreur lors de la réapplication des migrations:', retryError.message);
         }
