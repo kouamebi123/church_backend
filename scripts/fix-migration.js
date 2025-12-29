@@ -82,17 +82,40 @@ async function fixFailedMigration() {
     const prisma = new PrismaClient();
 
     let incompleteMigrations = [];
+    let failedMigrations = [];
     try {
-      incompleteMigrations = await prisma.$queryRaw`
-        SELECT migration_name
+      // Récupérer toutes les migrations incomplètes/échouées
+      const allProblematicMigrations = await prisma.$queryRaw`
+        SELECT migration_name, started_at, finished_at, rolled_back_at
         FROM "_prisma_migrations"
         WHERE finished_at IS NULL
       `;
-      if (incompleteMigrations.length > 0) {
-        console.log('⚠️  Migrations incomplètes détectées:', incompleteMigrations.map((row) => row.migration_name));
+      
+      incompleteMigrations = allProblematicMigrations;
+      failedMigrations = allProblematicMigrations.filter((m) => m.started_at && !m.rolled_back_at);
+      
+      if (allProblematicMigrations.length > 0) {
+        console.log('⚠️  Migrations problématiques détectées:', allProblematicMigrations.map((row) => row.migration_name));
+        
+        // Résoudre automatiquement TOUTES les migrations échouées/incomplètes
+        console.log('🔧 Nettoyage automatique des migrations problématiques...');
+        for (const migration of allProblematicMigrations) {
+          const migrationName = migration.migration_name;
+          
+          // Si la migration n'existe pas dans le dossier, la marquer comme rolled-back
+          if (!migrationExists(migrationName)) {
+            console.log(`  → ${migrationName} n'existe pas → rolled-back`);
+            // Utiliser directement la commande Prisma pour marquer comme rolled-back
+            runPrismaResolve(migrationName, true);
+          } else {
+            console.log(`  → ${migrationName} existe → applied`);
+            runPrismaResolve(migrationName, false);
+          }
+        }
+        console.log('✅ Nettoyage des migrations problématiques terminé\n');
       }
     } catch (error) {
-      console.log('⚠️  Impossible de lister les migrations incomplètes:', error.message);
+      console.log('⚠️  Impossible de lister les migrations incomplètes/échouées:', error.message);
     }
     
     // À partir d'ici, on ne supprime plus les migrations partiellement appliquées
@@ -639,6 +662,24 @@ async function fixFailedMigration() {
         `;
         console.log('✅ Contrainte de clé étrangère ajoutée à network_objectives');
       }
+    }
+
+    // Résoudre toutes les migrations échouées AVANT de continuer
+    const allFailedMigrations = [...incompleteMigrations, ...failedMigrations];
+    const uniqueFailedMigrations = [...new Set(allFailedMigrations.map((row) => row.migration_name))];
+    
+    if (uniqueFailedMigrations.length > 0) {
+      console.log('🔧 Nettoyage des migrations échouées avant de continuer...');
+      for (const migrationName of uniqueFailedMigrations) {
+        if (!migrationExists(migrationName)) {
+          console.log(`  → Marquage ${migrationName} comme rolled-back (n'existe pas)`);
+          runPrismaResolve(migrationName, true);
+        } else {
+          console.log(`  → Marquage ${migrationName} comme applied (existe)`);
+          runPrismaResolve(migrationName, false);
+        }
+      }
+      console.log('✅ Nettoyage des migrations échouées terminé\n');
     }
 
     const incompleteMigrationNames = incompleteMigrations.map((row) => row.migration_name);
