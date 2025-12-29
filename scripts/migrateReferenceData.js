@@ -7,15 +7,52 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// Types de culte depuis TYPES_CULTE_OPTIONS (sans "Tous")
+// Types de culte - Valeurs réelles
 const SERVICE_TYPES = [
   { nom: 'Culte 1', description: 'Premier culte de la semaine' },
   { nom: 'Culte 2', description: 'Deuxième culte de la semaine' },
   { nom: 'Culte 3', description: 'Troisième culte de la semaine' },
-  { nom: 'Culte de prière', description: 'Culte dédié à la prière' },
-  { nom: 'Culte spécial', description: 'Culte avec un thème ou événement spécial' },
-  { nom: 'Culte de jeûne', description: 'Culte accompagné d\'un jeûne' },
-  { nom: 'Autre', description: 'Autre type de culte' }
+  { nom: 'Culte de Baptême', description: 'Culte de baptême' },
+  { nom: 'Culte de Célébration', description: 'Culte de célébration' },
+  { nom: 'Cultes Spécial', description: 'Cultes spéciaux' },
+  { nom: 'Cultes Spécial Noël', description: 'Cultes spéciaux de Noël' },
+  { nom: 'Retraite Ministériel', description: 'Retraite ministérielle' },
+  { nom: 'Formation Intensive des Leaders', description: 'Formation intensive des leaders' },
+  { nom: 'Classes des leaders', description: 'Classes des leaders' },
+  { nom: 'Méga G12', description: 'Méga G12' },
+  { nom: 'Décembre en Louange', description: 'Décembre en Louange' },
+  { nom: 'Conférence', description: 'Conférence' },
+  { nom: 'CGA', description: 'CGA' },
+  { nom: 'Nuit de la traversée', description: 'Nuit de la traversée' }
+];
+
+// Orateurs - Liste complète des orateurs
+const SPEAKERS = [
+  { nom: 'Apôtre Alain Patrick TSENGUE', description: 'Apôtre Alain Patrick TSENGUE' },
+  { nom: 'First Lady Pasteur Paulette TSENGUE', description: 'First Lady Pasteur Paulette TSENGUE' },
+  { nom: 'Pasteur de Zone Elvis MUSAVU', description: 'Pasteur de Zone Elvis MUSAVU' },
+  { nom: 'Pasteure Résidente Ahida MUSAVU', description: 'Pasteure Résidente Ahida MUSAVU' },
+  { nom: 'Pasteure Marlène MABIKA', description: 'Pasteure Marlène MABIKA' },
+  { nom: 'Pasteur de Zone Yvon MOUKETOU', description: 'Pasteur de Zone Yvon MOUKETOU' },
+  { nom: 'Pasteure Résidente Tina MOUKETOU', description: 'Pasteure Résidente Tina MOUKETOU' },
+  { nom: 'Pasteur Isaac NTOUTOUME', description: 'Pasteur Isaac NTOUTOUME' },
+  { nom: 'Pasteure Essie NTOUTOUME', description: 'Pasteure Essie NTOUTOUME' },
+  { nom: 'Pasteur Gentil MAFOUA', description: 'Pasteur Gentil MAFOUA' },
+  { nom: 'Pasteure Grâce MAFOUA', description: 'Pasteure Grâce MAFOUA' },
+  { nom: 'Ministre Mickaël LEMOND', description: 'Ministre Mickaël LEMOND' },
+  { nom: 'Ministre Polisset KAMARO', description: 'Ministre Polisset KAMARO' },
+  { nom: 'Ministre Donovan ABIALANTI', description: 'Ministre Donovan ABIALANTI' },
+  { nom: 'Diacre David LAUNAY', description: 'Diacre David LAUNAY' },
+  { nom: 'PE Romarick AMOUZOU', description: 'PE Romarick AMOUZOU' },
+  { nom: 'PE Emmanuel OUGADIO', description: 'PE Emmanuel OUGADIO' },
+  { nom: 'PE Alexia RONGIER', description: 'PE Alexia RONGIER' },
+  { nom: 'Responsable Nelly KOUADJIO', description: 'Responsable Nelly KOUADJIO' },
+  { nom: 'Responsable Emmanuel KOBEDEMBE', description: 'Responsable Emmanuel KOBEDEMBE' },
+  { nom: 'Responsable Sylvanus KONAN', description: 'Responsable Sylvanus KONAN' },
+  { nom: 'Responsable Kevin AMAN', description: 'Responsable Kevin AMAN' },
+  { nom: 'Apôtre NGOMA', description: 'Apôtre NGOMA' },
+  { nom: 'Évêque Michel AMBROUE', description: 'Évêque Michel AMBROUE' },
+  { nom: 'Pasteure Carelle AMBROUE', description: 'Pasteure Carelle AMBROUE' }
 ];
 
 // Catégories de témoignage depuis l'enum TestimonyCategory
@@ -44,6 +81,36 @@ const EVENT_TYPES = [
   { code: 'HOMMES', nom: 'Hommes', description: 'Événement pour les hommes' },
   { code: 'AUTRE', nom: 'Autre', description: 'Autre type d\'événement' }
 ];
+
+async function migrateSpeakers() {
+  console.log('📋 Migration des orateurs...');
+  
+  for (const speaker of SPEAKERS) {
+    try {
+      // Vérifier si l'orateur existe déjà
+      const existing = await prisma.speaker.findUnique({
+        where: { nom: speaker.nom }
+      });
+
+      if (!existing) {
+        await prisma.speaker.create({
+          data: {
+            nom: speaker.nom,
+            description: speaker.description,
+            active: true
+          }
+        });
+        console.log(`  ✅ Créé: ${speaker.nom}`);
+      } else {
+        console.log(`  ⏭️  Déjà existant: ${speaker.nom}`);
+      }
+    } catch (error) {
+      console.error(`  ❌ Erreur pour ${speaker.nom}:`, error.message);
+    }
+  }
+  
+  console.log('✅ Migration des orateurs terminée\n');
+}
 
 async function migrateServiceTypes() {
   console.log('📋 Migration des types de culte...');
@@ -145,6 +212,7 @@ async function main() {
     await prisma.$connect();
     console.log('✅ Connexion à la base de données établie\n');
     
+    await migrateSpeakers();
     await migrateServiceTypes();
     await migrateTestimonyCategories();
     await migrateEventTypes();
@@ -153,16 +221,18 @@ async function main() {
     
     // Afficher un résumé
     try {
+      const speakersCount = await prisma.speaker.count();
       const serviceTypesCount = await prisma.serviceType.count();
       const testimonyCategoriesCount = await prisma.testimonyCategoryConfig.count();
       const eventTypesCount = await prisma.eventTypeConfig.count();
       
       console.log('\n📊 Résumé:');
+      console.log(`  - Orateurs: ${speakersCount}`);
       console.log(`  - Types de culte: ${serviceTypesCount}`);
       console.log(`  - Catégories de témoignage: ${testimonyCategoriesCount}`);
       console.log(`  - Types d'événement: ${eventTypesCount}`);
       
-      if (serviceTypesCount === 0 && testimonyCategoriesCount === 0 && eventTypesCount === 0) {
+      if (speakersCount === 0 && serviceTypesCount === 0 && testimonyCategoriesCount === 0 && eventTypesCount === 0) {
         console.log('\n⚠️  ATTENTION: Toutes les tables sont vides !');
         console.log('   Cela peut indiquer un problème avec la connexion à la base de données.');
       }
@@ -200,5 +270,5 @@ if (require.main === module) {
     });
 }
 
-module.exports = { main, migrateServiceTypes, migrateTestimonyCategories, migrateEventTypes };
+module.exports = { main, migrateSpeakers, migrateServiceTypes, migrateTestimonyCategories, migrateEventTypes };
 
