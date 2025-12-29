@@ -301,6 +301,7 @@ model Service {
   total_respo_ecodim      Int          @default(0)
   total_animateurs_ecodim Int          @default(0)
   total_enfants_ecodim    Int          @default(0)
+  nouvelle_naissance      Int          @default(0)
   collecteur_culte_id     String
   superviseur_id          String
   invitationYoutube       Int          @default(0)

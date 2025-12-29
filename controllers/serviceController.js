@@ -179,7 +179,7 @@ exports.createService = async (req, res) => {
     const {
       date, culte, orateur, eglise_id, description, nombre_present, responsable_id,
       total_adultes, total_enfants, total_chantres, total_protocoles, total_multimedia,
-      total_respo_ecodim, total_animateurs_ecodim, total_enfants_ecodim,
+      total_respo_ecodim, total_animateurs_ecodim, total_enfants_ecodim, nouvelle_naissance,
       collecteur_culte_id, superviseur_id,
       invitationYoutube, invitationTiktok, invitationInstagram, invitationPhysique
     } = req.body;
@@ -259,6 +259,7 @@ exports.createService = async (req, res) => {
         total_respo_ecodim: total_respo_ecodim ? parseInt(total_respo_ecodim) : 0,
         total_animateurs_ecodim: total_animateurs_ecodim ? parseInt(total_animateurs_ecodim) : 0,
         total_enfants_ecodim: total_enfants_ecodim ? parseInt(total_enfants_ecodim) : 0,
+        nouvelle_naissance: nouvelle_naissance ? parseInt(nouvelle_naissance) : 0,
         collecteur_culte_id,
         superviseur_id,
         invitationYoutube: invitationYoutube ? parseInt(invitationYoutube) : 0,
@@ -355,6 +356,7 @@ exports.updateService = async (req, res) => {
     if (updateData.total_respo_ecodim !== undefined) cleanUpdateData.total_respo_ecodim = parseInt(updateData.total_respo_ecodim) || 0;
     if (updateData.total_animateurs_ecodim !== undefined) cleanUpdateData.total_animateurs_ecodim = parseInt(updateData.total_animateurs_ecodim) || 0;
     if (updateData.total_enfants_ecodim !== undefined) cleanUpdateData.total_enfants_ecodim = parseInt(updateData.total_enfants_ecodim) || 0;
+    if (updateData.nouvelle_naissance !== undefined) cleanUpdateData.nouvelle_naissance = parseInt(updateData.nouvelle_naissance) || 0;
 
     // Champs d'invitation
     if (updateData.invitationYoutube !== undefined) cleanUpdateData.invitationYoutube = parseInt(updateData.invitationYoutube) || 0;
