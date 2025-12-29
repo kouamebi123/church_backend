@@ -675,11 +675,43 @@ async function fixFailedMigration() {
           console.log(`  → Marquage ${migrationName} comme rolled-back (n'existe pas)`);
           runPrismaResolve(migrationName, true);
         } else {
+          // Vérifier si c'est une migration qui crée une table qui existe déjà
+          // Dans ce cas, on la marque comme applied car la table existe déjà
           console.log(`  → Marquage ${migrationName} comme applied (existe)`);
           runPrismaResolve(migrationName, false);
         }
       }
       console.log('✅ Nettoyage des migrations échouées terminé\n');
+    }
+    
+    // Vérifier spécifiquement la migration network_objectives qui peut échouer si la table existe déjà
+    const networkObjectivesMigration = '20250102000000_add_network_objectives';
+    if (migrationExists(networkObjectivesMigration)) {
+      try {
+        const tableExists = await prisma.$queryRaw`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = 'network_objectives'
+          )
+        `;
+        
+        if (tableExists[0].exists) {
+          // Vérifier si la migration est marquée comme échouée ou incomplète
+          const migrationStatus = await prisma.$queryRaw`
+            SELECT finished_at, rolled_back_at
+            FROM "_prisma_migrations"
+            WHERE migration_name = '20250102000000_add_network_objectives'
+          `;
+          
+          if (migrationStatus.length > 0 && !migrationStatus[0].finished_at && !migrationStatus[0].rolled_back_at) {
+            console.log(`🔧 Migration ${networkObjectivesMigration} : la table existe déjà, marquage comme applied...`);
+            runPrismaResolve(networkObjectivesMigration, false);
+          }
+        }
+      } catch (error) {
+        console.log(`⚠️  Erreur lors de la vérification de ${networkObjectivesMigration}:`, error.message);
+      }
     }
 
     const incompleteMigrationNames = incompleteMigrations.map((row) => row.migration_name);
@@ -774,6 +806,52 @@ async function fixFailedMigration() {
         }
         return;
       }
+      // Gestion de l'erreur P3018 (migration échouée avec table/relation déjà existante)
+      if (combined.includes('P3018') || (combined.includes('already exists') && combined.includes('Migration name:'))) {
+        console.log('⚠️  Détection d\'une migration échouée (P3018 - relation déjà existante)...');
+        
+        // Extraire le nom de la migration depuis le message d'erreur
+        let failedMigrationName = null;
+        const migrationNameMatch = combined.match(/Migration name:\s*([^\s\n]+)/);
+        if (migrationNameMatch) {
+          failedMigrationName = migrationNameMatch[1];
+        } else {
+          // Essayer avec extractFailedMigrationName pour P3009
+          failedMigrationName = extractFailedMigrationName(combined);
+        }
+        
+        if (failedMigrationName) {
+          console.log(`🔧 Migration ${failedMigrationName} échouée car la table/relation existe déjà`);
+          console.log(`   → Marquage comme applied (la table existe déjà, donc la migration est effectivement appliquée)`);
+          
+          // Si la table existe déjà, la migration est effectivement appliquée, on la marque comme applied
+          runPrismaResolve(failedMigrationName, false);
+          
+          // Réessayer les migrations
+          try {
+            execSync('npx prisma migrate deploy', { stdio: 'inherit', timeout: 120000 });
+            console.log('✅ Migrations Prisma synchronisées (après résolution de migration avec table existante)');
+            
+            // Migrer les données de référence
+            try {
+              const migrateScriptPath = path.join(__dirname, 'migrateReferenceData.js');
+              if (fs.existsSync(migrateScriptPath)) {
+                execSync(`node ${migrateScriptPath}`, { stdio: 'inherit', timeout: 60000 });
+                console.log('✅ Données de référence migrées');
+              }
+            } catch (migrateDataError) {
+              console.log('⚠️  Erreur lors de la migration des données (non bloquant):', migrateDataError.message);
+            }
+          } catch (retryError) {
+            console.log('⚠️  Erreur lors de la réapplication des migrations:', retryError.message);
+            // Ne pas retourner, continuer pour essayer d'autres solutions
+          }
+        } else {
+          console.log('⚠️  Impossible d\'extraire le nom de la migration échouée depuis le message d\'erreur');
+        }
+        return;
+      }
+      
       // Gestion générique des erreurs P3009 (migrations échouées)
       if (combined.includes('P3009')) {
         console.log('⚠️  Détection d\'une migration échouée (P3009)...');
