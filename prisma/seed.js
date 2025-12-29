@@ -68,6 +68,20 @@ async function main() {
   console.log('✅ Super admin créé:', superAdmin.email);
   console.log('🔑 Mot de passe temporaire:', superAdminPassword);
   console.log('🏛️  Église assignée:', tempChurch.nom);
+  
+  // Migrer les données de référence (toujours, même si la DB n'est pas vide)
+  console.log('\n📋 Migration des données de référence...');
+  try {
+    const { migrateServiceTypes, migrateTestimonyCategories, migrateEventTypes } = require('../scripts/migrateReferenceData');
+    await migrateServiceTypes();
+    await migrateTestimonyCategories();
+    await migrateEventTypes();
+    console.log('✅ Données de référence migrées avec succès');
+  } catch (error) {
+    console.error('⚠️  Erreur lors de la migration des données de référence:', error.message);
+    console.log('💡 Vous pouvez exécuter manuellement: npm run migrate:reference-data');
+  }
+  
   console.log('🎉 Seeding initial terminé avec succès !');
 }
 

@@ -38,6 +38,7 @@ const unitRoutes = require('./units');
 const calendarRoutes = require('./calendar');
 const contactRoutes = require('./contact');
 const appSettingsRoutes = require('./appSettings');
+const referenceDataRoutes = require('./referenceData');
 
 // Endpoint de sécurité
 const securityLogger = require('../utils/securityLogger');
@@ -68,6 +69,7 @@ router.use('/units', unitRoutes);
 router.use('/calendar', calendarRoutes);
 router.use('/contact', contactRoutes);
 router.use('/app-settings', appSettingsRoutes);
+router.use('/reference-data', referenceDataRoutes);
 
 // Endpoint de sécurité
 router.get('/security/stats', (req, res) => {

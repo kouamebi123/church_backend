@@ -285,34 +285,38 @@ model UserDepartment {
 }
 
 model Service {
-  id                      String   @id @default(cuid())
+  id                      String      @id @default(cuid())
   date                    DateTime
-  culte                   String
-  orateur                 String
+  culte                   String      // Gardé pour compatibilité, sera remplacé par service_type_id
+  orateur                 String      // Gardé pour compatibilité, sera remplacé par speaker_id
+  service_type_id         String?     // Nouvelle relation
+  speaker_id              String?     // Nouvelle relation
   theme                   String?
   nombre_present          Int?
-  total_adultes           Int      @default(0)
-  total_enfants           Int      @default(0)
-  total_chantres          Int      @default(0)
-  total_protocoles        Int      @default(0)
-  total_multimedia        Int      @default(0)
-  total_respo_ecodim      Int      @default(0)
-  total_animateurs_ecodim Int      @default(0)
-  total_enfants_ecodim    Int      @default(0)
+  total_adultes           Int         @default(0)
+  total_enfants           Int         @default(0)
+  total_chantres          Int         @default(0)
+  total_protocoles         Int         @default(0)
+  total_multimedia        Int         @default(0)
+  total_respo_ecodim      Int         @default(0)
+  total_animateurs_ecodim Int         @default(0)
+  total_enfants_ecodim    Int         @default(0)
   collecteur_culte_id     String
   superviseur_id          String
-  invitationYoutube       Int      @default(0)
-  invitationTiktok        Int      @default(0)
-  invitationInstagram     Int      @default(0)
-  invitationPhysique      Int      @default(0)
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  invitationYoutube       Int         @default(0)
+  invitationTiktok        Int         @default(0)
+  invitationInstagram     Int         @default(0)
+  invitationPhysique      Int         @default(0)
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
   eglise_id               String
   responsable_id          String?
-  collecteur_culte        User     @relation("ServiceCollecteur", fields: [collecteur_culte_id], references: [id])
-  eglise                  Church   @relation(fields: [eglise_id], references: [id])
-  responsable             User?    @relation(fields: [responsable_id], references: [id])
-  superviseur             User     @relation("ServiceSuperviseur", fields: [superviseur_id], references: [id])
+  collecteur_culte        User        @relation("ServiceCollecteur", fields: [collecteur_culte_id], references: [id])
+  eglise                  Church      @relation(fields: [eglise_id], references: [id])
+  responsable             User?       @relation(fields: [responsable_id], references: [id])
+  superviseur             User        @relation("ServiceSuperviseur", fields: [superviseur_id], references: [id])
+  service_type            ServiceType? @relation(fields: [service_type_id], references: [id])
+  speaker                 Speaker?    @relation(fields: [speaker_id], references: [id])
 
   @@map("services")
 }
@@ -333,7 +337,8 @@ model CarouselImage {
 model Previsionnel {
   id                 String            @id @default(cuid())
   date               DateTime
-  type_culte         String
+  type_culte         String            // Gardé pour compatibilité
+  service_type_id    String?           // Nouvelle relation
   total_prevu        Int               @default(0)
   invites            Int               @default(0)
   responsables_reseau Int              @default(0)
@@ -347,6 +352,7 @@ model Previsionnel {
   church             Church            @relation(fields: [church_id], references: [id])
   created_by         User              @relation(fields: [created_by_id], references: [id])
   network            Network           @relation(fields: [network_id], references: [id])
+  service_type       ServiceType?      @relation(fields: [service_type_id], references: [id])
 
   @@map("previsionnels")
 }
@@ -369,7 +375,8 @@ model GroupePrevision {
 model Assistance {
   id                 String             @id @default(cuid())
   date               DateTime
-  type_culte         String
+  type_culte         String             // Gardé pour compatibilité
+  service_type_id    String?            // Nouvelle relation
   total_presents     Int                @default(0)
   network_id         String
   church_id          String
@@ -383,6 +390,7 @@ model Assistance {
   created_by         User               @relation(fields: [created_by_id], references: [id])
   network            Network            @relation(fields: [network_id], references: [id])
   groupes_assistance GroupeAssistance[]
+  service_type       ServiceType?      @relation(fields: [service_type_id], references: [id])
 
   @@map("assistance")
 }
@@ -472,37 +480,39 @@ enum Genre {
 }
 
 model Testimony {
-  id                    String            @id @default(cuid())
+  id                    String                  @id @default(cuid())
   firstName             String
   lastName              String
   phone                 String?
   email                 String?
   churchId              String
   networkId             String?
-  testimonyType         TestimonyType?    // Type de personne (GOUVERNANCE, ECODIM, SECTION, VISITOR)
-  section               String?           // Section (ex: "Section 1")
-  unit                  String?           // Unité (ex: "Unité A")
-  category              TestimonyCategory
+  testimonyType         TestimonyType?          // Type de personne (GOUVERNANCE, ECODIM, SECTION, VISITOR)
+  section               String?                 // Section (ex: "Section 1")
+  unit                  String?                // Unité (ex: "Unité A")
+  category              TestimonyCategory       // Gardé pour compatibilité
+  category_config_id    String?                 // Nouvelle relation
   content               String
-  isAnonymous           Boolean           @default(false)
-  isApproved            Boolean           @default(false)
-  isRead                Boolean           @default(false)
-  wantsToTestify        Boolean           @default(false) // Souhaite témoigner lors d'un culte
-  isConfirmedToTestify  Boolean           @default(false) // Confirmé pour témoigner
-  hasTestified          Boolean           @default(false) // A déjà témoigné
-  confirmedAt           DateTime?         // Date de confirmation
-  testifiedAt           DateTime?         // Date du témoignage
-  confirmedBy           String?           // Qui a confirmé
+  isAnonymous           Boolean                 @default(false)
+  isApproved            Boolean                 @default(false)
+  isRead                Boolean                 @default(false)
+  wantsToTestify        Boolean                 @default(false) // Souhaite témoigner lors d'un culte
+  isConfirmedToTestify  Boolean                 @default(false) // Confirmé pour témoigner
+  hasTestified          Boolean                 @default(false) // A déjà témoigné
+  confirmedAt           DateTime?               // Date de confirmation
+  testifiedAt           DateTime?               // Date du témoignage
+  confirmedBy           String?                 // Qui a confirmé
   note                  String?
   approvedAt            DateTime?
   approvedBy            String?
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
   illustrations         TestimonyFile[]
-  church                Church            @relation(fields: [churchId], references: [id])
-  network               Network?          @relation(fields: [networkId], references: [id])
-  approver              User?             @relation("TestimonyApprover", fields: [approvedBy], references: [id])
-  confirmer             User?             @relation("TestimonyConfirmer", fields: [confirmedBy], references: [id])
+  church                Church                  @relation(fields: [churchId], references: [id])
+  network               Network?                @relation(fields: [networkId], references: [id])
+  approver              User?                   @relation("TestimonyApprover", fields: [approvedBy], references: [id])
+  confirmer             User?                   @relation("TestimonyConfirmer", fields: [confirmedBy], references: [id])
+  category_config       TestimonyCategoryConfig? @relation(fields: [category_config_id], references: [id])
 
   @@map("testimonies")
 }
@@ -618,24 +628,26 @@ enum ActivityAction {
 }
 
 model CalendarEvent {
-  id            String      @id @default(cuid())
+  id            String          @id @default(cuid())
   title         String
   description   String?
   start_date    DateTime
   end_date      DateTime?
   location      String?
-  event_type    EventType   @default(GENERAL)
-  is_public     Boolean     @default(true)
-  is_zone_event Boolean     @default(false)
+  event_type    EventType       @default(GENERAL) // Gardé pour compatibilité
+  event_type_config_id String?  // Nouvelle relation
+  is_public     Boolean         @default(true)
+  is_zone_event Boolean         @default(false)
   share_link    String?
   share_qr_url  String?
   alert_offset_minutes Int?
   church_id     String
-  church        Church      @relation(fields: [church_id], references: [id], onDelete: Cascade)
+  church        Church          @relation(fields: [church_id], references: [id], onDelete: Cascade)
   created_by_id String
-  created_by    User        @relation("CalendarEventCreator", fields: [created_by_id], references: [id])
-  created_at    DateTime    @default(now())
-  updated_at    DateTime    @updatedAt
+  created_by    User            @relation("CalendarEventCreator", fields: [created_by_id], references: [id])
+  created_at    DateTime        @default(now())
+  updated_at    DateTime        @updatedAt
+  event_type_config EventTypeConfig? @relation(fields: [event_type_config_id], references: [id])
 
   @@map("calendar_events")
 }
@@ -695,4 +707,54 @@ model AppSettings {
   updated_by        User?    @relation("AppSettingsUpdater", fields: [updated_by_id], references: [id])
 
   @@map("app_settings")
+}
+
+model Speaker {
+  id          String    @id @default(cuid())
+  nom         String    @unique
+  description String?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  services    Service[]
+
+  @@map("speakers")
+}
+
+model ServiceType {
+  id          String       @id @default(cuid())
+  nom         String       @unique
+  description String?
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  services    Service[]
+  previsionnels Previsionnel[]
+  assistance  Assistance[]
+
+  @@map("service_types")
+}
+
+model TestimonyCategoryConfig {
+  id          String    @id @default(cuid())
+  code        String    @unique // Code correspondant à l'enum (INTIMACY, LEADERSHIP, etc.)
+  nom         String    @unique
+  description String?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("testimony_category_configs")
+}
+
+model EventTypeConfig {
+  id          String    @id @default(cuid())
+  code        String    @unique // Code correspondant à l'enum (GENERAL, CULTE, etc.)
+  nom         String    @unique
+  description String?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("event_type_configs")
 }

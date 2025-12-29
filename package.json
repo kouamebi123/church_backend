@@ -28,6 +28,7 @@
     "test:roles": "jest tests/roleSystem.test.js",
     "test:access-control": "node scripts/testAccessControl.js",
     "test:role-update": "node scripts/testRoleUpdate.js",
+    "migrate:reference-data": "node scripts/migrateReferenceData.js",
     "test:super-admin": "node scripts/testSuperAdminAccess.js",
     "test:page-access": "node scripts/testPageAccess.js",
     "test:all-roles": "node scripts/testAllRoleFeatures.js",
