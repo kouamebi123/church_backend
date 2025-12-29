@@ -85,14 +85,18 @@ const EVENT_TYPES = [
 async function migrateSpeakers() {
   console.log('📋 Migration des orateurs...');
   
+  let created = 0;
+  let existing = 0;
+  let errors = 0;
+  
   for (const speaker of SPEAKERS) {
     try {
       // Vérifier si l'orateur existe déjà
-      const existing = await prisma.speaker.findUnique({
+      const existingSpeaker = await prisma.speaker.findUnique({
         where: { nom: speaker.nom }
       });
 
-      if (!existing) {
+      if (!existingSpeaker) {
         await prisma.speaker.create({
           data: {
             nom: speaker.nom,
@@ -101,15 +105,21 @@ async function migrateSpeakers() {
           }
         });
         console.log(`  ✅ Créé: ${speaker.nom}`);
+        created++;
       } else {
         console.log(`  ⏭️  Déjà existant: ${speaker.nom}`);
+        existing++;
       }
     } catch (error) {
       console.error(`  ❌ Erreur pour ${speaker.nom}:`, error.message);
+      if (error.stack) {
+        console.error(`     Stack:`, error.stack);
+      }
+      errors++;
     }
   }
   
-  console.log('✅ Migration des orateurs terminée\n');
+  console.log(`✅ Migration des orateurs terminée: ${created} créés, ${existing} existants, ${errors} erreurs\n`);
 }
 
 async function migrateServiceTypes() {
