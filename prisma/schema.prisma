@@ -302,6 +302,14 @@ model Service {
   total_animateurs_ecodim Int          @default(0)
   total_enfants_ecodim    Int          @default(0)
   nouvelle_naissance      Int          @default(0)
+  adultes_restants        Int          @default(0)
+  enfants_restants         Int          @default(0)
+  chantres_restants        Int          @default(0)
+  protocoles_restants      Int          @default(0)
+  multimedia_restants      Int          @default(0)
+  respo_ecodim_restants    Int          @default(0)
+  animateurs_ecodim_restants Int       @default(0)
+  enfants_ecodim_restants  Int          @default(0)
   collecteur_culte_id     String
   superviseur_id          String
   invitationYoutube       Int          @default(0)

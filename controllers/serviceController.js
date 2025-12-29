@@ -180,6 +180,8 @@ exports.createService = async (req, res) => {
       date, culte, orateur, eglise_id, description, nombre_present, responsable_id,
       total_adultes, total_enfants, total_chantres, total_protocoles, total_multimedia,
       total_respo_ecodim, total_animateurs_ecodim, total_enfants_ecodim, nouvelle_naissance,
+      adultes_restants, enfants_restants, chantres_restants, protocoles_restants,
+      multimedia_restants, respo_ecodim_restants, animateurs_ecodim_restants, enfants_ecodim_restants,
       collecteur_culte_id, superviseur_id,
       invitationYoutube, invitationTiktok, invitationInstagram, invitationPhysique
     } = req.body;
@@ -260,6 +262,14 @@ exports.createService = async (req, res) => {
         total_animateurs_ecodim: total_animateurs_ecodim ? parseInt(total_animateurs_ecodim) : 0,
         total_enfants_ecodim: total_enfants_ecodim ? parseInt(total_enfants_ecodim) : 0,
         nouvelle_naissance: nouvelle_naissance ? parseInt(nouvelle_naissance) : 0,
+        adultes_restants: adultes_restants ? parseInt(adultes_restants) : 0,
+        enfants_restants: enfants_restants ? parseInt(enfants_restants) : 0,
+        chantres_restants: chantres_restants ? parseInt(chantres_restants) : 0,
+        protocoles_restants: protocoles_restants ? parseInt(protocoles_restants) : 0,
+        multimedia_restants: multimedia_restants ? parseInt(multimedia_restants) : 0,
+        respo_ecodim_restants: respo_ecodim_restants ? parseInt(respo_ecodim_restants) : 0,
+        animateurs_ecodim_restants: animateurs_ecodim_restants ? parseInt(animateurs_ecodim_restants) : 0,
+        enfants_ecodim_restants: enfants_ecodim_restants ? parseInt(enfants_ecodim_restants) : 0,
         collecteur_culte_id,
         superviseur_id,
         invitationYoutube: invitationYoutube ? parseInt(invitationYoutube) : 0,
@@ -357,6 +367,14 @@ exports.updateService = async (req, res) => {
     if (updateData.total_animateurs_ecodim !== undefined) cleanUpdateData.total_animateurs_ecodim = parseInt(updateData.total_animateurs_ecodim) || 0;
     if (updateData.total_enfants_ecodim !== undefined) cleanUpdateData.total_enfants_ecodim = parseInt(updateData.total_enfants_ecodim) || 0;
     if (updateData.nouvelle_naissance !== undefined) cleanUpdateData.nouvelle_naissance = parseInt(updateData.nouvelle_naissance) || 0;
+    if (updateData.adultes_restants !== undefined) cleanUpdateData.adultes_restants = parseInt(updateData.adultes_restants) || 0;
+    if (updateData.enfants_restants !== undefined) cleanUpdateData.enfants_restants = parseInt(updateData.enfants_restants) || 0;
+    if (updateData.chantres_restants !== undefined) cleanUpdateData.chantres_restants = parseInt(updateData.chantres_restants) || 0;
+    if (updateData.protocoles_restants !== undefined) cleanUpdateData.protocoles_restants = parseInt(updateData.protocoles_restants) || 0;
+    if (updateData.multimedia_restants !== undefined) cleanUpdateData.multimedia_restants = parseInt(updateData.multimedia_restants) || 0;
+    if (updateData.respo_ecodim_restants !== undefined) cleanUpdateData.respo_ecodim_restants = parseInt(updateData.respo_ecodim_restants) || 0;
+    if (updateData.animateurs_ecodim_restants !== undefined) cleanUpdateData.animateurs_ecodim_restants = parseInt(updateData.animateurs_ecodim_restants) || 0;
+    if (updateData.enfants_ecodim_restants !== undefined) cleanUpdateData.enfants_ecodim_restants = parseInt(updateData.enfants_ecodim_restants) || 0;
 
     // Champs d'invitation
     if (updateData.invitationYoutube !== undefined) cleanUpdateData.invitationYoutube = parseInt(updateData.invitationYoutube) || 0;
