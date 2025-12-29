@@ -512,7 +512,7 @@ model Testimony {
   network               Network?                @relation(fields: [networkId], references: [id])
   approver              User?                   @relation("TestimonyApprover", fields: [approvedBy], references: [id])
   confirmer             User?                   @relation("TestimonyConfirmer", fields: [confirmedBy], references: [id])
-  category_config       TestimonyCategoryConfig? @relation(fields: [category_config_id], references: [id])
+  category_config       TestimonyCategoryConfig? @relation("TestimonyCategory", fields: [category_config_id], references: [id])
 
   @@map("testimonies")
 }
@@ -647,7 +647,7 @@ model CalendarEvent {
   created_by    User            @relation("CalendarEventCreator", fields: [created_by_id], references: [id])
   created_at    DateTime        @default(now())
   updated_at    DateTime        @updatedAt
-  event_type_config EventTypeConfig? @relation(fields: [event_type_config_id], references: [id])
+  event_type_config EventTypeConfig? @relation("CalendarEventType", fields: [event_type_config_id], references: [id])
 
   @@map("calendar_events")
 }
@@ -736,25 +736,27 @@ model ServiceType {
 }
 
 model TestimonyCategoryConfig {
-  id          String    @id @default(cuid())
-  code        String    @unique // Code correspondant à l'enum (INTIMACY, LEADERSHIP, etc.)
-  nom         String    @unique
+  id          String      @id @default(cuid())
+  code        String      @unique // Code correspondant à l'enum (INTIMACY, LEADERSHIP, etc.)
+  nom         String      @unique
   description String?
-  active      Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  testimonies Testimony[] @relation("TestimonyCategory")
 
   @@map("testimony_category_configs")
 }
 
 model EventTypeConfig {
-  id          String    @id @default(cuid())
-  code        String    @unique // Code correspondant à l'enum (GENERAL, CULTE, etc.)
-  nom         String    @unique
+  id          String         @id @default(cuid())
+  code        String         @unique // Code correspondant à l'enum (GENERAL, CULTE, etc.)
+  nom         String         @unique
   description String?
-  active      Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  active      Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  calendar_events CalendarEvent[] @relation("CalendarEventType")
 
   @@map("event_type_configs")
 }
