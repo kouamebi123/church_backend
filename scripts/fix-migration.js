@@ -856,7 +856,7 @@ async function fixFailedMigration() {
       if (combined.includes('type "TestimonyCategory" already exists')) {
         console.log('⚠️  Migration testimonies déjà appliquée. Marquage manuel comme appliquée...');
         if (migrationExists(MIGRATION_TESTIMONIES_ACTIVITY)) {
-          runPrismaResolve(MIGRATION_TESTIMONIES_ACTIVITY);
+        runPrismaResolve(MIGRATION_TESTIMONIES_ACTIVITY);
         }
         try {
           execSync('npx prisma migrate deploy', { stdio: 'inherit', timeout: 120000 });
@@ -888,8 +888,8 @@ async function fixFailedMigration() {
           runPrismaResolve(failedMigrationName, false);
           
           // Réessayer les migrations
-          try {
-            execSync('npx prisma migrate deploy', { stdio: 'inherit', timeout: 120000 });
+        try {
+          execSync('npx prisma migrate deploy', { stdio: 'inherit', timeout: 120000 });
             console.log('✅ Migrations Prisma synchronisées (après résolution de migration avec structure existante)');
             
             // Migrer les données de référence
@@ -902,8 +902,8 @@ async function fixFailedMigration() {
             } catch (migrateDataError) {
               console.log('⚠️  Erreur lors de la migration des données (non bloquant):', migrateDataError.message);
             }
-          } catch (retryError) {
-            console.log('⚠️  Erreur lors de la réapplication des migrations:', retryError.message);
+        } catch (retryError) {
+          console.log('⚠️  Erreur lors de la réapplication des migrations:', retryError.message);
             // Ne pas retourner, continuer pour essayer d'autres solutions
           }
         } else {
