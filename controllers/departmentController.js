@@ -528,37 +528,54 @@ exports.getDepartmentMembers = async (req, res) => {
     const { prisma } = req;
     const { id } = req.params;
 
-    const where = { departement_id: id };
-
-    // Filtrage automatique pour les managers
-    if (req.user && req.user.role === 'MANAGER' && req.user.eglise_locale_id) {
-      where.eglise_locale_id = req.user.eglise_locale_id;
-    }
-
-    const members = await prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        username: true,
-        pseudo: true,
-        role: true,
-        qualification: true,
-        eglise_locale: {
+    // Récupérer les membres via user_departments (relation many-to-many)
+    const userDepartments = await prisma.userDepartment.findMany({
+      where: {
+        department_id: id
+      },
+      include: {
+        user: {
           select: {
             id: true,
-            nom: true
+            username: true,
+            pseudo: true,
+            role: true,
+            qualification: true,
+            email: true,
+            eglise_locale: {
+              select: {
+                id: true,
+                nom: true
+              }
+            }
           }
         }
-      },
-      orderBy: {
-        username: 'asc'
       }
     });
 
+    // Extraire les utilisateurs
+    const members = userDepartments.map(ud => ud.user);
+
+    // Filtrage automatique pour les managers
+    let filteredMembers = members;
+    if (req.user && req.user.role === 'MANAGER' && req.user.eglise_locale_id) {
+      const churchId = typeof req.user.eglise_locale_id === 'object'
+        ? req.user.eglise_locale_id.id || req.user.eglise_locale_id._id
+        : req.user.eglise_locale_id;
+      
+      filteredMembers = members.filter(member => {
+        const memberChurchId = member.eglise_locale?.id || member.eglise_locale?._id || member.eglise_locale;
+        return memberChurchId === churchId;
+      });
+    }
+
+    // Trier par username
+    filteredMembers.sort((a, b) => (a.username || '').localeCompare(b.username || ''));
+
     res.json({
       success: true,
-      count: members.length,
-      data: members
+      count: filteredMembers.length,
+      data: filteredMembers
     });
   } catch (error) {
     logger.error('Department - getDepartmentMembers - Erreur complète', error);
