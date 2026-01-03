@@ -22,6 +22,20 @@ exports.getDepartments = async (req, res) => {
             id: true,
             nom: true
           }
+        },
+        responsable1: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true
+          }
+        },
+        responsable2: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true
+          }
         }
       },
       orderBy: {
@@ -86,6 +100,20 @@ exports.getDepartment = async (req, res) => {
             nom: true
           }
         },
+        responsable1: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true
+          }
+        },
+        responsable2: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true
+          }
+        },
         members: {
           select: {
             id: true,
@@ -138,7 +166,7 @@ exports.getDepartment = async (req, res) => {
 exports.createDepartment = async (req, res) => {
   try {
     const { prisma } = req;
-    const { nom, description } = req.body;
+    const { nom, description, responsable1_id, responsable2_id } = req.body;
 
     if (!nom) {
       return res.status(400).json({
@@ -210,12 +238,32 @@ exports.createDepartment = async (req, res) => {
       });
     }
 
-    // Créer le département
+    // Vérifier que les responsables existent et appartiennent à la même église
+    const responsableIds = [responsable1_id, responsable2_id].filter(Boolean);
+    if (responsableIds.length > 0) {
+      const responsables = await prisma.user.findMany({
+        where: {
+          id: { in: responsableIds },
+          eglise_locale_id: church_id
+        }
+      });
+
+      if (responsables.length !== responsableIds.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'Un ou plusieurs responsables ne sont pas valides ou n\'appartiennent pas à cette église'
+        });
+      }
+    }
+
+    // Créer le département avec les responsables
     const department = await prisma.department.create({
       data: {
         nom,
         description,
-        church_id
+        church_id,
+        responsable1_id: responsable1_id || null,
+        responsable2_id: responsable2_id || null
       },
       include: {
         church: {
@@ -223,9 +271,50 @@ exports.createDepartment = async (req, res) => {
             id: true,
             nom: true
           }
+        },
+        responsable1: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true
+          }
+        },
+        responsable2: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true
+          }
         }
       }
     });
+
+    // S'assurer que les responsables sont membres du département
+    if (responsableIds.length > 0) {
+      await Promise.all(
+        responsableIds.map(async (userId) => {
+          // Vérifier si l'utilisateur est déjà membre
+          const existingMember = await prisma.userDepartment.findUnique({
+            where: {
+              user_id_department_id: {
+                user_id: userId,
+                department_id: department.id
+              }
+            }
+          });
+
+          // Si pas déjà membre, l'ajouter
+          if (!existingMember) {
+            await prisma.userDepartment.create({
+              data: {
+                user_id: userId,
+                department_id: department.id
+              }
+            });
+          }
+        })
+      );
+    }
 
     res.status(201).json({
       success: true,
@@ -249,7 +338,7 @@ exports.updateDepartment = async (req, res) => {
   try {
     const { prisma } = req;
     const { id } = req.params;
-    const updateData = req.body;
+    const { responsable1_id, responsable2_id, ...updateData } = req.body;
 
     // Vérifier si le département existe
     const existingDepartment = await prisma.department.findUnique({
@@ -283,19 +372,86 @@ exports.updateDepartment = async (req, res) => {
       }
     }
 
+    // Vérifier que les responsables existent et appartiennent à la même église
+    const responsableIds = [responsable1_id, responsable2_id].filter(Boolean);
+    if (responsableIds.length > 0) {
+      const churchId = existingDepartment.church_id;
+      const responsables = await prisma.user.findMany({
+        where: {
+          id: { in: responsableIds },
+          eglise_locale_id: churchId
+        }
+      });
+
+      if (responsables.length !== responsableIds.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'Un ou plusieurs responsables ne sont pas valides ou n\'appartiennent pas à cette église'
+        });
+      }
+    }
+
+    // Préparer les données de mise à jour
+    const finalUpdateData = {
+      ...updateData,
+      responsable1_id: responsable1_id || null,
+      responsable2_id: responsable2_id || null
+    };
+
     // Mettre à jour le département
     const updatedDepartment = await prisma.department.update({
       where: { id },
-      data: updateData,
+      data: finalUpdateData,
       include: {
         church: {
           select: {
             id: true,
             nom: true
           }
+        },
+        responsable1: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true
+          }
+        },
+        responsable2: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true
+          }
         }
       }
     });
+
+    // S'assurer que les responsables sont membres du département
+    if (responsableIds.length > 0) {
+      await Promise.all(
+        responsableIds.map(async (userId) => {
+          // Vérifier si l'utilisateur est déjà membre
+          const existingMember = await prisma.userDepartment.findUnique({
+            where: {
+              user_id_department_id: {
+                user_id: userId,
+                department_id: id
+              }
+            }
+          });
+
+          // Si pas déjà membre, l'ajouter
+          if (!existingMember) {
+            await prisma.userDepartment.create({
+              data: {
+                user_id: userId,
+                department_id: id
+              }
+            });
+          }
+        })
+      );
+    }
 
     res.json({
       success: true,

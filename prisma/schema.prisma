@@ -65,6 +65,8 @@ model User {
   unit_responsable2            Unit[]                    @relation("UnitResponsable2")
   unit_members                 UnitMember[]              @relation("UnitMemberUser")
   unit_superieur_hierarchique  Unit[]                    @relation("UnitSuperieurHierarchique")
+  department_responsable1      Department[]              @relation("DepartmentResponsable1")
+  department_responsable2      Department[]              @relation("DepartmentResponsable2")
   calendar_events_created      CalendarEvent[]           @relation("CalendarEventCreator")
   app_settings_updated         AppSettings[]             @relation("AppSettingsUpdater")
 
@@ -267,6 +269,10 @@ model Department {
   church           Church           @relation(fields: [church_id], references: [id])
   members          User[]           @relation("DepartmentMembers")
   user_departments UserDepartment[] @relation("DepartmentUsers")
+  responsable1_id  String?
+  responsable2_id  String?
+  responsable1     User?            @relation("DepartmentResponsable1", fields: [responsable1_id], references: [id])
+  responsable2     User?            @relation("DepartmentResponsable2", fields: [responsable2_id], references: [id])
 
   @@map("departments")
 }
