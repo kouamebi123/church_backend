@@ -8,10 +8,17 @@ exports.getDepartments = async (req, res) => {
 
     const where = {};
 
+    // Filtrer par église si spécifié dans les paramètres de requête
+    if (req.query.churchId) {
+      where.church_id = req.query.churchId;
+    }
+
     // Si l'utilisateur est un manager, filtrer automatiquement par son église
     if (req.user && req.user.role === 'MANAGER' && req.user.eglise_locale_id) {
-      // Pour les départements, on peut les laisser visibles mais on peut filtrer les utilisateurs par église
-      // Cette logique sera appliquée dans getDepartmentMembers
+      const churchId = typeof req.user.eglise_locale_id === 'object'
+        ? req.user.eglise_locale_id.id || req.user.eglise_locale_id._id
+        : req.user.eglise_locale_id;
+      where.church_id = churchId;
     }
 
     const departments = await prisma.department.findMany({
