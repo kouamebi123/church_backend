@@ -411,6 +411,16 @@ exports.getMe = async (req, res) => {
         departement: {
           select: { id: true, nom: true }
         },
+        user_departments: {
+          include: {
+            department: {
+              select: {
+                id: true,
+                nom: true
+              }
+            }
+          }
+        },
         role_assignments: {
           where: { is_active: true },
           select: { role: true }
