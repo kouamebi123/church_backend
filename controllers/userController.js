@@ -354,16 +354,6 @@ exports.getUser = async (req, res) => {
             id: true,
             nom: true
           }
-        },
-        user_departments: {
-          include: {
-            department: {
-              select: {
-                id: true,
-                nom: true
-              }
-            }
-          }
         }
       }
     });
