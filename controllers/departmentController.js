@@ -47,17 +47,20 @@ exports.getDepartments = async (req, res) => {
     const departmentsWithMembers = await Promise.all(
       departments.map(async (dep) => {
         let memberCount;
+        // Compter les membres via user_departments
         if (req.user && req.user.role === 'MANAGER' && req.user.eglise_locale_id) {
           // Compter seulement les membres de l'église du manager
-          memberCount = await prisma.user.count({
+          memberCount = await prisma.userDepartment.count({
             where: {
-              departement_id: dep.id,
-              eglise_locale_id: req.user.eglise_locale_id
+              department_id: dep.id,
+              user: {
+                eglise_locale_id: req.user.eglise_locale_id
+              }
             }
           });
         } else {
-          memberCount = await prisma.user.count({
-            where: { departement_id: dep.id }
+          memberCount = await prisma.userDepartment.count({
+            where: { department_id: dep.id }
           });
         }
         return {
@@ -488,9 +491,9 @@ exports.deleteDepartment = async (req, res) => {
       });
     }
 
-    // Vérifier s'il y a des membres associés
-    const memberCount = await prisma.user.count({
-      where: { departement_id: id }
+    // Vérifier s'il y a des membres associés via user_departments
+    const memberCount = await prisma.userDepartment.count({
+      where: { department_id: id }
     });
 
     if (memberCount > 0) {
@@ -608,15 +611,21 @@ exports.getDepartmentStats = async (req, res) => {
       });
     }
 
-    const where = { departement_id: id };
+    // Compter les membres via user_departments
+    let where = { department_id: id };
 
     // Filtrage automatique pour les managers
     if (req.user && req.user.role === 'MANAGER' && req.user.eglise_locale_id) {
-      where.eglise_locale_id = req.user.eglise_locale_id;
+      where = {
+        department_id: id,
+        user: {
+          eglise_locale_id: req.user.eglise_locale_id
+        }
+      };
     }
 
     // Compter les membres
-    const memberCount = await prisma.user.count({ where });
+    const memberCount = await prisma.userDepartment.count({ where });
 
     // Statistiques par qualification
     const qualificationStats = await prisma.user.groupBy({

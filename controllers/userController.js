@@ -216,7 +216,8 @@ const getUserNetworkGroupInfo = async (prisma, userId) => {
 exports.getUsers = async (req, res) => {
   try {
     // Filtrer les paramètres de requête autorisés pour éviter l'injection
-    const allowedFields = ['role', 'genre', 'qualification', 'eglise_locale_id', 'departement_id', 'ville_residence', 'origine'];
+    // Note: departement_id retiré car le système utilise maintenant user_departments (départements multiples)
+    const allowedFields = ['role', 'genre', 'qualification', 'eglise_locale_id', 'ville_residence', 'origine'];
     const where = {};
 
     Object.keys(req.query).forEach(key => {
@@ -246,12 +247,6 @@ exports.getUsers = async (req, res) => {
       where,
       include: {
         eglise_locale: {
-          select: {
-            id: true,
-            nom: true
-          }
-        },
-        departement: {
           select: {
             id: true,
             nom: true
@@ -300,12 +295,6 @@ exports.getGovernanceUsers = async (req, res) => {
             nom: true
           }
         },
-        departement: {
-          select: {
-            id: true,
-            nom: true
-          }
-        },
         user_departments: {
           include: {
             department: {
@@ -344,12 +333,6 @@ exports.getUser = async (req, res) => {
       where: { id },
       include: {
         eglise_locale: {
-          select: {
-            id: true,
-            nom: true
-          }
-        },
-        departement: {
           select: {
             id: true,
             nom: true
@@ -452,12 +435,6 @@ exports.getIsoles = async (req, res) => {
             id: true,
             nom: true
           }
-        },
-        departement: {
-          select: {
-            id: true,
-            nom: true
-          }
         }
       }
     });
@@ -542,12 +519,6 @@ exports.getNonIsoles = async (req, res) => {
             id: true,
             nom: true
           }
-        },
-        departement: {
-          select: {
-            id: true,
-            nom: true
-          }
         }
       }
     });
@@ -622,20 +593,6 @@ exports.createUser = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: 'L\'église locale est obligatoire. Veuillez sélectionner une église.'
-        });
-      }
-    }
-
-    // Validation du département si fourni (pour compatibilité)
-    if (userData.departement_id) {
-      const department = await req.prisma.department.findUnique({
-        where: { id: userData.departement_id }
-      });
-
-      if (!department) {
-        return res.status(400).json({
-          success: false,
-          message: 'Le département sélectionné n\'existe pas'
         });
       }
     }
@@ -746,12 +703,6 @@ exports.createUser = async (req, res) => {
             nom: true
           }
         },
-        departement: {
-          select: {
-            id: true,
-            nom: true
-          }
-        },
         user_departments: {
           include: {
             department: {
@@ -790,12 +741,6 @@ exports.createUser = async (req, res) => {
         where: { id: newUser.id },
         include: {
           eglise_locale: {
-            select: {
-              id: true,
-              nom: true
-            }
-          },
-          departement: {
             select: {
               id: true,
               nom: true
@@ -965,12 +910,6 @@ exports.updateUser = async (req, res) => {
       delete mappedUpdateData.eglise_locale;
     }
 
-    // Mapper departement vers departement_id
-    if (mappedUpdateData.departement !== undefined) {
-      mappedUpdateData.departement_id = mappedUpdateData.departement;
-      delete mappedUpdateData.departement;
-    }
-
     // Gérer les départements multiples
     let departementIds = null;
     if (mappedUpdateData.departement_ids !== undefined) {
@@ -986,12 +925,6 @@ exports.updateUser = async (req, res) => {
       data: mappedUpdateData,
       include: {
         eglise_locale: {
-          select: {
-            id: true,
-            nom: true
-          }
-        },
-        departement: {
           select: {
             id: true,
             nom: true
@@ -1032,12 +965,6 @@ exports.updateUser = async (req, res) => {
         where: { id },
         include: {
           eglise_locale: {
-            select: {
-              id: true,
-              nom: true
-            }
-          },
-          departement: {
             select: {
               id: true,
               nom: true
@@ -1988,12 +1915,6 @@ exports.updateOwnProfile = async (req, res) => {
             id: true,
             nom: true
           }
-        },
-        departement: {
-          select: {
-            id: true,
-            nom: true
-          }
         }
       }
     });
@@ -2039,12 +1960,6 @@ exports.updateOwnProfile = async (req, res) => {
         where: { id: userId },
         include: {
           eglise_locale: {
-            select: {
-              id: true,
-              nom: true
-            }
-          },
-          departement: {
             select: {
               id: true,
               nom: true

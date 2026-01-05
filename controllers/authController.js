@@ -56,9 +56,7 @@ const sendTokenResponse = async (prisma, user, statusCode, res) => {
       available_roles: availableRoles,
       qualification: user.qualification,
       eglise_locale: user.eglise_locale,
-      eglise_locale_id: user.eglise_locale_id,
-      departement: user.departement,
-      departement_id: user.departement_id
+      eglise_locale_id: user.eglise_locale_id
     }
   });
 };
@@ -79,7 +77,6 @@ exports.register = async (req, res) => {
       hasSituationMatrimoniale: !!req.body.situation_matrimoniale,
       hasNiveauEducation: !!req.body.niveau_education,
       hasEgliseLocaleId: !!req.body.eglise_locale_id,
-      hasDepartementId: !!req.body.departement_id,
       hasQualification: !!req.body.qualification
     });
 
@@ -98,7 +95,7 @@ exports.register = async (req, res) => {
       situation_matrimoniale,
       niveau_education,
       eglise_locale_id,
-      departement_id,
+      departement_ids,
       qualification,
       group_id,
       adresse
@@ -155,7 +152,6 @@ exports.register = async (req, res) => {
       situation_matrimoniale,
       niveau_education,
       eglise_locale_id,
-      departement_id,
       role: 'MEMBRE',
       qualification: qualification || 'EN_INTEGRATION'
     });
@@ -187,7 +183,6 @@ exports.register = async (req, res) => {
         situation_matrimoniale,
         niveau_education,
         eglise_locale_id,
-        departement_id: (departement_id && departement_id.trim() !== '') ? departement_id : null,
         role: 'MEMBRE',
         qualification: qualification || 'EN_INTEGRATION',
         image: imagePath,
@@ -195,9 +190,6 @@ exports.register = async (req, res) => {
       },
       include: {
         eglise_locale: {
-          select: { id: true, nom: true }
-        },
-        departement: {
           select: { id: true, nom: true }
         },
         role_assignments: {
@@ -280,6 +272,43 @@ exports.register = async (req, res) => {
       }
     }
 
+    // Gérer les départements multiples si fournis
+    if (departement_ids && Array.isArray(departement_ids) && departement_ids.length > 0) {
+      try {
+        // Valider que les départements existent
+        const departments = await req.prisma.department.findMany({
+          where: { id: { in: departement_ids } }
+        });
+
+        if (departments.length !== departement_ids.length) {
+          logger.warn('Register - Certains départements n\'existent pas', { 
+            departement_ids,
+            found: departments.length
+          });
+        }
+
+        // Créer les associations avec les départements
+        if (departments.length > 0) {
+          await req.prisma.userDepartment.createMany({
+            data: departments.map(dept => ({
+              user_id: newUser.id,
+              department_id: dept.id
+            }))
+          });
+          logger.info('Register - Départements associés à l\'utilisateur', { 
+            userId: newUser.id,
+            departments: departments.map(d => d.nom)
+          });
+        }
+      } catch (deptError) {
+        // Ne pas bloquer l'inscription si l'ajout des départements échoue
+        logger.error('Register - Erreur lors de l\'ajout des départements', {
+          error: deptError,
+          userId: newUser.id
+        });
+      }
+    }
+
     await sendTokenResponse(req.prisma, newUser, 201, res);
   } catch (error) {
     // Utilisation du gestionnaire d'erreurs centralisé
@@ -321,9 +350,6 @@ exports.login = async (req, res) => {
       },
       include: {
         eglise_locale: {
-          select: { id: true, nom: true }
-        },
-        departement: {
           select: { id: true, nom: true }
         },
         role_assignments: {

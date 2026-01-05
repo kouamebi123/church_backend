@@ -32,7 +32,6 @@ model User {
   createdAt                    DateTime                  @default(now())
   updatedAt                    DateTime                  @updatedAt
   eglise_locale_id             String
-  departement_id               String? // Gardé pour compatibilité
   image                        String?                   @default("")
   assistance_created           Assistance[]
   chaine_impact_responsable    ChaineImpact[]            @relation("ChaineImpactResponsable")
@@ -51,7 +50,6 @@ model User {
   services_collecteur          Service[]                 @relation("ServiceCollecteur")
   services                     Service[]
   services_superviseur         Service[]                 @relation("ServiceSuperviseur")
-  departement                  Department?               @relation("DepartmentMembers", fields: [departement_id], references: [id])
   eglise_locale                Church                    @relation("ChurchMembers", fields: [eglise_locale_id], references: [id])
   user_departments             UserDepartment[]          @relation("UserDepartments")
   role_assignments             UserRoleAssignment[]      @relation("UserRoleAssignments")
@@ -267,7 +265,6 @@ model Department {
   updatedAt        DateTime         @updatedAt
   church_id        String
   church           Church           @relation(fields: [church_id], references: [id])
-  members          User[]           @relation("DepartmentMembers")
   user_departments UserDepartment[] @relation("DepartmentUsers")
   responsable1_id  String?
   responsable2_id  String?
