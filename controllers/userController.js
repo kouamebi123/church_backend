@@ -341,9 +341,9 @@ exports.getUser = async (req, res) => {
         user_departments: {
           include: {
             department: {
-              select: {
-                id: true,
-                nom: true
+          select: {
+            id: true,
+            nom: true
               }
             }
           }
@@ -600,13 +600,13 @@ exports.createUser = async (req, res) => {
     // Vérifier que l'église existe
     const church = await req.prisma.church.findUnique({
       where: { id: egliseLocaleId }
-    });
+      });
 
     if (!church) {
-      return res.status(400).json({
-        success: false,
+        return res.status(400).json({
+          success: false,
         message: 'L\'église sélectionnée n\'existe pas'
-      });
+        });
     }
 
     // Validation des départements multiples si fournis
@@ -730,8 +730,8 @@ exports.createUser = async (req, res) => {
         ...userCreateData,
         eglise_locale: {
           connect: { id: egliseLocaleId }
-        }
-      },
+          }
+        },
       include: {
         eglise_locale: {
           select: {
@@ -1982,25 +1982,25 @@ exports.updateOwnProfile = async (req, res) => {
       // Recharger l'utilisateur avec les départements mis à jour
       const finalUser = await req.prisma.user.findUnique({
         where: { id: userId },
-        include: {
-          eglise_locale: {
-            select: {
-              id: true,
-              nom: true
-            }
-          },
+      include: {
+        eglise_locale: {
+          select: {
+            id: true,
+            nom: true
+          }
+        },
           user_departments: {
             include: {
               department: {
-                select: {
-                  id: true,
-                  nom: true
+          select: {
+            id: true,
+            nom: true
                 }
               }
-            }
           }
         }
-      });
+      }
+    });
 
       return res.status(200).json({
         success: true,
