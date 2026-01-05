@@ -1971,6 +1971,14 @@ exports.updateOwnProfile = async (req, res) => {
     delete updateData.eglise_locale_id; // Empêcher le changement d'église
     delete updateData.password; // Empêcher le changement de mot de passe via cette route
 
+    // Gérer les départements multiples
+    let departementIds = null;
+    if (updateData.departement_ids !== undefined) {
+      departementIds = updateData.departement_ids;
+      delete updateData.departement_ids;
+    }
+
+    // Mise à jour de l'utilisateur
     const user = await req.prisma.user.update({
       where: { id: userId },
       data: updateData,
@@ -1994,6 +2002,58 @@ exports.updateOwnProfile = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Utilisateur non trouvé'
+      });
+    }
+
+    // Mettre à jour les départements si fournis
+    if (departementIds !== null) {
+      // Supprimer les anciennes associations
+      await req.prisma.userDepartment.deleteMany({
+        where: { user_id: userId }
+      });
+
+      // Créer les nouvelles associations
+      if (Array.isArray(departementIds) && departementIds.length > 0) {
+        await req.prisma.userDepartment.createMany({
+          data: departementIds.map(departmentId => ({
+            user_id: userId,
+            department_id: departmentId
+          }))
+        });
+      }
+
+      // Recharger l'utilisateur avec les départements mis à jour
+      const finalUser = await req.prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          eglise_locale: {
+            select: {
+              id: true,
+              nom: true
+            }
+          },
+          departement: {
+            select: {
+              id: true,
+              nom: true
+            }
+          },
+          user_departments: {
+            include: {
+              department: {
+                select: {
+                  id: true,
+                  nom: true
+                }
+              }
+            }
+          }
+        }
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: finalUser
       });
     }
 
