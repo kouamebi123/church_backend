@@ -2012,13 +2012,25 @@ exports.updateOwnProfile = async (req, res) => {
         where: { user_id: userId }
       });
 
-      // Créer les nouvelles associations
+      // Mettre à jour aussi l'ancien departement_id pour compatibilité (null si aucun département)
       if (Array.isArray(departementIds) && departementIds.length > 0) {
+        // Créer les nouvelles associations
         await req.prisma.userDepartment.createMany({
           data: departementIds.map(departmentId => ({
             user_id: userId,
             department_id: departmentId
           }))
+        });
+        // Mettre à jour l'ancien departement_id avec le premier département pour compatibilité
+        await req.prisma.user.update({
+          where: { id: userId },
+          data: { departement_id: departementIds[0] }
+        });
+      } else {
+        // Si aucun département, mettre departement_id à null
+        await req.prisma.user.update({
+          where: { id: userId },
+          data: { departement_id: null }
         });
       }
 
