@@ -597,6 +597,18 @@ exports.createUser = async (req, res) => {
       }
     }
 
+    // Vérifier que l'église existe
+    const church = await req.prisma.church.findUnique({
+      where: { id: egliseLocaleId }
+    });
+
+    if (!church) {
+      return res.status(400).json({
+        success: false,
+        message: 'L\'église sélectionnée n\'existe pas'
+      });
+    }
+
     // Validation des départements multiples si fournis
     if (userData.departement_ids && Array.isArray(userData.departement_ids) && userData.departement_ids.length > 0) {
       const departments = await req.prisma.department.findMany({
@@ -690,8 +702,18 @@ exports.createUser = async (req, res) => {
       eglise_locale_id: egliseLocaleId
     };
 
-    // Supprimer departement_ids des données de création (géré séparément)
+    // Supprimer les champs qui ne doivent pas être dans les données de création
     delete userCreateData.departement_ids;
+    delete userCreateData.eglise_locale; // Supprimer la relation si elle existe
+    delete userCreateData.departement; // Supprimer l'ancien champ departement si présent
+    
+    // S'assurer que eglise_locale_id est bien défini et non null
+    if (!userCreateData.eglise_locale_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'L\'église locale est obligatoire. Veuillez sélectionner une église.'
+      });
+    }
 
     // Création de l'utilisateur
     const newUser = await req.prisma.user.create({
