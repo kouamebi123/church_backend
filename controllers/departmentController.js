@@ -8,10 +8,9 @@ exports.getDepartments = async (req, res) => {
 
     const where = {};
 
-    // Si l'utilisateur est un manager, filtrer automatiquement par son église
-    if (req.user && req.user.role === 'MANAGER' && req.user.eglise_locale_id) {
-      // Pour les départements, on peut les laisser visibles mais on peut filtrer les utilisateurs par église
-      // Cette logique sera appliquée dans getDepartmentMembers
+    // Filtrer par église de l'utilisateur connecté (pour tous les rôles)
+    if (req.user && req.user.eglise_locale_id) {
+      where.church_id = req.user.eglise_locale_id;
     }
 
     const departments = await prisma.department.findMany({
@@ -179,38 +178,13 @@ exports.createDepartment = async (req, res) => {
     }
 
     // Déterminer l'église pour le département
-    let church_id;
-
-    if (req.user.role === 'SUPER_ADMIN') {
-      // Pour les super-admin, utiliser l'église de l'utilisateur ou la première église disponible
-      if (req.user.eglise_locale_id) {
-        church_id = req.user.eglise_locale_id;
-      } else {
-        // Prendre la première église disponible
-        const firstChurch = await prisma.church.findFirst({
-          select: { id: true }
-        });
-        if (!firstChurch) {
-          return res.status(400).json({
-            success: false,
-            message: 'Aucune église disponible pour créer un département'
-          });
-        }
-        church_id = firstChurch.id;
-      }
-    } else if (req.user.role === 'MANAGER') {
-      // Pour les managers, utiliser leur église locale
-      church_id = req.user.eglise_locale_id;
-      if (!church_id) {
-        return res.status(400).json({
-          success: false,
-          message: 'Vous devez être assigné à une église pour créer un département'
-        });
-      }
-    } else {
-      return res.status(403).json({
+    // Toujours utiliser l'église de l'utilisateur connecté
+    let church_id = req.user.eglise_locale_id;
+    
+    if (!church_id) {
+      return res.status(400).json({
         success: false,
-        message: 'Vous n\'avez pas les permissions pour créer un département'
+        message: 'Vous devez être assigné à une église pour créer un département'
       });
     }
 
