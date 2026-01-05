@@ -167,11 +167,11 @@ const limiter = rateLimit({
 
 // Rate limiting spécial pour l'authentification (sécurisé mais utilisable)
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Maximum 10 tentatives de connexion par 15 minutes
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 15, // Maximum 15 tentatives de connexion par 5 minutes
   message: {
     success: false,
-    message: '🚫 Trop de tentatives de connexion. Réessayez dans 15 minutes.'
+    message: '🚫 Trop de tentatives de connexion. Réessayez dans 5 minutes.'
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -186,7 +186,7 @@ const authLimiter = rateLimit({
 
     res.status(429).json({
       success: false,
-      message: '🚫 Trop de tentatives de connexion. Réessayez dans 15 minutes.',
+      message: '🚫 Trop de tentatives de connexion. Réessayez dans 5 minutes.',
       retryAfter: Math.ceil(req.rateLimit.resetTime / 1000)
     });
   }
