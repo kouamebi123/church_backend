@@ -143,7 +143,7 @@ app.use((req, res, next) => {
 // Rate limiting - Configuration équilibrée pour la sécurité et l'usage normal
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 200, // limite chaque IP à 200 requêtes par minute (augmenté pour la messagerie)
+  max: 500, // limite chaque IP à 500 requêtes par minute (augmenté pour la messagerie)
   message: {
     success: false,
     message: '🚫 Rate limit dépassé: Trop de requêtes depuis cette IP'
