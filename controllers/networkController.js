@@ -1191,9 +1191,9 @@ exports.getNetworkGroups = async (req, res) => {
                 user_departments: {
                   include: {
                     department: {
-                      select: {
-                        id: true,
-                        nom: true
+                  select: {
+                    id: true,
+                    nom: true
                       }
                     }
                   }

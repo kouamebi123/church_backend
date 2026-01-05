@@ -456,13 +456,6 @@ exports.createGroup = async (req, res) => {
       });
     }
 
-    if (!qualification) {
-      return res.status(400).json({
-        success: false,
-        message: 'La qualification du groupe est requise'
-      });
-    }
-
     // Vérifier si le réseau existe
     const network = await prisma.network.findUnique({
       where: { id: network_id },
@@ -470,6 +463,18 @@ exports.createGroup = async (req, res) => {
         church: {
           select: {
             id: true
+          }
+        },
+        responsable1: {
+          select: {
+            id: true,
+            qualification: true
+          }
+        },
+        responsable2: {
+          select: {
+            id: true,
+            qualification: true
           }
         }
       }
@@ -493,8 +498,28 @@ exports.createGroup = async (req, res) => {
       }
     }
 
+    // Si le responsable est un responsable du réseau, utiliser sa qualification et ne pas exiger qualification
+    const isNetworkResponsible = (network.responsable1?.id === responsable1_id) || 
+                                 (network.responsable2?.id === responsable1_id);
+    
+    if (isNetworkResponsible) {
+      // Utiliser la qualification du responsable de réseau
+      qualification = network.responsable1?.id === responsable1_id 
+        ? network.responsable1.qualification 
+        : network.responsable2.qualification;
+      // Le supérieur hiérarchique est lui-même (le responsable de réseau)
+      superieur_hierarchique_id = responsable1_id;
+    } else if (!qualification) {
+      // Si ce n'est pas un responsable de réseau, la qualification est requise
+      return res.status(400).json({
+        success: false,
+        message: 'La qualification du groupe est requise'
+      });
+    }
+
     // Vérifier si le supérieur hiérarchique existe et est dans le bon réseau
-    if (superieur_hierarchique_id) {
+    // Le supérieur hiérarchique n'est pas requis si le responsable est un responsable de réseau
+    if (superieur_hierarchique_id && !isNetworkResponsible) {
       const superieur = await prisma.user.findUnique({
         where: { id: superieur_hierarchique_id },
         include: {
