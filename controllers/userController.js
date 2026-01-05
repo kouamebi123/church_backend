@@ -2482,8 +2482,10 @@ exports.getUserNetwork = async (req, res) => {
     }
 
     if (!network) {
-      return res.status(404).json({
-        success: false,
+      // Retourner 200 avec networkId: null au lieu de 404 pour éviter les erreurs dans la console
+      // C'est un cas normal (un utilisateur peut ne pas être impliqué dans un réseau)
+      return res.status(200).json({
+        success: true,
         message: 'Aucun réseau trouvé pour cet utilisateur',
         data: {
           networkId: null,
@@ -2659,8 +2661,10 @@ exports.getUserSession = async (req, res) => {
     }
 
     if (!session) {
-      return res.status(404).json({
-        success: false,
+      // Retourner 200 avec sessionId: null au lieu de 404 pour éviter les erreurs dans la console
+      // C'est un cas normal (un utilisateur peut ne pas être impliqué dans une session)
+      return res.status(200).json({
+        success: true,
         message: 'Aucune session trouvée pour cet utilisateur',
         data: {
           sessionId: null,
