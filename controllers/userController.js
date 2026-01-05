@@ -707,6 +707,15 @@ exports.createUser = async (req, res) => {
     delete userCreateData.eglise_locale_id; // Supprimer l'ID direct, on utilisera la relation
     delete userCreateData.departement; // Supprimer l'ancien champ departement si présent
     
+    // Gérer les champs non-nullables qui peuvent être null
+    // profession, ville_residence, origine, situation_matrimoniale, niveau_education sont non-nullables dans le schéma
+    const nonNullableStringFields = ['profession', 'ville_residence', 'origine', 'situation_matrimoniale', 'niveau_education'];
+    nonNullableStringFields.forEach(field => {
+      if (userCreateData[field] === null || userCreateData[field] === undefined || userCreateData[field] === '') {
+        userCreateData[field] = ''; // Valeur par défaut pour les champs non-nullables
+      }
+    });
+    
     // S'assurer que egliseLocaleId est bien défini et non null
     if (!egliseLocaleId) {
       return res.status(400).json({
