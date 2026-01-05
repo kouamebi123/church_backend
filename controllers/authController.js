@@ -434,9 +434,6 @@ exports.getMe = async (req, res) => {
         eglise_locale: {
           select: { id: true, nom: true }
         },
-        departement: {
-          select: { id: true, nom: true }
-        },
         user_departments: {
           include: {
             department: {
