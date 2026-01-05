@@ -68,10 +68,10 @@ router.route('/:id')
   .delete(authorize('ADMIN', 'MANAGER'), authorizeManagerNetworkAccess, deleteNetwork);
 
 // Routes pour les objectifs de réseau
-router.get('/:id/objectives', protect, authorize('ADMIN', 'MANAGER'), getNetworkObjectives);
-router.get('/:id/objective', protect, authorize('ADMIN', 'MANAGER'), getNetworkObjective);
-router.post('/:id/objectives', protect, authorize('ADMIN', 'MANAGER'), createNetworkObjective);
-router.put('/objectives/:objectiveId', protect, authorize('ADMIN', 'MANAGER'), updateNetworkObjective);
-router.delete('/objectives/:objectiveId', protect, authorize('ADMIN', 'MANAGER'), deleteNetworkObjective);
+router.get('/:id/objectives', protect, authorize('ADMIN', 'MANAGER', 'COLLECTEUR_RESEAUX'), getNetworkObjectives);
+router.get('/:id/objective', protect, authorize('ADMIN', 'MANAGER', 'COLLECTEUR_RESEAUX'), getNetworkObjective);
+router.post('/:id/objectives', protect, authorize('ADMIN', 'MANAGER', 'COLLECTEUR_RESEAUX'), createNetworkObjective);
+router.put('/objectives/:objectiveId', protect, authorize('ADMIN', 'MANAGER', 'COLLECTEUR_RESEAUX'), updateNetworkObjective);
+router.delete('/objectives/:objectiveId', protect, authorize('ADMIN', 'MANAGER', 'COLLECTEUR_RESEAUX'), deleteNetworkObjective);
 
 module.exports = router;

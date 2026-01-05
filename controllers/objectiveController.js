@@ -8,6 +8,29 @@ exports.getNetworkObjective = async (req, res) => {
   try {
     const networkId = req.params.id || req.params.networkId;
 
+    // Vérifier les permissions pour COLLECTEUR_RESEAUX et MANAGER
+    if (req.user && (req.user.role === 'COLLECTEUR_RESEAUX' || req.user.role === 'MANAGER')) {
+      const network = await req.prisma.network.findUnique({
+        where: { id: networkId },
+        select: { church_id: true }
+      });
+
+      if (!network) {
+        return res.status(404).json({
+          success: false,
+          message: 'Réseau non trouvé'
+        });
+      }
+
+      // Vérifier que le réseau appartient à l'église du collecteur
+      if (network.church_id !== req.user.eglise_locale_id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Vous ne pouvez accéder qu\'aux objectifs des réseaux de votre église'
+        });
+      }
+    }
+
     // Récupérer l'objectif principal (is_main = true) ou le plus récent actif
     const objective = await req.prisma.networkObjective.findFirst({
       where: {
@@ -84,6 +107,29 @@ exports.getNetworkObjectives = async (req, res) => {
   try {
     const networkId = req.params.id || req.params.networkId;
 
+    // Vérifier les permissions pour COLLECTEUR_RESEAUX et MANAGER
+    if (req.user && (req.user.role === 'COLLECTEUR_RESEAUX' || req.user.role === 'MANAGER')) {
+      const network = await req.prisma.network.findUnique({
+        where: { id: networkId },
+        select: { church_id: true }
+      });
+
+      if (!network) {
+        return res.status(404).json({
+          success: false,
+          message: 'Réseau non trouvé'
+        });
+      }
+
+      // Vérifier que le réseau appartient à l'église du collecteur
+      if (network.church_id !== req.user.eglise_locale_id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Vous ne pouvez accéder qu\'aux objectifs des réseaux de votre église'
+        });
+      }
+    }
+
     const objectives = await req.prisma.networkObjective.findMany({
       where: {
         network_id: networkId
@@ -156,7 +202,8 @@ exports.createNetworkObjective = async (req, res) => {
 
     // Vérifier que le réseau existe
     const network = await req.prisma.network.findUnique({
-      where: { id: networkId }
+      where: { id: networkId },
+      select: { id: true, church_id: true }
     });
 
     if (!network) {
@@ -164,6 +211,17 @@ exports.createNetworkObjective = async (req, res) => {
         success: false,
         message: 'Réseau non trouvé'
       });
+    }
+
+    // Vérifier les permissions pour COLLECTEUR_RESEAUX et MANAGER
+    if (req.user && (req.user.role === 'COLLECTEUR_RESEAUX' || req.user.role === 'MANAGER')) {
+      // Vérifier que le réseau appartient à l'église du collecteur
+      if (network.church_id !== req.user.eglise_locale_id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Vous ne pouvez créer des objectifs que pour les réseaux de votre église'
+        });
+      }
     }
 
     const isMainObjective = is_main === true || is_main === 'true';
@@ -220,7 +278,12 @@ exports.updateNetworkObjective = async (req, res) => {
     const { objectif, date_fin, description, active, is_main } = req.body;
 
     const objective = await req.prisma.networkObjective.findUnique({
-      where: { id: objectiveId }
+      where: { id: objectiveId },
+      include: {
+        network: {
+          select: { church_id: true }
+        }
+      }
     });
 
     if (!objective) {
@@ -228,6 +291,17 @@ exports.updateNetworkObjective = async (req, res) => {
         success: false,
         message: 'Objectif non trouvé'
       });
+    }
+
+    // Vérifier les permissions pour COLLECTEUR_RESEAUX et MANAGER
+    if (req.user && (req.user.role === 'COLLECTEUR_RESEAUX' || req.user.role === 'MANAGER')) {
+      // Vérifier que le réseau de l'objectif appartient à l'église du collecteur
+      if (objective.network.church_id !== req.user.eglise_locale_id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Vous ne pouvez modifier que les objectifs des réseaux de votre église'
+        });
+      }
     }
 
     const updateData = {};
@@ -288,7 +362,12 @@ exports.deleteNetworkObjective = async (req, res) => {
     const { objectiveId } = req.params;
 
     const objective = await req.prisma.networkObjective.findUnique({
-      where: { id: objectiveId }
+      where: { id: objectiveId },
+      include: {
+        network: {
+          select: { church_id: true }
+        }
+      }
     });
 
     if (!objective) {
@@ -296,6 +375,17 @@ exports.deleteNetworkObjective = async (req, res) => {
         success: false,
         message: 'Objectif non trouvé'
       });
+    }
+
+    // Vérifier les permissions pour COLLECTEUR_RESEAUX et MANAGER
+    if (req.user && (req.user.role === 'COLLECTEUR_RESEAUX' || req.user.role === 'MANAGER')) {
+      // Vérifier que le réseau de l'objectif appartient à l'église du collecteur
+      if (objective.network.church_id !== req.user.eglise_locale_id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Vous ne pouvez supprimer que les objectifs des réseaux de votre église'
+        });
+      }
     }
 
     await req.prisma.networkObjective.delete({
