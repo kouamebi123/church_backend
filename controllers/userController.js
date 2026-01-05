@@ -698,26 +698,31 @@ exports.createUser = async (req, res) => {
     // Préparer les données de création
     const userCreateData = {
       ...userData,
-      password: hashedPassword,
-      eglise_locale_id: egliseLocaleId
+      password: hashedPassword
     };
 
     // Supprimer les champs qui ne doivent pas être dans les données de création
     delete userCreateData.departement_ids;
     delete userCreateData.eglise_locale; // Supprimer la relation si elle existe
+    delete userCreateData.eglise_locale_id; // Supprimer l'ID direct, on utilisera la relation
     delete userCreateData.departement; // Supprimer l'ancien champ departement si présent
     
-    // S'assurer que eglise_locale_id est bien défini et non null
-    if (!userCreateData.eglise_locale_id) {
+    // S'assurer que egliseLocaleId est bien défini et non null
+    if (!egliseLocaleId) {
       return res.status(400).json({
         success: false,
         message: 'L\'église locale est obligatoire. Veuillez sélectionner une église.'
       });
     }
 
-    // Création de l'utilisateur
+    // Création de l'utilisateur avec la relation eglise_locale explicitement connectée
     const newUser = await req.prisma.user.create({
-      data: userCreateData,
+      data: {
+        ...userCreateData,
+        eglise_locale: {
+          connect: { id: egliseLocaleId }
+        }
+      },
       include: {
         eglise_locale: {
           select: {

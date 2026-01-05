@@ -53,7 +53,7 @@ exports.getDepartments = async (req, res) => {
             where: {
               department_id: dep.id,
               user: {
-                eglise_locale_id: req.user.eglise_locale_id
+              eglise_locale_id: req.user.eglise_locale_id
               }
             }
           });
@@ -181,10 +181,10 @@ exports.createDepartment = async (req, res) => {
     // Toujours utiliser l'église de l'utilisateur connecté
     let church_id = req.user.eglise_locale_id;
     
-    if (!church_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'Vous devez être assigné à une église pour créer un département'
+      if (!church_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'Vous devez être assigné à une église pour créer un département'
       });
     }
 
@@ -512,19 +512,19 @@ exports.getDepartmentMembers = async (req, res) => {
       },
       include: {
         user: {
+      select: {
+        id: true,
+        username: true,
+        pseudo: true,
+        role: true,
+        qualification: true,
+            email: true,
+        eglise_locale: {
           select: {
             id: true,
-            username: true,
-            pseudo: true,
-            role: true,
-            qualification: true,
-            email: true,
-            eglise_locale: {
-              select: {
-                id: true,
-                nom: true
-              }
-            }
+            nom: true
+          }
+        }
           }
         }
       }
