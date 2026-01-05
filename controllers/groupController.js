@@ -440,7 +440,8 @@ exports.getGroup = async (req, res) => {
 exports.createGroup = async (req, res) => {
   try {
     const { prisma } = req;
-    const { nom, description, network_id, responsable1_id, responsable2_id, members, qualification, superieur_hierarchique_id } = req.body;
+    const { nom, description, network_id, responsable1_id, responsable2_id, members } = req.body;
+    let { qualification, superieur_hierarchique_id } = req.body;
 
     if (!network_id) {
       return res.status(400).json({
