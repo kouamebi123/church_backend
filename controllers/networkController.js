@@ -12,8 +12,8 @@ exports.getNetworks = async (req, res) => {
 
     const filter = {};
 
-    // Si l'utilisateur est un manager, filtrer automatiquement par son église
-    if (req.user && req.user.role === 'MANAGER' && req.user.eglise_locale_id) {
+    // Si l'utilisateur est un manager ou collecteur de réseaux, filtrer automatiquement par son église
+    if (req.user && (req.user.role === 'MANAGER' || req.user.role === 'COLLECTEUR_RESEAUX') && req.user.eglise_locale_id) {
       const churchId = typeof req.user.eglise_locale_id === 'object'
         ? req.user.eglise_locale_id.id || req.user.eglise_locale_id._id
         : req.user.eglise_locale_id;

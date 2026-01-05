@@ -25,7 +25,7 @@ router.route('/')
   .post(authorize('ADMIN', 'MANAGER'), authorizeManagerNetworkAccess, createSession);
 
 // Route pour récupérer toutes les stats des sessions d'une église
-router.get('/stats', authorize('ADMIN', 'MANAGER'), getSessionsStats);
+router.get('/stats', authorize('ADMIN', 'MANAGER', 'COLLECTEUR_RESEAUX'), getSessionsStats);
 
 // Routes spécifiques AVANT la route générique pour éviter les conflits
 router.get('/:id/stats', getSessionStatsById);

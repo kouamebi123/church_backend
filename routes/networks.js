@@ -47,9 +47,9 @@ router.route('/')
   .get(getNetworks)
   .post(authorize('ADMIN', 'MANAGER'), authorizeManagerNetworkAccess, createNetwork);
 
-router.get('/stats', authorize('ADMIN', 'MANAGER'), getNetworkStats);
-router.get('/qualification-stats', authorize('ADMIN', 'MANAGER'), getNetworksQualificationStats);
-router.get('/department-involvement', authorize('ADMIN', 'MANAGER'), getNetworksDepartmentInvolvement);
+router.get('/stats', authorize('ADMIN', 'MANAGER', 'COLLECTEUR_RESEAUX'), getNetworkStats);
+router.get('/qualification-stats', authorize('ADMIN', 'MANAGER', 'COLLECTEUR_RESEAUX'), getNetworksQualificationStats);
+router.get('/department-involvement', authorize('ADMIN', 'MANAGER', 'COLLECTEUR_RESEAUX'), getNetworksDepartmentInvolvement);
 
 router.get('/:id/stats', getNetworkStatsById);
 router.get('/:id/grs', getNetworkGroups);
