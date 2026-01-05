@@ -107,7 +107,8 @@ exports.protect = async (req, res, next) => {
         current_role: roleMap[activeRole] || 'membre',
         available_roles: prismaUser.role_assignments?.map(assignment => roleMap[assignment.role] || assignment.role) || [roleMap[prismaUser.role] || 'membre'],
         qualification: prismaUser.qualification,
-        eglise_locale: prismaUser.eglise_locale_id || null
+        eglise_locale: prismaUser.eglise_locale_id || null,
+        eglise_locale_id: prismaUser.eglise_locale_id || null
       };
     }
     if (!user) {
