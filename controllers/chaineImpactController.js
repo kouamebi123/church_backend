@@ -235,27 +235,230 @@ const updateChaineImpact = async (req, res) => {
   }
 };
 
+// Construire l'arbre récursivement à partir des groupes pour un responsable de réseau
+const buildTreeFromGroups = (groups, networkResponsableId) => {
+  // Fonction récursive pour construire les enfants d'un parent donné
+  const buildChildren = (parentUserId, currentNiveau = 2) => {
+    // Trouver tous les groupes où le supérieur hiérarchique est le parent
+    const childGroups = groups.filter(group => 
+      group.superieur_hierarchique_id === parentUserId
+    );
+
+    return childGroups.map(group => {
+      // Déterminer le niveau basé sur la qualification du responsable du groupe
+      const responsableQualification = group.responsable1?.qualification || 'QUALIFICATION_12';
+      let niveau = getNiveauFromQualification(responsableQualification);
+      
+      // S'assurer que le niveau est au moins égal au niveau actuel + 1
+      if (niveau <= currentNiveau) {
+        niveau = currentNiveau + 1;
+      }
+      
+      // Construire le nœud pour le responsable du groupe
+      const node = {
+        id: `group-${group.id}`,
+        niveau: niveau,
+        user: {
+          id: group.responsable1.id,
+          username: group.responsable1.username || group.responsable1.pseudo,
+          image: group.responsable1.image,
+          qualification: group.responsable1.qualification
+        },
+        children: []
+      };
+
+      // Récursion : trouver les groupes où ce responsable est le supérieur hiérarchique
+      const childGroupsNodes = buildChildren(group.responsable1.id, niveau);
+      node.children = childGroupsNodes;
+
+      return node;
+    });
+  };
+
+  // Trouver les groupes directement sous le responsable de réseau (niveau 1 -> niveau 2)
+  const rootGroups = groups.filter(group => 
+    group.superieur_hierarchique_id === networkResponsableId
+  );
+
+  // Construire les nœuds racine (groupes de niveau 2)
+  return rootGroups.map(group => {
+    const responsableQualification = group.responsable1?.qualification || 'QUALIFICATION_12';
+    let niveau = getNiveauFromQualification(responsableQualification);
+    
+    // Les groupes directement sous le responsable de réseau sont au niveau 2
+    if (niveau < 2) {
+      niveau = 2;
+    }
+    
+    const node = {
+      id: `group-${group.id}`,
+      niveau: niveau,
+      user: {
+        id: group.responsable1.id,
+        username: group.responsable1.username || group.responsable1.pseudo,
+        image: group.responsable1.image,
+        qualification: group.responsable1.qualification
+      },
+      children: buildChildren(group.responsable1.id, niveau)
+    };
+
+    return node;
+  });
+};
+
 // Récupérer la chaine d'impact d'un utilisateur spécifique
 const getChaineImpactByUser = async (req, res) => {
   try {
     const { user_id } = req.params;
     
-    const chaineImpact = await req.prisma.chaineImpact.findMany({
-      where: { user_id },
+    // D'abord, vérifier si l'utilisateur est un responsable de réseau
+    const networks = await req.prisma.network.findMany({
+      where: { responsable1_id: user_id },
       include: {
-        user: true,
-        responsable: true,
-        eglise: true,
-        network: true,
-        group: true
+        responsable1: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true,
+            image: true,
+            qualification: true
+          }
+        }
       }
     });
 
-    logger.info(`Chaine d'impact récupérée pour l'utilisateur ${user_id}`);
-    res.json(chaineImpact);
+    // Si l'utilisateur est responsable de réseau, construire l'arbre à partir des groupes
+    if (networks.length > 0) {
+      const allGroups = [];
+      
+      // Récupérer TOUS les groupes de tous les réseaux où cet utilisateur est responsable
+      for (const network of networks) {
+        const groups = await req.prisma.group.findMany({
+          where: {
+            network_id: network.id
+          },
+          include: {
+            responsable1: {
+              select: {
+                id: true,
+                username: true,
+                pseudo: true,
+                image: true,
+                qualification: true
+              }
+            },
+            superieur_hierarchique: {
+              select: {
+                id: true,
+                username: true,
+                pseudo: true,
+                image: true,
+                qualification: true
+              }
+            }
+          }
+        });
+        
+        allGroups.push(...groups);
+      }
+
+      // Construire l'arbre à partir des groupes (commence par les groupes où le responsable de réseau est le supérieur)
+      const tree = buildTreeFromGroups(allGroups, user_id);
+
+      // Créer le nœud racine avec le responsable de réseau
+      const rootNode = {
+        id: `network-responsable-${user_id}`,
+        niveau: 1,
+        user: {
+          id: networks[0].responsable1.id,
+          username: networks[0].responsable1.username || networks[0].responsable1.pseudo,
+          image: networks[0].responsable1.image,
+          qualification: networks[0].responsable1.qualification || 'RESPONSABLE_RESEAU'
+        },
+        children: tree
+      };
+
+      // Calculer le nombre total de nœuds (récursif)
+      const countNodes = (node) => {
+        let count = 1;
+        if (node.children && node.children.length > 0) {
+          node.children.forEach(child => {
+            count += countNodes(child);
+          });
+        }
+        return count;
+      };
+
+      const totalNodes = countNodes(rootNode);
+
+      logger.info(`Chaine d'impact construite pour le responsable de réseau ${user_id} avec ${totalNodes} nœuds`);
+      
+      return res.json({
+        success: true,
+        total_nodes: totalNodes,
+        tree: [rootNode]
+      });
+    }
+
+    // Sinon, chercher dans la table chaineImpact (comportement original)
+    const chaineImpact = await req.prisma.chaineImpact.findMany({
+      where: { user_id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true,
+            image: true,
+            qualification: true,
+            role: true
+          }
+        },
+        responsable: {
+          select: {
+            id: true,
+            username: true,
+            pseudo: true,
+            image: true,
+            qualification: true
+          }
+        },
+        network: {
+          select: {
+            id: true,
+            nom: true
+          }
+        },
+        group: {
+          select: {
+            id: true,
+            nom: true
+          }
+        }
+      }
+    });
+
+    // Si des enregistrements existent dans chaineImpact, construire l'arbre
+    if (chaineImpact.length > 0) {
+      const tree = buildTree(chaineImpact);
+      logger.info(`Chaine d'impact récupérée depuis la table pour l'utilisateur ${user_id}`);
+      return res.json({
+        success: true,
+        total_nodes: chaineImpact.length,
+        tree: tree
+      });
+    }
+
+    // Aucune chaîne d'impact trouvée
+    logger.info(`Aucune chaîne d'impact trouvée pour l'utilisateur ${user_id}`);
+    return res.json({
+      success: false,
+      total_nodes: 0,
+      tree: []
+    });
   } catch (error) {
     logger.error('Erreur lors de la récupération de la chaine d\'impact utilisateur:', error);
-    res.status(500).json({ message: 'Erreur serveur' });
+    res.status(500).json({ message: 'Erreur serveur', success: false });
   }
 };
 
