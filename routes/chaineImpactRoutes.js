@@ -25,7 +25,7 @@ router.post('/update',
 
 // Récupérer la chaine d'impact d'un utilisateur spécifique
 router.get('/user/:user_id',
-  authorize('ADMIN', 'SUPER_ADMIN', 'MANAGER'),
+  authorize('ADMIN', 'SUPER_ADMIN', 'MANAGER', 'COLLECTEUR_RESEAUX'),
   getChaineImpactByUser
 );
 
