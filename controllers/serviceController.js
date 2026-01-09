@@ -40,7 +40,15 @@ exports.getServices = async (req, res) => {
 
     logger.info('Service - getServices - Filtre final where', where);
 
-    const services = await prisma.service.findMany({
+    // Support de la pagination
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : undefined;
+    const skip = req.query.skip ? parseInt(req.query.skip, 10) : undefined;
+
+    // Compter le total des services (pour la pagination)
+    const totalCount = await prisma.service.count({ where });
+
+    // Construire les options de requête
+    const queryOptions = {
       where,
       include: {
         eglise: {
@@ -74,11 +82,25 @@ exports.getServices = async (req, res) => {
       orderBy: {
         date: 'desc'
       }
-    });
+    };
+
+    // Ajouter pagination si spécifiée
+    if (limit !== undefined) {
+      queryOptions.take = limit;
+    }
+    if (skip !== undefined) {
+      queryOptions.skip = skip;
+    }
+
+    const services = await prisma.service.findMany(queryOptions);
 
     res.status(200).json({
       success: true,
       count: services.length,
+      total: totalCount,
+      limit: limit,
+      skip: skip,
+      hasMore: limit && skip !== undefined ? (skip + limit < totalCount) : false,
       data: services
     });
   } catch (error) {

@@ -891,7 +891,8 @@ exports.updateUser = async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
 
-    // Logs supprimés pour réduire le volume de logs
+    // Log pour débogage en cas d'erreur
+    logger.info('User - updateUser - Début', { userId: id, updateDataKeys: Object.keys(updateData) });
 
     // Vérifier que l'utilisateur existe
     const existingUser = await req.prisma.user.findUnique({
@@ -1038,6 +1039,16 @@ exports.updateUser = async (req, res) => {
       data: updatedUser
     });
   } catch (error) {
+    // Log détaillé de l'erreur pour débogage
+    logger.error('User - updateUser - Erreur complète', {
+      error: error.message,
+      code: error.code,
+      meta: error.meta,
+      stack: error.stack,
+      userId: req.params?.id,
+      updateDataKeys: Object.keys(req.body || {})
+    });
+    
     // Utilisation du gestionnaire d'erreurs centralisé
     const { status, message } = handleError(error, 'la mise à jour de l\'utilisateur');
     res.status(status).json({
