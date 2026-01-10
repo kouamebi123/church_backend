@@ -343,6 +343,9 @@ exports.getGroups = async (req, res) => {
                 qualification: true
               }
             }
+          },
+          orderBy: {
+            createdAt: 'desc'
           }
         }
       },
@@ -407,6 +410,9 @@ exports.getGroup = async (req, res) => {
                 qualification: true
               }
             }
+          },
+          orderBy: {
+            createdAt: 'desc'
           }
         }
       }
@@ -794,6 +800,9 @@ exports.createGroup = async (req, res) => {
                 qualification: true
               }
             }
+          },
+          orderBy: {
+            createdAt: 'desc'
           }
         }
       }

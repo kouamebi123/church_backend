@@ -133,6 +133,9 @@ exports.getNetwork = async (req, res) => {
                     qualification: true
                   }
                 }
+              },
+              orderBy: {
+                createdAt: 'desc'
               }
             }
           }
@@ -788,6 +791,9 @@ exports.getNetworkStats = async (req, res) => {
                     qualification: true
                   }
                 }
+              },
+              orderBy: {
+                createdAt: 'desc'
               }
             },
             responsable1: {
@@ -989,6 +995,9 @@ exports.getNetworkStatsById = async (req, res) => {
                 qualification: true
               }
             }
+          },
+          orderBy: {
+            createdAt: 'desc'
           }
         },
         responsable1: {
@@ -1200,6 +1209,9 @@ exports.getNetworkGroups = async (req, res) => {
                 }
               }
             }
+          },
+          orderBy: {
+            createdAt: 'desc'
           }
         }
       }
@@ -1458,6 +1470,9 @@ exports.getNetworksDepartmentInvolvement = async (req, res) => {
                     id: true
                   }
                 }
+              },
+              orderBy: {
+                createdAt: 'desc'
               }
             }
           }
