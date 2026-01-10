@@ -50,6 +50,7 @@ class QualificationService {
       logger.debug(`Nouveaux responsables: ${newResponsable1Id}, ${newResponsable2Id}`);
 
       // Anciens responsables : vérifier s'ils sont encore responsables d'autres groupes
+      // downgradeGroupResponsable vérifie déjà s'ils sont responsables de réseau
       if (oldResponsable1Id && oldResponsable1Id !== newResponsable1Id && oldResponsable1Id !== newResponsable2Id) {
         logger.debug(`Ancien responsable1 ${oldResponsable1Id} n'est plus responsable de ce groupe`);
         await this.downgradeGroupResponsable(oldResponsable1Id);
@@ -60,15 +61,42 @@ class QualificationService {
         await this.downgradeGroupResponsable(oldResponsable2Id);
       }
 
-      // Nouveaux responsables : mettre en LEADER
+      // Nouveaux responsables : vérifier s'ils sont responsables de réseau
+      // Si oui, ne pas modifier leur qualification
       if (newResponsable1Id) {
-        logger.debug(`Nouveau responsable1 ${newResponsable1Id} devient LEADER`);
-        await this.updateUserQualification(newResponsable1Id, 'LEADER');
+        const isNetworkResponsable = await this.prisma.network.findFirst({
+          where: {
+            OR: [
+              { responsable1_id: newResponsable1Id },
+              { responsable2_id: newResponsable1Id }
+            ]
+          }
+        });
+
+        if (!isNetworkResponsable) {
+          logger.debug(`Nouveau responsable1 ${newResponsable1Id} devient LEADER`);
+          await this.updateUserQualification(newResponsable1Id, 'LEADER');
+        } else {
+          logger.debug(`Nouveau responsable1 ${newResponsable1Id} est aussi responsable de réseau, sa qualification ne sera pas modifiée`);
+        }
       }
 
       if (newResponsable2Id) {
-        logger.debug(`Nouveau responsable2 ${newResponsable2Id} devient LEADER`);
-        await this.updateUserQualification(newResponsable2Id, 'LEADER');
+        const isNetworkResponsable = await this.prisma.network.findFirst({
+          where: {
+            OR: [
+              { responsable1_id: newResponsable2Id },
+              { responsable2_id: newResponsable2Id }
+            ]
+          }
+        });
+
+        if (!isNetworkResponsable) {
+          logger.debug(`Nouveau responsable2 ${newResponsable2Id} devient LEADER`);
+          await this.updateUserQualification(newResponsable2Id, 'LEADER');
+        } else {
+          logger.debug(`Nouveau responsable2 ${newResponsable2Id} est aussi responsable de réseau, sa qualification ne sera pas modifiée`);
+        }
       }
 
       logger.debug('=== FIN DEBUG ===');
@@ -122,6 +150,21 @@ class QualificationService {
    */
   async downgradeGroupResponsable(userId) {
     try {
+      // Vérifier si l'utilisateur est aussi responsable de réseau
+      const isNetworkResponsable = await this.prisma.network.findFirst({
+        where: {
+          OR: [
+            { responsable1_id: userId },
+            { responsable2_id: userId }
+          ]
+        }
+      });
+
+      if (isNetworkResponsable) {
+        logger.info(`Utilisateur ${userId} est aussi responsable de réseau, sa qualification ne sera pas modifiée`);
+        return;
+      }
+
       // Une personne ne peut être responsable que d'un seul groupe (contrainte d'unicité)
       // Donc quand elle n'est plus responsable, elle devient systématiquement REGULIER
       await this.updateUserQualification(userId, 'REGULIER');

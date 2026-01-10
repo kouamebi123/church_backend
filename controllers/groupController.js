@@ -703,18 +703,45 @@ exports.createGroup = async (req, res) => {
     });
 
     // Mettre à jour les qualifications des responsables selon la qualification du groupe
+    // Ne pas modifier la qualification si le responsable est aussi responsable de réseau
     if (responsable1_id) {
-      await prisma.user.update({
-        where: { id: responsable1_id },
-        data: { qualification }
+      const isNetworkResponsable1 = await prisma.network.findFirst({
+        where: {
+          OR: [
+            { responsable1_id: responsable1_id },
+            { responsable2_id: responsable1_id }
+          ]
+        }
       });
+
+      if (!isNetworkResponsable1) {
+        await prisma.user.update({
+          where: { id: responsable1_id },
+          data: { qualification }
+        });
+      } else {
+        logger.info(`Responsable1 ${responsable1_id} est aussi responsable de réseau, sa qualification ne sera pas modifiée`);
+      }
     }
 
     if (responsable2_id) {
-      await prisma.user.update({
-        where: { id: responsable2_id },
-        data: { qualification }
+      const isNetworkResponsable2 = await prisma.network.findFirst({
+        where: {
+          OR: [
+            { responsable1_id: responsable2_id },
+            { responsable2_id: responsable2_id }
+          ]
+        }
       });
+
+      if (!isNetworkResponsable2) {
+        await prisma.user.update({
+          where: { id: responsable2_id },
+          data: { qualification }
+        });
+      } else {
+        logger.info(`Responsable2 ${responsable2_id} est aussi responsable de réseau, sa qualification ne sera pas modifiée`);
+      }
     }
 
     // Ajouter automatiquement les responsables comme membres du groupe
