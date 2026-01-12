@@ -313,6 +313,7 @@ exports.register = async (req, res) => {
 
     // Créer automatiquement un groupe si network_id, qualification et superieur_hierarchique_id sont fournis
     // (inscription d'un responsable de GR)
+    let createdGroup = null;
     if (network_id && qualification && superieur_hierarchique_id) {
       try {
         // Vérifier que le réseau existe
@@ -368,7 +369,7 @@ exports.register = async (req, res) => {
           const groupName = `GR_${cleanName}`;
 
           // Créer le groupe avec le nouveau responsable comme responsable1
-          const newGroup = await req.prisma.group.create({
+          createdGroup = await req.prisma.group.create({
             data: {
               nom: groupName,
               network_id: network_id,
@@ -394,8 +395,8 @@ exports.register = async (req, res) => {
           });
 
           logger.info('Register - Groupe créé automatiquement pour responsable de GR', {
-            groupId: newGroup.id,
-            groupName: newGroup.nom,
+            groupId: createdGroup.id,
+            groupName: createdGroup.nom,
             userId: newUser.id,
             networkId: network_id,
             qualification: qualification
@@ -411,7 +412,49 @@ exports.register = async (req, res) => {
       }
     }
 
-    await sendTokenResponse(req.prisma, newUser, 201, res);
+    // Modifier sendTokenResponse pour inclure le groupe créé si disponible
+    const token = signToken({
+      ...newUser,
+      role: newUser.role
+    });
+
+    // Log de l'activité de connexion
+    try {
+      await createActivityLog(req.prisma, newUser.id, 'LOGIN', 'USER', newUser.id, newUser.username, `Connexion de l'utilisateur: ${newUser.username}`, req);
+    } catch (logError) {
+      logger.error('Erreur lors du logging de connexion:', logError);
+    }
+
+    // Générer un token CSRF pour l'utilisateur
+    const csrfToken = csrfProtection.generateToken(newUser.id);
+
+    // Ajouter le token CSRF aux headers de réponse
+    res.setHeader('X-CSRF-Token', csrfToken);
+
+    // Extraire les rôles disponibles
+    const availableRoles = newUser.role_assignments?.map(assignment => assignment.role) || [newUser.role];
+
+    res.status(201).json({
+      success: true,
+      token,
+      csrfToken,
+      user: {
+        id: newUser.id,
+        username: newUser.username,
+        role: newUser.role,
+        current_role: null,
+        available_roles: availableRoles,
+        qualification: newUser.qualification,
+        eglise_locale: newUser.eglise_locale,
+        eglise_locale_id: newUser.eglise_locale_id
+      },
+      // Inclure le groupe créé dans la réponse si disponible
+      createdGroup: createdGroup ? {
+        id: createdGroup.id,
+        nom: createdGroup.nom,
+        network: createdGroup.network
+      } : null
+    });
   } catch (error) {
     // Utilisation du gestionnaire d'erreurs centralisé
     const { status, message } = handleError(error, 'l\'inscription');
