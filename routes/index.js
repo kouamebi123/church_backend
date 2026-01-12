@@ -39,6 +39,7 @@ const calendarRoutes = require('./calendar');
 const contactRoutes = require('./contact');
 const appSettingsRoutes = require('./appSettings');
 const referenceDataRoutes = require('./referenceData');
+const networkInvitationRoutes = require('./networkInvitation');
 
 // Endpoint de sécurité
 const securityLogger = require('../utils/securityLogger');
@@ -70,6 +71,7 @@ router.use('/calendar', calendarRoutes);
 router.use('/contact', contactRoutes);
 router.use('/app-settings', appSettingsRoutes);
 router.use('/reference-data', referenceDataRoutes);
+router.use('/network-invitations', networkInvitationRoutes);
 
 // Endpoint de sécurité
 router.get('/security/stats', (req, res) => {

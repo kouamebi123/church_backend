@@ -67,6 +67,7 @@ model User {
   department_responsable2      Department[]              @relation("DepartmentResponsable2")
   calendar_events_created      CalendarEvent[]           @relation("CalendarEventCreator")
   app_settings_updated         AppSettings[]             @relation("AppSettingsUpdater")
+  network_invitation_links_created NetworkInvitationLink[] @relation("NetworkInvitationLinkCreator")
 
   @@map("users")
 }
@@ -97,6 +98,7 @@ model Church {
   testimonies     Testimony[]
   sessions        Session[]       @relation("ChurchSessions")
   calendar_events CalendarEvent[]
+  network_invitation_links NetworkInvitationLink[] @relation("NetworkInvitationLinks")
 
   @@map("churches")
 }
@@ -771,4 +773,20 @@ model EventTypeConfig {
   calendar_events CalendarEvent[] @relation("CalendarEventType")
 
   @@map("event_type_configs")
+}
+
+model NetworkInvitationLink {
+  id              String   @id @default(cuid())
+  token           String   @unique
+  church_id       String
+  created_by_id   String
+  expires_at      DateTime
+  used            Boolean  @default(false)
+  used_at         DateTime?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  church          Church   @relation("NetworkInvitationLinks", fields: [church_id], references: [id])
+  created_by      User     @relation("NetworkInvitationLinkCreator", fields: [created_by_id], references: [id])
+
+  @@map("network_invitation_links")
 }
