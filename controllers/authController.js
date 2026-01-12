@@ -98,6 +98,8 @@ exports.register = async (req, res) => {
       departement_ids,
       qualification,
       group_id,
+      network_id,
+      superieur_hierarchique_id,
       adresse
     } = req.body;
 
@@ -305,6 +307,106 @@ exports.register = async (req, res) => {
         logger.error('Register - Erreur lors de l\'ajout des départements', {
           error: deptError,
           userId: newUser.id
+        });
+      }
+    }
+
+    // Créer automatiquement un groupe si network_id, qualification et superieur_hierarchique_id sont fournis
+    // (inscription d'un responsable de GR)
+    if (network_id && qualification && superieur_hierarchique_id) {
+      try {
+        // Vérifier que le réseau existe
+        const network = await req.prisma.network.findUnique({
+          where: { id: network_id },
+          include: {
+            church: {
+              select: { id: true }
+            }
+          }
+        });
+
+        if (!network) {
+          logger.warn('Register - Réseau non trouvé pour création de groupe', { network_id });
+        } else if (network.church.id !== eglise_locale_id) {
+          logger.warn('Register - Le réseau n\'appartient pas à la même église', {
+            network_id,
+            network_church_id: network.church.id,
+            user_church_id: eglise_locale_id
+          });
+        } else {
+          // Fonction pour formater le nom du responsable
+          const formatResponsableName = (username) => {
+            if (!username) return '';
+            const statusPrefixes = ['Past.', 'MC.', 'PE.', 'CE.', 'Resp.'];
+            const words = username.split(' ');
+            const firstWord = words[0];
+            const isStatusPrefix = statusPrefixes.includes(firstWord);
+            if (isStatusPrefix) {
+              return words.length >= 2 ? words[1] : firstWord;
+            } else {
+              return words[0];
+            }
+          };
+
+          // Générer le nom du groupe automatiquement
+          let responsableName = '';
+          if (newUser.username) {
+            responsableName = formatResponsableName(newUser.username);
+          } else {
+            responsableName = newUser.pseudo || '';
+          }
+
+          if (!responsableName) {
+            responsableName = 'Sans_Responsable';
+          }
+
+          const cleanName = responsableName
+            .replace(/[^a-zA-ZÀ-ÿ0-9\s]/g, '')
+            .replace(/\s+/g, '_')
+            .trim();
+
+          const groupName = `GR_${cleanName}`;
+
+          // Créer le groupe avec le nouveau responsable comme responsable1
+          const newGroup = await req.prisma.group.create({
+            data: {
+              nom: groupName,
+              network_id: network_id,
+              responsable1_id: newUser.id,
+              qualification: qualification,
+              superieur_hierarchique_id: superieur_hierarchique_id
+            },
+            include: {
+              responsable1: {
+                select: {
+                  id: true,
+                  username: true,
+                  qualification: true
+                }
+              },
+              network: {
+                select: {
+                  id: true,
+                  nom: true
+                }
+              }
+            }
+          });
+
+          logger.info('Register - Groupe créé automatiquement pour responsable de GR', {
+            groupId: newGroup.id,
+            groupName: newGroup.nom,
+            userId: newUser.id,
+            networkId: network_id,
+            qualification: qualification
+          });
+        }
+      } catch (groupError) {
+        // Ne pas bloquer l'inscription si la création du groupe échoue
+        logger.error('Register - Erreur lors de la création automatique du groupe', {
+          error: groupError,
+          userId: newUser.id,
+          networkId: network_id
         });
       }
     }
