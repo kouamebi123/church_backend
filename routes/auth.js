@@ -62,6 +62,29 @@ router.post('/register',
   validateRegister, 
   authController.register
 );
+// Route publique pour créer un responsable de GR et son groupe
+router.post('/register-group-responsible',
+  (req, res, next) => {
+    // Vérifier si c'est un upload de fichier ou des données JSON
+    if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
+      // Upload avec image
+      profileImageUpload.single('image')(req, res, (err) => {
+        if (err) {
+          return res.status(400).json({
+            success: false,
+            message: err.message
+          });
+        }
+        next();
+      });
+    } else {
+      // Inscription normale sans image
+      next();
+    }
+  },
+  validateRegister,
+  authController.registerGroupResponsible
+);
 router.post('/login', validateLogin, authController.login);
 router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password', authController.resetPasswordWithToken);

@@ -320,6 +320,404 @@ exports.register = async (req, res) => {
   }
 };
 
+// Inscription publique d'un responsable de GR et création de son groupe
+exports.registerGroupResponsible = async (req, res) => {
+  try {
+    logger.info('RegisterGroupResponsible - Tentative d\'inscription', { 
+      hasUsername: !!req.body.username,
+      hasPseudo: !!req.body.pseudo,
+      hasEmail: !!req.body.email,
+      hasNetworkId: !!req.body.network_id,
+      hasQualification: !!req.body.qualification
+    });
+
+    const {
+      username,
+      pseudo,
+      password,
+      email,
+      telephone,
+      genre,
+      tranche_age,
+      profession,
+      situation_professionnelle,
+      ville_residence,
+      origine,
+      situation_matrimoniale,
+      niveau_education,
+      eglise_locale_id,
+      departement_ids,
+      adresse,
+      // Données du groupe
+      network_id,
+      qualification,
+      group_name,
+      group_description,
+      superieur_hierarchique_id
+    } = req.body;
+
+    // Validation des champs obligatoires
+    if (!eglise_locale_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'L\'église locale est obligatoire'
+      });
+    }
+
+    if (!network_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le réseau est requis'
+      });
+    }
+
+    if (!qualification) {
+      return res.status(400).json({
+        success: false,
+        message: 'La qualification du groupe est requise'
+      });
+    }
+
+    // Vérifier que l'église existe
+    const church = await req.prisma.church.findUnique({
+      where: { id: eglise_locale_id }
+    });
+
+    if (!church) {
+      return res.status(400).json({
+        success: false,
+        message: 'Église locale non trouvée'
+      });
+    }
+
+    // Vérifier que le réseau existe et appartient à l'église
+    const network = await req.prisma.network.findUnique({
+      where: { id: network_id },
+      include: {
+        church: {
+          select: { id: true }
+        },
+        responsable1: {
+          select: { id: true, qualification: true }
+        },
+        responsable2: {
+          select: { id: true, qualification: true }
+        }
+      }
+    });
+
+    if (!network) {
+      return res.status(404).json({
+        success: false,
+        message: 'Réseau non trouvé'
+      });
+    }
+
+    if (network.church.id !== eglise_locale_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le réseau n\'appartient pas à l\'église sélectionnée'
+      });
+    }
+
+    // Générer un mot de passe par défaut si aucun n'est fourni
+    let passwordToHash = password;
+    if (!passwordToHash) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+      passwordToHash = '';
+      for (let i = 0; i < 16; i++) {
+        passwordToHash += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+    }
+    
+    // Hasher le mot de passe
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(passwordToHash, salt);
+
+    // Gestion de l'image de profil si elle existe
+    let imagePath = null;
+    if (req.file) {
+      const timestamp = Date.now();
+      const fileName = `profile_${timestamp}_${req.file.originalname}`;
+      imagePath = `uploads/profiles/${fileName}`;
+    }
+
+    // Importer les fonctions nécessaires
+    const { getNiveauFromQualification } = require('../utils/chaineImpactUtils');
+    
+    // Fonction pour générer le nom automatique d'un groupe (copie locale)
+    const formatResponsableName = (username) => {
+      if (!username) return '';
+      const statusPrefixes = ['Past.', 'MC.', 'PE.', 'CE.', 'Resp.'];
+      const words = username.split(' ');
+      const firstWord = words[0];
+      const isStatusPrefix = statusPrefixes.includes(firstWord);
+      return isStatusPrefix && words.length >= 2 ? words[1] : firstWord;
+    };
+
+    const generateGroupName = async (prisma, responsable1Id, responsable2Id = null) => {
+      try {
+        let responsableName = '';
+        if (responsable1Id) {
+          const responsable1 = await prisma.user.findUnique({
+            where: { id: responsable1Id },
+            select: { username: true, pseudo: true }
+          });
+          if (responsable1) {
+            if (responsable1.username) {
+              responsableName = formatResponsableName(responsable1.username);
+            } else {
+              responsableName = responsable1.pseudo || '';
+            }
+          }
+        }
+        if (!responsableName && responsable2Id) {
+          const responsable2 = await prisma.user.findUnique({
+            where: { id: responsable2Id },
+            select: { username: true, pseudo: true }
+          });
+          if (responsable2) {
+            if (responsable2.username) {
+              responsableName = formatResponsableName(responsable2.username);
+            } else {
+              responsableName = responsable2.pseudo || '';
+            }
+          }
+        }
+        if (!responsableName) {
+          return 'GR_Sans_Responsable';
+        }
+        const cleanName = responsableName
+          .replace(/[^a-zA-ZÀ-ÿ0-9\s]/g, '')
+          .replace(/\s+/g, '_')
+          .trim();
+        return `GR_${cleanName}`;
+      } catch (error) {
+        logger.error('Erreur lors de la génération du nom du groupe', error);
+        return 'GR_Sans_Responsable';
+      }
+    };
+
+    // Déterminer le niveau selon la qualification
+    const niveau = getNiveauFromQualification(qualification);
+    
+    if (niveau === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Qualification invalide pour un groupe'
+      });
+    }
+
+    // Vérifier le supérieur hiérarchique si fourni
+    if (superieur_hierarchique_id) {
+      const superieur = await req.prisma.user.findUnique({
+        where: { id: superieur_hierarchique_id },
+        include: {
+          group_responsable1: {
+            where: { network_id: network_id }
+          },
+          network_responsable1: {
+            where: { id: network_id }
+          }
+        }
+      });
+
+      if (!superieur) {
+        return res.status(400).json({
+          success: false,
+          message: 'Supérieur hiérarchique non trouvé'
+        });
+      }
+
+      const isInSameNetwork = superieur.group_responsable1.length > 0 || superieur.network_responsable1.length > 0;
+      if (!isInSameNetwork) {
+        return res.status(400).json({
+          success: false,
+          message: 'Le supérieur hiérarchique doit être dans le même réseau'
+        });
+      }
+    }
+
+    // Générer le nom du groupe si non fourni
+    let groupName = group_name;
+    if (!groupName || groupName.trim() === '') {
+      groupName = null; // Sera généré après création de l'utilisateur
+    }
+
+    // Créer l'utilisateur et le groupe dans une transaction
+    const result = await req.prisma.$transaction(async (tx) => {
+      // 1. Créer l'utilisateur
+      const newUser = await tx.user.create({
+        data: {
+          username,
+          pseudo,
+          password: hashedPassword,
+          email,
+          telephone,
+          genre,
+          tranche_age,
+          profession: (profession && profession.trim() !== '') ? profession : '',
+          situation_professionnelle: situation_professionnelle || null,
+          ville_residence,
+          origine,
+          situation_matrimoniale,
+          niveau_education,
+          eglise_locale_id,
+          role: 'MEMBRE',
+          qualification: qualification,
+          image: imagePath,
+          adresse: adresse || null
+        },
+        include: {
+          eglise_locale: {
+            select: { id: true, nom: true }
+          }
+        }
+      });
+
+      // 2. Gérer les départements si fournis
+      if (departement_ids && Array.isArray(departement_ids) && departement_ids.length > 0) {
+        const departments = await tx.department.findMany({
+          where: { id: { in: departement_ids } }
+        });
+
+        if (departments.length > 0) {
+          await tx.userDepartment.createMany({
+            data: departments.map(dept => ({
+              user_id: newUser.id,
+              department_id: dept.id
+            }))
+          });
+        }
+      }
+
+      // 3. Générer le nom du groupe si nécessaire
+      if (!groupName) {
+        groupName = await generateGroupName(req.prisma, newUser.id, null);
+      }
+
+      // 4. Créer le groupe
+      const newGroup = await tx.group.create({
+        data: {
+          nom: groupName,
+          description: group_description || null,
+          network_id,
+          responsable1_id: newUser.id,
+          responsable2_id: null,
+          superieur_hierarchique_id: superieur_hierarchique_id || null
+        },
+        include: {
+          network: {
+            select: {
+              id: true,
+              nom: true,
+              church: {
+                select: { id: true }
+              }
+            }
+          },
+          responsable1: {
+            select: {
+              id: true,
+              username: true,
+              pseudo: true
+            }
+          }
+        }
+      });
+
+      // 5. Ajouter le responsable à la chaîne d'impact
+      await tx.chaineImpact.upsert({
+        where: {
+          user_id_niveau_eglise_id: {
+            user_id: newUser.id,
+            niveau: niveau,
+            eglise_id: church.id
+          }
+        },
+        update: {
+          qualification,
+          responsable_id: superieur_hierarchique_id || null,
+          network_id: network_id,
+          group_id: newGroup.id,
+          position_x: 0,
+          position_y: 0
+        },
+        create: {
+          user_id: newUser.id,
+          niveau,
+          qualification,
+          responsable_id: superieur_hierarchique_id || null,
+          eglise_id: church.id,
+          network_id: network_id,
+          group_id: newGroup.id,
+          position_x: 0,
+          position_y: 0
+        }
+      });
+
+      // 6. Ajouter le responsable comme membre du groupe
+      try {
+        await tx.groupMember.create({
+          data: {
+            group_id: newGroup.id,
+            user_id: newUser.id
+          }
+        });
+      } catch (error) {
+        // Ignorer si déjà membre
+        if (error.code !== 'P2002') {
+          throw error;
+        }
+      }
+
+      return { user: newUser, group: newGroup };
+    });
+
+    // Mettre à jour la qualification de l'utilisateur (sauf s'il est aussi responsable de réseau)
+    const isNetworkResponsable = await req.prisma.network.findFirst({
+      where: {
+        OR: [
+          { responsable1_id: result.user.id },
+          { responsable2_id: result.user.id }
+        ]
+      }
+    });
+
+    if (!isNetworkResponsable) {
+      await req.prisma.user.update({
+        where: { id: result.user.id },
+        data: { qualification }
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Responsable de GR et groupe créés avec succès',
+      data: {
+        user: {
+          id: result.user.id,
+          username: result.user.username,
+          email: result.user.email,
+          pseudo: result.user.pseudo
+        },
+        group: {
+          id: result.group.id,
+          nom: result.group.nom,
+          network: result.group.network
+        }
+      }
+    });
+  } catch (error) {
+    logger.error('RegisterGroupResponsible - Erreur:', error);
+    const { status, message } = handleError(error, 'l\'inscription du responsable de GR');
+    res.status(status).json({
+      success: false,
+      message
+    });
+  }
+};
+
 exports.login = async (req, res) => {
   try {
     const { username, pseudo, password } = req.body;

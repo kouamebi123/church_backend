@@ -1871,6 +1871,131 @@ exports.getPublicNetworkGroups = async (req, res) => {
   }
 };
 
+// Récupérer les supérieurs hiérarchiques disponibles pour un réseau (inscription publique)
+exports.getPublicNetworkSuperiors = async (req, res) => {
+  try {
+    const { prisma } = req;
+    const { id } = req.params;
+    const { qualification } = req.query;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: 'L\'ID du réseau est requis'
+      });
+    }
+
+    if (!qualification) {
+      return res.status(400).json({
+        success: false,
+        message: 'La qualification est requise'
+      });
+    }
+
+    const qualValue = parseInt(qualification.replace('QUALIFICATION_', ''), 10);
+    if (!qualValue || Number.isNaN(qualValue)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Qualification invalide'
+      });
+    }
+
+    const network = await prisma.network.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        responsable1: {
+          select: { id: true, username: true, qualification: true }
+        },
+        responsable2: {
+          select: { id: true, username: true, qualification: true }
+        }
+      }
+    });
+
+    if (!network) {
+      return res.status(404).json({
+        success: false,
+        message: 'Réseau non trouvé'
+      });
+    }
+
+    const superieursMap = new Map();
+
+    if (qualValue === 12) {
+      if (network.responsable1) {
+        superieursMap.set(network.responsable1.id, {
+          id: network.responsable1.id,
+          username: network.responsable1.username,
+          qualification: network.responsable1.qualification,
+          type: 'network_responsible'
+        });
+      }
+      if (network.responsable2) {
+        superieursMap.set(network.responsable2.id, {
+          id: network.responsable2.id,
+          username: network.responsable2.username,
+          qualification: network.responsable2.qualification,
+          type: 'network_responsible'
+        });
+      }
+    } else {
+      const requiredQualification = `QUALIFICATION_${qualValue / 12}`;
+      const groups = await prisma.group.findMany({
+        where: {
+          network_id: id,
+          OR: [
+            { responsable1: { qualification: requiredQualification } },
+            { responsable2: { qualification: requiredQualification } }
+          ]
+        },
+        select: {
+          responsable1: {
+            select: { id: true, username: true, qualification: true }
+          },
+          responsable2: {
+            select: { id: true, username: true, qualification: true }
+          }
+        }
+      });
+
+      groups.forEach((group) => {
+        if (group.responsable1 && group.responsable1.qualification === requiredQualification) {
+          superieursMap.set(group.responsable1.id, {
+            id: group.responsable1.id,
+            username: group.responsable1.username,
+            qualification: group.responsable1.qualification,
+            type: 'group_responsible'
+          });
+        }
+        if (group.responsable2 && group.responsable2.qualification === requiredQualification) {
+          superieursMap.set(group.responsable2.id, {
+            id: group.responsable2.id,
+            username: group.responsable2.username,
+            qualification: group.responsable2.qualification,
+            type: 'group_responsible'
+          });
+        }
+      });
+    }
+
+    const superieurs = Array.from(superieursMap.values());
+
+    res.status(200).json({
+      success: true,
+      count: superieurs.length,
+      data: superieurs
+    });
+  } catch (error) {
+    logger.error('Network - getPublicNetworkSuperiors - Erreur', error);
+    const { status, message } = handleError(error, 'la récupération des supérieurs hiérarchiques');
+    res.status(status).json({
+      success: false,
+      message
+    });
+  }
+};
+
 exports.getNetworkCompanions = async (req, res) => {
   try {
     const { prisma } = req;
