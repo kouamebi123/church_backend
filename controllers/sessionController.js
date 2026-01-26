@@ -105,6 +105,48 @@ exports.getSessions = async (req, res) => {
   }
 };
 
+// Récupérer les sessions d'une église (public)
+exports.getPublicSessions = async (req, res) => {
+  try {
+    const { prisma } = req;
+    const { churchId } = req.query;
+
+    if (!churchId) {
+      return res.status(400).json({
+        success: false,
+        message: 'L\'ID de l\'église est requis'
+      });
+    }
+
+    const sessions = await prisma.session.findMany({
+      where: {
+        church_id: churchId,
+        active: true
+      },
+      select: {
+        id: true,
+        nom: true
+      },
+      orderBy: {
+        nom: 'asc'
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      count: sessions.length,
+      data: sessions
+    });
+  } catch (error) {
+    logger.error('Session - getPublicSessions - Erreur complète', error);
+    const { status, message } = handleError(error, 'la récupération des sections');
+    res.status(status).json({
+      success: false,
+      message
+    });
+  }
+};
+
 // Récupérer une session par ID
 exports.getSession = async (req, res) => {
   try {

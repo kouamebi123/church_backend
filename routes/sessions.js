@@ -9,6 +9,7 @@ const { requireChurchAssignment } = require('../middlewares/churchValidation');
 const {
   getSessions,
   getSession,
+  getPublicSessions,
   createSession,
   updateSession,
   deleteSession,
@@ -16,6 +17,9 @@ const {
   getSessionStatsById,
   getSessionUnits
 } = require('../controllers/sessionController');
+
+// Routes publiques (avant le middleware protect)
+router.get('/public', getPublicSessions);
 
 router.use(protect);
 router.use(requireChurchAssignment);

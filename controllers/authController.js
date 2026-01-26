@@ -350,6 +350,8 @@ exports.registerGroupResponsible = async (req, res) => {
       adresse,
       // Données du groupe
       network_id,
+      // Données de la section (session) pour créer une unité
+      session_id,
       qualification,
       group_name,
       group_description,
@@ -364,17 +366,17 @@ exports.registerGroupResponsible = async (req, res) => {
       });
     }
 
-    if (!network_id) {
+    if (!network_id && !session_id) {
       return res.status(400).json({
         success: false,
-        message: 'Le réseau est requis'
+        message: 'Le réseau ou la section est requis'
       });
     }
 
-    if (!qualification) {
+    if (network_id && session_id) {
       return res.status(400).json({
         success: false,
-        message: 'La qualification du groupe est requise'
+        message: 'Veuillez sélectionner soit un réseau, soit une section'
       });
     }
 
@@ -390,34 +392,64 @@ exports.registerGroupResponsible = async (req, res) => {
       });
     }
 
-    // Vérifier que le réseau existe et appartient à l'église
-    const network = await req.prisma.network.findUnique({
-      where: { id: network_id },
-      include: {
-        church: {
-          select: { id: true }
-        },
-        responsable1: {
-          select: { id: true, qualification: true }
-        },
-        responsable2: {
-          select: { id: true, qualification: true }
-        }
-      }
-    });
+    let network = null;
+    let session = null;
 
-    if (!network) {
-      return res.status(404).json({
-        success: false,
-        message: 'Réseau non trouvé'
+    if (network_id) {
+      // Vérifier que le réseau existe et appartient à l'église
+      network = await req.prisma.network.findUnique({
+        where: { id: network_id },
+        include: {
+          church: {
+            select: { id: true }
+          },
+          responsable1: {
+            select: { id: true, qualification: true }
+          },
+          responsable2: {
+            select: { id: true, qualification: true }
+          }
+        }
       });
+
+      if (!network) {
+        return res.status(404).json({
+          success: false,
+          message: 'Réseau non trouvé'
+        });
+      }
+
+      if (network.church.id !== eglise_locale_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'Le réseau n\'appartient pas à l\'église sélectionnée'
+        });
+      }
     }
 
-    if (network.church.id !== eglise_locale_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'Le réseau n\'appartient pas à l\'église sélectionnée'
+    if (session_id) {
+      session = await req.prisma.session.findUnique({
+        where: { id: session_id },
+        select: {
+          id: true,
+          nom: true,
+          church_id: true
+        }
       });
+
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          message: 'Section non trouvée'
+        });
+      }
+
+      if (session.church_id !== eglise_locale_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'La section n\'appartient pas à l\'église sélectionnée'
+        });
+      }
     }
 
     // Générer un mot de passe par défaut si aucun n'est fourni
@@ -498,18 +530,25 @@ exports.registerGroupResponsible = async (req, res) => {
       }
     };
 
-    // Déterminer le niveau selon la qualification
-    const niveau = getNiveauFromQualification(qualification);
+    if (network_id && !qualification) {
+      return res.status(400).json({
+        success: false,
+        message: 'La qualification du groupe est requise'
+      });
+    }
+
+    // Déterminer le niveau selon la qualification (uniquement pour les GR)
+    const niveau = network_id ? getNiveauFromQualification(qualification) : 0;
     
-    if (niveau === 0) {
+    if (network_id && niveau === 0) {
       return res.status(400).json({
         success: false,
         message: 'Qualification invalide pour un groupe'
       });
     }
 
-    // Vérifier le supérieur hiérarchique si fourni
-    if (superieur_hierarchique_id) {
+    // Vérifier le supérieur hiérarchique si fourni (uniquement pour GR)
+    if (network_id && superieur_hierarchique_id) {
       const superieur = await req.prisma.user.findUnique({
         where: { id: superieur_hierarchique_id },
         include: {
@@ -538,13 +577,27 @@ exports.registerGroupResponsible = async (req, res) => {
       }
     }
 
+    // Fonction utilitaire pour générer le nom automatique d'une unité
+    const generateUnitName = async (prisma, targetSessionId) => {
+      try {
+        const unitCount = await prisma.unit.count({
+          where: { session_id: targetSessionId }
+        });
+        const letter = String.fromCharCode(97 + unitCount);
+        return `Unité ${letter.toUpperCase()}`;
+      } catch (error) {
+        logger.error('Erreur lors de la génération du nom de l\'unité', error);
+        return 'Unité A';
+      }
+    };
+
     // Générer le nom du groupe si non fourni
     let groupName = group_name;
     if (!groupName || groupName.trim() === '') {
       groupName = null; // Sera généré après création de l'utilisateur
     }
 
-    // Créer l'utilisateur et le groupe dans une transaction
+    // Créer l'utilisateur et le groupe ou l'unité dans une transaction
     const result = await req.prisma.$transaction(async (tx) => {
       // 1. Créer l'utilisateur
       const newUser = await tx.user.create({
@@ -564,7 +617,7 @@ exports.registerGroupResponsible = async (req, res) => {
           niveau_education,
           eglise_locale_id,
           role: 'MEMBRE',
-          qualification: qualification,
+          qualification: network_id ? qualification : 'RESPONSABLE_UNITE',
           image: imagePath,
           adresse: adresse || null
         },
@@ -591,29 +644,104 @@ exports.registerGroupResponsible = async (req, res) => {
         }
       }
 
-      // 3. Générer le nom du groupe si nécessaire
-      if (!groupName) {
-        groupName = await generateGroupName(req.prisma, newUser.id, null);
+      if (network_id) {
+        // 3. Générer le nom du groupe si nécessaire
+        if (!groupName) {
+          groupName = await generateGroupName(tx, newUser.id, null);
+        }
+
+        // 4. Créer le groupe
+        const newGroup = await tx.group.create({
+          data: {
+            nom: groupName,
+            description: group_description || null,
+            network_id,
+            responsable1_id: newUser.id,
+            responsable2_id: null,
+            superieur_hierarchique_id: superieur_hierarchique_id || null
+          },
+          include: {
+            network: {
+              select: {
+                id: true,
+                nom: true,
+                church: {
+                  select: { id: true }
+                }
+              }
+            },
+            responsable1: {
+              select: {
+                id: true,
+                username: true,
+                pseudo: true
+              }
+            }
+          }
+        });
+
+        // 5. Ajouter le responsable à la chaîne d'impact
+        await tx.chaineImpact.upsert({
+          where: {
+            user_id_niveau_eglise_id: {
+              user_id: newUser.id,
+              niveau: niveau,
+              eglise_id: church.id
+            }
+          },
+          update: {
+            qualification,
+            responsable_id: superieur_hierarchique_id || null,
+            network_id: network_id,
+            group_id: newGroup.id,
+            position_x: 0,
+            position_y: 0
+          },
+          create: {
+            user_id: newUser.id,
+            niveau,
+            qualification,
+            responsable_id: superieur_hierarchique_id || null,
+            eglise_id: church.id,
+            network_id: network_id,
+            group_id: newGroup.id,
+            position_x: 0,
+            position_y: 0
+          }
+        });
+
+        // 6. Ajouter le responsable comme membre du groupe
+        try {
+          await tx.groupMember.create({
+            data: {
+              group_id: newGroup.id,
+              user_id: newUser.id
+            }
+          });
+        } catch (error) {
+          if (error.code !== 'P2002') {
+            throw error;
+          }
+        }
+
+        return { user: newUser, group: newGroup };
       }
 
-      // 4. Créer le groupe
-      const newGroup = await tx.group.create({
+      // 3. Créer l'unité pour la section sélectionnée
+      const unitName = await generateUnitName(tx, session_id);
+      const newUnit = await tx.unit.create({
         data: {
-          nom: groupName,
-          description: group_description || null,
-          network_id,
+          nom: unitName,
+          session_id: session_id,
           responsable1_id: newUser.id,
           responsable2_id: null,
-          superieur_hierarchique_id: superieur_hierarchique_id || null
+          superieur_hierarchique_id: null
         },
         include: {
-          network: {
+          session: {
             select: {
               id: true,
-              nom: true,
-              church: {
-                select: { id: true }
-              }
+              nom: true
             }
           },
           responsable1: {
@@ -626,74 +754,64 @@ exports.registerGroupResponsible = async (req, res) => {
         }
       });
 
-      // 5. Ajouter le responsable à la chaîne d'impact
-      await tx.chaineImpact.upsert({
-        where: {
-          user_id_niveau_eglise_id: {
-            user_id: newUser.id,
-            niveau: niveau,
-            eglise_id: church.id
-          }
-        },
-        update: {
-          qualification,
-          responsable_id: superieur_hierarchique_id || null,
-          network_id: network_id,
-          group_id: newGroup.id,
-          position_x: 0,
-          position_y: 0
-        },
-        create: {
-          user_id: newUser.id,
-          niveau,
-          qualification,
-          responsable_id: superieur_hierarchique_id || null,
-          eglise_id: church.id,
-          network_id: network_id,
-          group_id: newGroup.id,
-          position_x: 0,
-          position_y: 0
-        }
-      });
-
-      // 6. Ajouter le responsable comme membre du groupe
+      // 4. Ajouter le responsable comme membre de l'unité
       try {
-        await tx.groupMember.create({
+        await tx.unitMember.create({
           data: {
-            group_id: newGroup.id,
+            unit_id: newUnit.id,
             user_id: newUser.id
           }
         });
       } catch (error) {
-        // Ignorer si déjà membre
         if (error.code !== 'P2002') {
           throw error;
         }
       }
 
-      return { user: newUser, group: newGroup };
+      return { user: newUser, unit: newUnit };
     });
 
-    // Mettre à jour la qualification de l'utilisateur (sauf s'il est aussi responsable de réseau)
-    const isNetworkResponsable = await req.prisma.network.findFirst({
-      where: {
-        OR: [
-          { responsable1_id: result.user.id },
-          { responsable2_id: result.user.id }
-        ]
-      }
-    });
-
-    if (!isNetworkResponsable) {
-      await req.prisma.user.update({
-        where: { id: result.user.id },
-        data: { qualification }
+    if (network_id) {
+      // Mettre à jour la qualification de l'utilisateur (sauf s'il est aussi responsable de réseau)
+      const isNetworkResponsable = await req.prisma.network.findFirst({
+        where: {
+          OR: [
+            { responsable1_id: result.user.id },
+            { responsable2_id: result.user.id }
+          ]
+        }
       });
+
+      if (!isNetworkResponsable) {
+        await req.prisma.user.update({
+          where: { id: result.user.id },
+          data: { qualification }
+        });
+      }
+
+      res.status(201).json({
+        success: true,
+        message: 'Responsable de GR et groupe créés avec succès',
+        data: {
+          user: {
+            id: result.user.id,
+            username: result.user.username,
+            email: result.user.email,
+            pseudo: result.user.pseudo
+          },
+          group: {
+            id: result.group.id,
+            nom: result.group.nom,
+            network: result.group.network
+          }
+        }
+      });
+      return;
     }
 
     res.status(201).json({
       success: true,
-      message: 'Responsable de GR et groupe créés avec succès',
+      message: 'Responsable d\'unité et unité créés avec succès',
       data: {
         user: {
           id: result.user.id,
@@ -701,10 +819,10 @@ exports.registerGroupResponsible = async (req, res) => {
           email: result.user.email,
           pseudo: result.user.pseudo
         },
-        group: {
-          id: result.group.id,
-          nom: result.group.nom,
-          network: result.group.network
+        unit: {
+          id: result.unit.id,
+          nom: result.unit.nom,
+          session: result.unit.session
         }
       }
     });
