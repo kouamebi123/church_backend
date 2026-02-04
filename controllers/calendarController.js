@@ -1,6 +1,7 @@
 const { handleError } = require('../utils/errorHandler');
 const logger = require('../utils/logger');
 const { buildICSContent } = require('../utils/icsFormatter');
+const { expandRecurringEvents } = require('../utils/recurrenceUtils');
 
 /**
  * Construit un objet Date couvrant tout le mois demandé.
@@ -151,10 +152,7 @@ exports.getPublicEvents = async (req, res) => {
     }
 
     if (selectedRange) {
-      where.start_date = {
-        gte: selectedRange.start,
-        lte: selectedRange.end
-      };
+      // Ne pas filtrer par start_date pour les événements récurrents
     }
 
     const events = await prisma.calendarEvent.findMany({
@@ -172,9 +170,15 @@ exports.getPublicEvents = async (req, res) => {
       }
     });
 
+    // Expandre les événements récurrents
+    let expandedEvents = events;
+    if (selectedRange) {
+      expandedEvents = expandRecurringEvents(events, selectedRange.start, selectedRange.end);
+    }
+
     res.status(200).json({
       success: true,
-      data: events
+      data: expandedEvents
     });
   } catch (error) {
     logger.error('Calendar - getPublicEvents - Erreur complète', error);
@@ -206,11 +210,7 @@ exports.getPublicEventsByMonth = async (req, res) => {
     }
 
     const where = {
-      is_public: true,
-      start_date: {
-        gte: monthRange.start,
-        lte: monthRange.end
-      }
+      is_public: true
     };
 
     // Utiliser le filtre explicite ou celui de l'URL
@@ -252,7 +252,10 @@ exports.getPublicEventsByMonth = async (req, res) => {
       }
     });
 
-    res.status(200).json({ success: true, data: events });
+    // Expandre les événements récurrents pour le mois demandé
+    const expandedEvents = expandRecurringEvents(events, monthRange.start, monthRange.end);
+
+    res.status(200).json({ success: true, data: expandedEvents });
   } catch (error) {
     logger.error('Calendar - getPublicEventsByMonth - Erreur complète', error);
     const { status, message } = handleError(error, 'la récupération des événements publics du mois');
@@ -351,10 +354,9 @@ exports.getEvents = async (req, res) => {
     }
 
     if (selectedRange) {
-      where.start_date = {
-        gte: selectedRange.start,
-        lte: selectedRange.end
-      };
+      // Pour les événements récurrents, ne pas filtrer par start_date car ils peuvent
+      // avoir une date de début avant la période mais des occurrences dedans
+      // On filtrera après expansion
     }
 
     const events = await prisma.calendarEvent.findMany({
@@ -364,7 +366,13 @@ exports.getEvents = async (req, res) => {
       }
     });
 
-    res.status(200).json({ success: true, data: events });
+    // Expandre les événements récurrents pour générer les occurrences
+    let expandedEvents = events;
+    if (selectedRange) {
+      expandedEvents = expandRecurringEvents(events, selectedRange.start, selectedRange.end);
+    }
+
+    res.status(200).json({ success: true, data: expandedEvents });
   } catch (error) {
     logger.error('Calendar - getEvents - Erreur complète', error);
     const { status, message } = handleError(error, 'la récupération des événements');

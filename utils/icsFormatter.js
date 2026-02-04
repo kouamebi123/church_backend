@@ -1,3 +1,67 @@
+/**
+ * Génère la règle RRULE pour un événement récurrent
+ * @param {Object} event - Événement récurrent
+ * @returns {string|null} RRULE au format iCalendar
+ */
+const buildRRule = (event) => {
+  if (!event.is_recurring || !event.recurrence_type) {
+    return null;
+  }
+
+  const parts = [];
+
+  // Fréquence
+  const freqMap = {
+    'DAILY': 'DAILY',
+    'WEEKLY': 'WEEKLY',
+    'MONTHLY': 'MONTHLY',
+    'YEARLY': 'YEARLY'
+  };
+  const freq = freqMap[event.recurrence_type];
+  if (!freq) return null;
+
+  parts.push(`FREQ=${freq}`);
+
+  // Intervalle
+  const interval = event.recurrence_interval || 1;
+  if (interval > 1) {
+    parts.push(`INTERVAL=${interval}`);
+  }
+
+  // Jours de la semaine (pour WEEKLY)
+  if (event.recurrence_type === 'WEEKLY' && event.recurrence_days) {
+    const dayMap = {
+      '0': 'SU', // Dimanche
+      '1': 'MO', // Lundi
+      '2': 'TU', // Mardi
+      '3': 'WE', // Mercredi
+      '4': 'TH', // Jeudi
+      '5': 'FR', // Vendredi
+      '6': 'SA'  // Samedi
+    };
+
+    const days = event.recurrence_days
+      .split(',')
+      .map(d => dayMap[d.trim()])
+      .filter(Boolean);
+
+    if (days.length > 0) {
+      parts.push(`BYDAY=${days.join(',')}`);
+    }
+  }
+
+  // Date de fin de récurrence
+  if (event.recurrence_end_date) {
+    const endDate = new Date(event.recurrence_end_date);
+    if (!Number.isNaN(endDate.valueOf())) {
+      // UNTIL doit être en UTC et se terminer par Z
+      parts.push(`UNTIL=${formatDateToICS(endDate)}`);
+    }
+  }
+
+  return `RRULE:${parts.join(';')}`;
+};
+
 const escapeText = (value) => {
   if (value === null || value === undefined) {
     return '';
@@ -73,6 +137,12 @@ exports.buildICSContent = (events = []) => {
 
     if (event.share_link) {
       lines.push(`URL:${escapeText(event.share_link)}`);
+    }
+
+    // Ajouter la règle de récurrence si l'événement est récurrent
+    const rrule = buildRRule(event);
+    if (rrule) {
+      lines.push(rrule);
     }
 
     lines.push('STATUS:CONFIRMED');
