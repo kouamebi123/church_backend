@@ -421,7 +421,12 @@ exports.createEvent = async (req, res) => {
       share_link: shareLink,
       shareLink: shareLinkCamel,
       alert_offset_minutes: alertOffsetMinutes,
-      alertOffsetMinutes: alertOffsetMinutesCamel
+      alertOffsetMinutes: alertOffsetMinutesCamel,
+      is_recurring: isRecurring = false,
+      recurrence_type: recurrenceType,
+      recurrence_interval: recurrenceInterval = 1,
+      recurrence_days: recurrenceDays,
+      recurrence_end_date: recurrenceEndDateInput
     } = req.body;
 
     if (!title || !startDateInput) {
@@ -464,30 +469,70 @@ exports.createEvent = async (req, res) => {
       });
     }
 
+    const normalizedIsRecurring = normalizeBoolean(isRecurring, false);
+    
+    if (normalizedIsRecurring && !recurrenceType) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le type de répétition est requis pour un événement récurrent'
+      });
+    }
+
+    const validRecurrenceTypes = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'];
+    if (normalizedIsRecurring && !validRecurrenceTypes.includes(recurrenceType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Type de répétition invalide. Utilisez: DAILY, WEEKLY, MONTHLY ou YEARLY'
+      });
+    }
+
+    const recurrenceEndDate = recurrenceEndDateInput ? new Date(recurrenceEndDateInput) : null;
+    if (recurrenceEndDate && Number.isNaN(recurrenceEndDate.valueOf())) {
+      return res.status(400).json({ success: false, message: 'Date de fin de répétition invalide' });
+    }
+
+    if (recurrenceEndDate && recurrenceEndDate < startDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'La date de fin de répétition doit être postérieure à la date de début'
+      });
+    }
+
     const normalizedShareLink = normalizeOptionalString(shareLink ?? shareLinkCamel);
     const normalizedAlertOffset = normalizeAlertOffsetMinutes(alertOffsetMinutes ?? alertOffsetMinutesCamel);
 
+    const eventData = {
+      title,
+      description: description || null,
+      start_date: startDate,
+      end_date: endDate,
+      location: location || null,
+      event_type: eventType,
+      is_public: normalizeBoolean(isPublic, true),
+      is_zone_event: normalizeBoolean(isZoneEvent, false),
+      church_id: effectiveChurchId,
+      share_link: normalizedShareLink ?? null,
+      alert_offset_minutes: normalizedAlertOffset,
+      is_recurring: normalizedIsRecurring,
+      created_by_id: req.user.id
+    };
+
+    if (normalizedIsRecurring) {
+      eventData.recurrence_type = recurrenceType;
+      eventData.recurrence_interval = recurrenceInterval || 1;
+      eventData.recurrence_days = recurrenceDays || null;
+      eventData.recurrence_end_date = recurrenceEndDate;
+    }
+
     const event = await prisma.calendarEvent.create({
-      data: {
-        title,
-        description: description || null,
-        start_date: startDate,
-        end_date: endDate,
-        location: location || null,
-        event_type: eventType,
-        is_public: normalizeBoolean(isPublic, true),
-        is_zone_event: normalizeBoolean(isZoneEvent, false),
-        church_id: effectiveChurchId,
-        share_link: normalizedShareLink ?? null,
-        alert_offset_minutes: normalizedAlertOffset,
-        created_by_id: req.user.id
-      }
+      data: eventData
     });
 
     logger.info('Calendar - createEvent - Événement créé', {
       eventId: event.id,
       churchId: effectiveChurchId,
-      userId: req.user.id
+      userId: req.user.id,
+      isRecurring: normalizedIsRecurring
     });
 
     res.status(201).json({
@@ -523,7 +568,12 @@ exports.updateEvent = async (req, res) => {
       share_link: shareLink,
       shareLink: shareLinkCamel,
       alert_offset_minutes: alertOffsetMinutes,
-      alertOffsetMinutes: alertOffsetMinutesCamel
+      alertOffsetMinutes: alertOffsetMinutesCamel,
+      is_recurring: isRecurring,
+      recurrence_type: recurrenceType,
+      recurrence_interval: recurrenceInterval,
+      recurrence_days: recurrenceDays,
+      recurrence_end_date: recurrenceEndDateInput
     } = req.body;
 
     const existingEvent = await prisma.calendarEvent.findUnique({ where: { id } });
@@ -573,6 +623,27 @@ exports.updateEvent = async (req, res) => {
     const alertOffsetRaw = alertOffsetMinutes ?? alertOffsetMinutesCamel;
     const normalizedAlertOffset = normalizeAlertOffsetMinutes(alertOffsetRaw);
 
+    const normalizedIsRecurring = isRecurring !== undefined ? normalizeBoolean(isRecurring, false) : existingEvent.is_recurring;
+    
+    if (normalizedIsRecurring && recurrenceType && !['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'].includes(recurrenceType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Type de répétition invalide. Utilisez: DAILY, WEEKLY, MONTHLY ou YEARLY'
+      });
+    }
+
+    const recurrenceEndDate = recurrenceEndDateInput ? new Date(recurrenceEndDateInput) : null;
+    if (recurrenceEndDate && Number.isNaN(recurrenceEndDate.valueOf())) {
+      return res.status(400).json({ success: false, message: 'Date de fin de répétition invalide' });
+    }
+
+    if (recurrenceEndDate && recurrenceEndDate < nextStartDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'La date de fin de répétition doit être postérieure à la date de début'
+      });
+    }
+
     const updatedEvent = await prisma.calendarEvent.update({
       where: { id },
       data: {
@@ -586,7 +657,12 @@ exports.updateEvent = async (req, res) => {
         ...(isZoneEvent !== undefined && { is_zone_event: normalizeBoolean(isZoneEvent, existingEvent.is_zone_event || false) }),
         ...(effectiveChurchId && { church_id: effectiveChurchId }),
         ...(shareLinkRaw !== undefined && { share_link: normalizedShareLink ?? null }),
-        ...(alertOffsetRaw !== undefined && { alert_offset_minutes: normalizedAlertOffset })
+        ...(alertOffsetRaw !== undefined && { alert_offset_minutes: normalizedAlertOffset }),
+        ...(isRecurring !== undefined && { is_recurring: normalizedIsRecurring }),
+        ...(recurrenceType !== undefined && { recurrence_type: recurrenceType || null }),
+        ...(recurrenceInterval !== undefined && { recurrence_interval: recurrenceInterval }),
+        ...(recurrenceDays !== undefined && { recurrence_days: recurrenceDays || null }),
+        ...(recurrenceEndDateInput !== undefined && { recurrence_end_date: recurrenceEndDate })
       }
     });
 

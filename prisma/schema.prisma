@@ -642,26 +642,31 @@ enum ActivityAction {
 }
 
 model CalendarEvent {
-  id                   String           @id @default(cuid())
+  id                   String              @id @default(cuid())
   title                String
   description          String?
   start_date           DateTime
   end_date             DateTime?
   location             String?
-  event_type           EventType        @default(GENERAL) // Gardé pour compatibilité
+  event_type           EventType           @default(GENERAL) // Gardé pour compatibilité
   event_type_config_id String? // Nouvelle relation
-  is_public            Boolean          @default(true)
-  is_zone_event        Boolean          @default(false)
+  is_public            Boolean             @default(true)
+  is_zone_event        Boolean             @default(false)
   share_link           String?
   share_qr_url         String?
   alert_offset_minutes Int?
+  is_recurring         Boolean             @default(false)
+  recurrence_type      RecurrenceType?
+  recurrence_interval  Int?                @default(1) // Intervalle de répétition (ex: tous les 2 jours)
+  recurrence_days      String? // Jours de la semaine pour WEEKLY (ex: "1,3,5" pour lundi, mercredi, vendredi)
+  recurrence_end_date  DateTime? // Date de fin de la répétition
   church_id            String
-  church               Church           @relation(fields: [church_id], references: [id], onDelete: Cascade)
+  church               Church              @relation(fields: [church_id], references: [id], onDelete: Cascade)
   created_by_id        String
-  created_by           User             @relation("CalendarEventCreator", fields: [created_by_id], references: [id])
-  created_at           DateTime         @default(now())
-  updated_at           DateTime         @updatedAt
-  event_type_config    EventTypeConfig? @relation("CalendarEventType", fields: [event_type_config_id], references: [id])
+  created_by           User                @relation("CalendarEventCreator", fields: [created_by_id], references: [id])
+  created_at           DateTime            @default(now())
+  updated_at           DateTime            @updatedAt
+  event_type_config    EventTypeConfig?    @relation("CalendarEventType", fields: [event_type_config_id], references: [id])
 
   @@map("calendar_events")
 }
@@ -678,6 +683,13 @@ enum EventType {
   FEMMES
   HOMMES
   AUTRE
+}
+
+enum RecurrenceType {
+  DAILY     // Tous les jours
+  WEEKLY    // Toutes les semaines
+  MONTHLY   // Tous les mois
+  YEARLY    // Tous les ans
 }
 
 enum EntityType {
