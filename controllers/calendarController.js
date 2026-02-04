@@ -107,7 +107,8 @@ exports.getPublicEvents = async (req, res) => {
       filter_church_id: filterChurchId,
       month,
       year,
-      view
+      view,
+      expand // Nouveau paramètre
     } = req.query;
 
     const where = {
@@ -170,9 +171,11 @@ exports.getPublicEvents = async (req, res) => {
       }
     });
 
-    // Expandre les événements récurrents
+    // Expandre les événements récurrents SEULEMENT si expand=true
     let expandedEvents = events;
-    if (selectedRange) {
+    const shouldExpand = expand === 'true' || expand === true;
+    
+    if (shouldExpand && selectedRange) {
       expandedEvents = expandRecurringEvents(events, selectedRange.start, selectedRange.end);
     }
 
@@ -252,7 +255,8 @@ exports.getPublicEventsByMonth = async (req, res) => {
       }
     });
 
-    // Expandre les événements récurrents pour le mois demandé
+    // Pour getPublicEventsByMonth, on expanse TOUJOURS les occurrences 
+    // car c'est utilisé pour afficher le calendrier mensuel
     const expandedEvents = expandRecurringEvents(events, monthRange.start, monthRange.end);
 
     res.status(200).json({ success: true, data: expandedEvents });
@@ -301,7 +305,8 @@ exports.getEvents = async (req, res) => {
       month,
       year,
       view,
-      isPublic
+      isPublic,
+      expand // Nouveau paramètre pour contrôler l'expansion des occurrences
     } = req.query;
     
     // Utiliser le filtre explicite ou l'église de l'utilisateur par défaut
@@ -366,9 +371,13 @@ exports.getEvents = async (req, res) => {
       }
     });
 
-    // Expandre les événements récurrents pour générer les occurrences
+    // Expandre les événements récurrents SEULEMENT si demandé explicitement
+    // expand=true : pour la vue calendrier (génère toutes les occurrences)
+    // expand=false ou absent : pour la vue liste (événements originaux uniquement)
     let expandedEvents = events;
-    if (selectedRange) {
+    const shouldExpand = expand === 'true' || expand === true;
+    
+    if (shouldExpand && selectedRange) {
       expandedEvents = expandRecurringEvents(events, selectedRange.start, selectedRange.end);
     }
 
