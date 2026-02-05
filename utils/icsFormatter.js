@@ -50,6 +50,80 @@ const buildRRule = (event) => {
     }
   }
 
+  // Récurrence mensuelle basée sur le jour de semaine (ex: 1er mercredi, 2e mardi, dernier vendredi)
+  if (event.recurrence_type === 'MONTHLY' && event.start_date) {
+    const startDate = new Date(event.start_date);
+    if (!Number.isNaN(startDate.valueOf())) {
+      const tz = 'Europe/Paris';
+      const dayMap = {
+        '0': 'SU',
+        '1': 'MO',
+        '2': 'TU',
+        '3': 'WE',
+        '4': 'TH',
+        '5': 'FR',
+        '6': 'SA'
+      };
+
+      const getLocalParts = (date) => {
+        const dtf = new Intl.DateTimeFormat('en-CA', {
+          timeZone: tz,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        });
+        return dtf.formatToParts(date).reduce((acc, p) => {
+          acc[p.type] = p.value;
+          return acc;
+        }, {});
+      };
+
+      const getLocalWeekdayIndex = (date) => {
+        const dtf = new Intl.DateTimeFormat('en-US', {
+          timeZone: tz,
+          weekday: 'short'
+        });
+        const w = dtf.format(date);
+        const map = {
+          Sun: 0,
+          Mon: 1,
+          Tue: 2,
+          Wed: 3,
+          Thu: 4,
+          Fri: 5,
+          Sat: 6
+        };
+        return map[w];
+      };
+
+      const startLocal = getLocalParts(startDate);
+      const year = Number(startLocal.year);
+      const monthIndex = Number(startLocal.month) - 1;
+      const dayOfMonth = Number(startLocal.day);
+
+      const weekdayIndex = getLocalWeekdayIndex(startDate);
+      const weekdayCode = dayMap[String(weekdayIndex)];
+
+      if (weekdayCode) {
+        // Calculer l'ordinal (1..5) du weekday dans le mois (en Europe/Paris)
+        const firstOfMonth = new Date(Date.UTC(year, monthIndex, 1, 12, 0, 0));
+        const firstWeekdayIndex = getLocalWeekdayIndex(firstOfMonth);
+        const offset = (7 + weekdayIndex - firstWeekdayIndex) % 7;
+        const firstWeekdayDate = 1 + offset;
+        let ordinal = Math.floor((dayOfMonth - firstWeekdayDate) / 7) + 1;
+        if (ordinal < 1) ordinal = 1;
+
+        // Déterminer si c'est le dernier weekday du mois
+        const lastOfMonth = new Date(Date.UTC(year, monthIndex + 1, 0, 12, 0, 0));
+        const daysInMonth = Number(getLocalParts(lastOfMonth).day);
+        const isLast = (dayOfMonth + 7) > daysInMonth;
+
+        parts.push(`BYDAY=${weekdayCode}`);
+        parts.push(`BYSETPOS=${isLast ? -1 : ordinal}`);
+      }
+    }
+  }
+
   // Date de fin de récurrence
   if (event.recurrence_end_date) {
     const endDate = new Date(event.recurrence_end_date);
