@@ -90,6 +90,49 @@ const formatDateToICS = (date) => {
 };
 
 /**
+ * Formate une date en heure locale pour un TZ donné (ex: Europe/Paris) au format ICS (sans Z)
+ * en utilisant Intl.DateTimeFormat pour respecter correctement les règles d'heure d'été/hiver.
+ * @param {Date} date - Date source (souvent en UTC dans la base)
+ * @param {string} timeZone - Identifiant de fuseau IANA (ex: 'Europe/Paris')
+ * @returns {string} Chaîne formatée YYYYMMDDTHHMMSS
+ */
+const formatDateToICSLTZ = (date, timeZone) => {
+  if (!(date instanceof Date)) {
+    return '';
+  }
+
+  const dtf = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+
+  const parts = dtf.formatToParts(date).reduce((acc, p) => {
+    acc[p.type] = p.value;
+    return acc;
+  }, {});
+
+  const year = parts.year;
+  const month = parts.month;
+  const day = parts.day;
+  const hour = parts.hour;
+  const minute = parts.minute;
+  const second = parts.second;
+
+  return `${year}${month}${day}T${hour}${minute}${second}`;
+};
+
+/**
+ * Bloc VTIMEZONE pour Europe/Paris (CET/CEST)
+ */
+const buildVTimezoneEuropeParis = () => `BEGIN:VTIMEZONE\nTZID:Europe/Paris\nX-LIC-LOCATION:Europe/Paris\nBEGIN:DAYLIGHT\nTZOFFSETFROM:+0100\nTZOFFSETTO:+0200\nTZNAME:CEST\nDTSTART:19700329T020000\nRRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU\nEND:DAYLIGHT\nBEGIN:STANDARD\nTZOFFSETFROM:+0200\nTZOFFSETTO:+0100\nTZNAME:CET\nDTSTART:19701025T030000\nRRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU\nEND:STANDARD\nEND:VTIMEZONE`;
+
+/**
  * Construit le contenu ICS pour une liste d'événements du calendrier.
  * @param {Array} events - Événements issus de Prisma.
  * @returns {string} Contenu ICS.
@@ -102,7 +145,9 @@ exports.buildICSContent = (events = []) => {
     'PRODID:-//ACER Church Platform//FR',
     'VERSION:2.0',
     'CALSCALE:GREGORIAN',
-    'METHOD:PUBLISH'
+    'METHOD:PUBLISH',
+    'X-WR-TIMEZONE:Europe/Paris',
+    buildVTimezoneEuropeParis()
   ];
 
   events.forEach((event) => {
@@ -121,10 +166,11 @@ exports.buildICSContent = (events = []) => {
     lines.push(`UID:${escapeText(event.id)}@acer.church`);
     lines.push(`DTSTAMP:${nowStamp}`);
     lines.push(`SUMMARY:${escapeText(event.title || 'Événement')}`);
-    lines.push(`DTSTART:${formatDateToICS(startDate)}`);
+    // Émettre en heure locale Europe/Paris avec TZID et sans suffixe Z pour conserver l'heure choisie (ex: 19:30)
+    lines.push(`DTSTART;TZID=Europe/Paris:${formatDateToICSLTZ(startDate, 'Europe/Paris')}`);
 
     if (endDate && !Number.isNaN(endDate.valueOf())) {
-      lines.push(`DTEND:${formatDateToICS(endDate)}`);
+      lines.push(`DTEND;TZID=Europe/Paris:${formatDateToICSLTZ(endDate, 'Europe/Paris')}`);
     }
 
     if (event.description) {
